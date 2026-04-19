@@ -1,7 +1,7 @@
 <!--pages/myplan/myplan.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="我的方案" subtitle="管理发布到模板广场的内容" />
+  <navigation-bar title="我的方案" subtitle="管理发布到模板广场的内容" background="#e6daca" />
 
   <!-- 顶部统计 -->
   <view class="summary-card">

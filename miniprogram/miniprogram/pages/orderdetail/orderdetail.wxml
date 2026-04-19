@@ -1,6 +1,6 @@
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="订单详情" subtitle="查看本次订单的完整信息" />
+  <navigation-bar title="订单详情" subtitle="查看本次订单的完整信息" background="#e6daca" />
 
   <view class="content" wx:if="{{loading}}">
     <view class="loading-state">

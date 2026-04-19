@@ -4,7 +4,7 @@
 
   <view class="page-shell">
     <!-- 统一导航栏 -->
-    <navigation-bar />
+    <navigation-bar background="#e6daca" />
   </view>
 
   <view class="content">

@@ -1,7 +1,7 @@
 <!--pages/lingshidetails/lingshidetails.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="灵石明细" subtitle="查看消耗 · 充值 · 签到获得" />
+  <navigation-bar title="灵石明细" subtitle="查看消耗 · 充值 · 签到获得" background="#e6daca" />
 
   <!-- 顶部统计卡片 -->
   <view class="summary-card">

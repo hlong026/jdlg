@@ -1,7 +1,7 @@
 <!--pages/chat/chat.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar>
+  <navigation-bar background="#e6daca">
     <view slot="center" class="title-section" bindtap="onTitleTap">
       <view class="title-row">
         <text class="page-title">{{conversationTitle || '新对话'}}</text>

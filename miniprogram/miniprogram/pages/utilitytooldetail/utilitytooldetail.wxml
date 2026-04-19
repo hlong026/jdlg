@@ -1,7 +1,7 @@
 <!--pages/utilitytooldetail/utilitytooldetail.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="{{tool.title || '实用工具'}}" />
+  <navigation-bar title="{{tool.title || '实用工具'}}" background="#e6daca" />
 
   <!-- 内容区域 -->
   <view class="content" wx:if="{{!loading && tool}}">

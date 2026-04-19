@@ -1,7 +1,7 @@
 <!--pages/ordermanagement/ordermanagement.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="订单管理" subtitle="充值 · 消费 · 文创 · 提现" />
+  <navigation-bar title="订单管理" subtitle="充值 · 消费 · 文创 · 提现" background="#e6daca" />
 
   <!-- 顶部统计卡片 -->
   <view class="summary-card">

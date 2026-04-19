@@ -1,7 +1,7 @@
 <!--pages/release/release.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="我的发布" subtitle="作品数据 · 收益概览" />
+  <navigation-bar title="我的发布" subtitle="作品数据 · 收益概览" background="#e6daca" />
 
   <!-- 顶部统计卡片 -->
   <view class="summary-card">

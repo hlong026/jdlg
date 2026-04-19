@@ -1,7 +1,7 @@
 <!--pages/wallet/wallet.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="我的钱包" subtitle="灵石余额 · 最近明细 · 去充值" />
+  <navigation-bar title="我的钱包" subtitle="灵石余额 · 最近明细 · 去充值" background="#e6daca" />
 
   <!-- 顶部余额卡片 -->
   <view class="balance-card">

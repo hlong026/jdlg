@@ -1,6 +1,6 @@
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="消息中心" />
+  <navigation-bar title="消息中心" background="#e6daca" />
 
   <view class="content">
     <view class="empty-card">

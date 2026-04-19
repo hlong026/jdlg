@@ -1,7 +1,7 @@
 <!--pages/myInformationmodification/myInformationmodification.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="{{navTitle}}" subtitle="{{navSubtitle}}" />
+  <navigation-bar title="{{navTitle}}" subtitle="{{navSubtitle}}" background="#e6daca" />
 
   <!-- 加载状态 -->
   <view class="loading-container" wx:if="{{loading}}">

@@ -1,7 +1,7 @@
 <!--pages/topupcenter/topupcenter.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="充值中心" />
+  <navigation-bar title="充值中心" background="#e6daca" />
 
   <view class="content">
     <!-- 充值申项卡片 -->

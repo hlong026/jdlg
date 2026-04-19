@@ -1,7 +1,7 @@
 <!--pages/generatehistory/generatehistory.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="生成历史" />
+  <navigation-bar title="生成历史" background="#e6daca" />
 
   <!-- 工具筛选 -->
   <view class="tool-filter" wx:if="{{hasAITools}}">

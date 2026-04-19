@@ -2,7 +2,7 @@
 <view class="template-page">
   <view class="template-page-content">
     <!-- 统一导航栏 -->
-    <navigation-bar title="模板广场" back="{{false}}" />
+    <navigation-bar title="模板广场" back="{{false}}" background="#e6daca" />
 
     <view class="template-header">
       <view class="template-search-bar">

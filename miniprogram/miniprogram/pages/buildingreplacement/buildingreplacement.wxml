@@ -1,7 +1,7 @@
 <!--pages/buildingreplacement/buildingreplacement.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="城市更新" />
+  <navigation-bar title="城市更新" background="#e6daca" />
 
   <view class="content">
     <!-- 上传区域 -->

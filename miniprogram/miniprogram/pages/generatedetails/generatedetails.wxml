@@ -2,7 +2,7 @@
 <view class="page">
   <view class="page-shell">
     <!-- 统一导航栏 -->
-    <navigation-bar title="生成效果图" />
+    <navigation-bar title="生成效果图" background="#e6daca" />
 
     <view class="result-tabs" wx:if="{{showSceneTabs && (loading || taskData.taskKind === 'image')}}">
       <view class="result-tab {{activeTab === 'exterior' ? 'active' : ''}}" bindtap="onSelectResultTab" data-tab="exterior">

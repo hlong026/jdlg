@@ -1,6 +1,6 @@
 {
   "libVersion": "3.15.0",
-  "projectname": "miniprogram",
+  "projectname": "%E7%94%B2%E7%AC%AC%E7%81%B5%E5%85%89",
   "setting": {
     "urlCheck": true,
     "coverView": true,
@@ -9,6 +9,13 @@
     "preloadBackgroundData": false,
     "autoAudits": false,
     "showShadowRootInWxmlPanel": true,
-    "compileHotReLoad": true
+    "compileHotReLoad": true,
+    "useApiHook": true,
+    "useStaticServer": false,
+    "useLanDebug": false,
+    "showES6CompileOption": false,
+    "checkInvalidKey": true,
+    "ignoreDevUnusedFiles": true,
+    "bigPackageSizeSupport": false
   }
 }

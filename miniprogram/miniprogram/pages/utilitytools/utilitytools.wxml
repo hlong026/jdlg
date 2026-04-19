@@ -1,7 +1,7 @@
 <!--pages/utilitytools/utilitytools.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="实用工具" />
+  <navigation-bar title="实用工具" background="#e6daca" />
 
   <!-- 内容区域 -->
   <view class="content">

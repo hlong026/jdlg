@@ -9,7 +9,7 @@
   <image class="page-background" src="{{pageBgImage}}" mode="widthFix" />
 
   <!-- 统一导航栏（Tab页不显示返回按钮） -->
-  <navigation-bar back="{{false}}" />
+  <navigation-bar back="{{false}}" background="#e6daca" />
 
   <!-- 用户资料区域 -->
   <view class="page-content">

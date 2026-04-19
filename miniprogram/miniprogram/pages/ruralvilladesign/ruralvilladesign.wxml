@@ -1,7 +1,7 @@
 <!--pages/ruralvilladesign/ruralvilladesign.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="乡村别墅AI设计" />
+  <navigation-bar title="乡村别墅AI设计" background="#e6daca" />
 
   <view class="content">
     <!-- 步骤1: 尺寸选择（可折叠） -->

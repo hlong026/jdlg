@@ -1,6 +1,6 @@
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="隐私政策" subtitle="更新日期 {{updateDate}}" />
+  <navigation-bar title="隐私政策" subtitle="更新日期 {{updateDate}}" background="#e6daca" />
 
   <scroll-view class="content-scroll" scroll-y enhanced show-scrollbar="false">
     <view class="content">

@@ -1,7 +1,7 @@
 <!--pages/allrounddesign/allrounddesign.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="综合设计" />
+  <navigation-bar title="综合设计" background="#e6daca" />
 
   <view class="content">
     <!-- 主导航标签 -->

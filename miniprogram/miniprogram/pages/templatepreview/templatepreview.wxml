@@ -1,6 +1,6 @@
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar />
+  <navigation-bar background="#e6daca" />
 
   <!-- 主要内容区域 -->
   <view class="main-content">

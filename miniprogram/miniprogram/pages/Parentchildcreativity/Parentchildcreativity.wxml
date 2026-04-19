@@ -1,7 +1,7 @@
 <!--pages/Parentchildcreativity/Parentchildcreativity.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="亲子创意工坊">
+  <navigation-bar title="亲子创意工坊" background="#e6daca">
     <view slot="right" class="top-bar-right">
       <t-icon name="more" size="40rpx" color="#6f5945" />
       <t-icon name="circle" size="40rpx" color="#6f5945" />

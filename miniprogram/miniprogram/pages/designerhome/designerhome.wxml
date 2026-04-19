@@ -1,7 +1,7 @@
 <view class="page">
   <view class="page-content">
     <!-- 统一导航栏 -->
-    <navigation-bar title="设计师主页" back="{{false}}" />
+    <navigation-bar title="设计师主页" back="{{false}}" background="#e6daca" />
 
     <view class="content">
       <view class="profile-hero-card">

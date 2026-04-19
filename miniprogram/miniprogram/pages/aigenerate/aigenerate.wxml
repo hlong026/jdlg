@@ -1,7 +1,7 @@
 <!--pages/aigenerate/aigenerate.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="生成效果图" />
+  <navigation-bar title="生成效果图" background="#e8dece" />
 
   <view class="content">
     <view class="scene-tabs" wx:if="{{showSceneTabs}}">

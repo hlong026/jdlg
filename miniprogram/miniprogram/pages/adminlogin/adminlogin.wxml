@@ -1,6 +1,6 @@
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="管理员登录" subtitle="后台管理入口" />
+  <navigation-bar title="管理员登录" subtitle="后台管理入口" background="#e6daca" />
 
   <view wx:if="{{supportsDirectWebview}}" class="webview-shell">
     <web-view src="{{loginUrl}}"></web-view>

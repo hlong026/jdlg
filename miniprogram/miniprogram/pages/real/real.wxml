@@ -1,7 +1,7 @@
 <!--pages/real/real.wxml 资质认证：个人认证 / 企业认证 与身份认证一致深色风格 -->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="资质认证" subtitle="个人认证 2 元 · 企业认证 5 元，提交时支付" />
+  <navigation-bar title="资质认证" subtitle="个人认证 2 元 · 企业认证 5 元，提交时支付" background="#e6daca" />
 
   <!-- 状态条：有工单时展示工单号与阶段 -->
   <view class="status-bar" wx:if="{{applicationId > 0}}">

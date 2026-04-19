@@ -1,7 +1,7 @@
 ﻿<!--pages/templatesquaredetails/templatesquaredetails.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="模板详情" />
+  <navigation-bar title="模板详情" background="#e6daca" />
 
   <view class="hero-section">
     <view class="hero-shell">

@@ -1,7 +1,7 @@
 <!--pages/Identityauthen/Identityauthen.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="身份认证" subtitle="提升账号可信度与专业度" />
+  <navigation-bar title="身份认证" subtitle="提升账号可信度与专业度" background="#e6daca" />
 
   <!-- 顶部概览 -->
   <view class="summary-card">

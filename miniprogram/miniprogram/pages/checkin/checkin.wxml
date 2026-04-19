@@ -1,7 +1,7 @@
 <!--pages/checkin/checkin.wxml-->
 <view class="checkin-container">
   <!-- 统一导航栏 -->
-  <navigation-bar title="每日签到" />
+  <navigation-bar title="每日签到" background="#e6daca" />
 
   <view class="hero-card">
     <view class="hero-orb hero-orb-left"></view>

@@ -1,7 +1,7 @@
 <!--pages/aicost/aicost.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="免费计算建房报价" />
+  <navigation-bar title="免费计算建房报价" background="#e6daca" />
 
   <scroll-view class="content-scroll" scroll-y enhanced show-scrollbar="{{false}}">
     <!-- 根据造价表生成测算表（AI 多模态） -->

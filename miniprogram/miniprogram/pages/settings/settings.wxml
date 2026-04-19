@@ -3,7 +3,7 @@
   <view class="page-glow page-glow-left"></view>
   <view class="page-glow page-glow-right"></view>
   <!-- 统一导航栏 -->
-  <navigation-bar title="账号设置" subtitle="账户 · 隐私 · 关于" />
+  <navigation-bar title="账号设置" subtitle="账户 · 隐私 · 关于" background="#e6daca" />
 
   <!-- 内容区域 -->
   <scroll-view class="content-scroll" scroll-y enhanced show-scrollbar="false">

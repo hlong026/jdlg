@@ -1,7 +1,7 @@
 <!--pages/Invitefriends/Invitefriends.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="邀请好友" subtitle="分享赚取灵石奖励" />
+  <navigation-bar title="邀请好友" subtitle="分享赚取灵石奖励" background="#e6daca" />
 
   <!-- 内容区 -->
   <scroll-view class="content" scroll-y="true">

@@ -1,7 +1,7 @@
 <!--pages/solutiongeneration/solutiongeneration.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="方案生成中" />
+  <navigation-bar title="方案生成中" background="#e6daca" />
 
   <view class="content">
     <!-- 进度状态卡片 -->

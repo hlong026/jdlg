@@ -1,6 +1,6 @@
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="上传设计作品" subtitle="先上传到主页，可选同步到模板广场" />
+  <navigation-bar title="上传设计作品" subtitle="先上传到主页，可选同步到模板广场" background="#e6daca" />
 
   <view class="content">
     <view class="panel-card hero-card">

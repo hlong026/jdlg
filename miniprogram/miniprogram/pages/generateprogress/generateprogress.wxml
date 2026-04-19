@@ -1,7 +1,7 @@
 <view class="page">
   <view class="page-content">
     <!-- 统一导航栏 -->
-    <navigation-bar title="生成效果图" />
+    <navigation-bar title="生成效果图" background="#e6daca" />
 
     <view class="progress-tabs" wx:if="{{showSceneTabs}}">
       <view class="progress-tab {{activeTab === 'exterior' ? 'active' : ''}}" bindtap="onSelectTab" data-tab="exterior">

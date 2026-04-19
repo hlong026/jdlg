@@ -1,6 +1,6 @@
 <view class="inspiration-detail-page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="模板详情" />
+  <navigation-bar title="模板详情" background="#e6daca" />
 
   <view class="page-body" wx:if="{{!loading && detail}}">
     <view class="hero-card">

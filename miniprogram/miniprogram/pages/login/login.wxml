@@ -1,7 +1,7 @@
 <!--pages/login/login.wxml-->
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="登录" subtitle="甲第灵光 · 智能设计" />
+  <navigation-bar title="登录" subtitle="甲第灵光 · 智能设计" background="#e6daca" />
 
   <!-- 主内容区 -->
   <view class="content">
