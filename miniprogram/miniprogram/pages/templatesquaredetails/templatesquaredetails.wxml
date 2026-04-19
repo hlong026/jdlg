@@ -1,7 +1,8 @@
 ﻿<!--pages/templatesquaredetails/templatesquaredetails.wxml-->
 <view class="page">
+  <view class="top-bg-fill"></view>
   <!-- 统一导航栏 -->
-  <navigation-bar title="模板详情" background="#e6daca" />
+  <navigation-bar title="模板详情" background="#e6daca" color="#473720" />
 
   <view class="hero-section">
     <view class="hero-shell">

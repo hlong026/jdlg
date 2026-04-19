@@ -4,6 +4,25 @@
   background: linear-gradient(180deg, #e6daca 0%, #ece4d9 100%);
   color: #5e412f;
   padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
+  position: relative;
+}
+
+.top-bg-fill {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(env(safe-area-inset-top) + 160rpx);
+  background: linear-gradient(180deg, #e6daca 0%, #ece4d9 100%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.page > navigation-bar,
+.hero-section,
+.content-section {
+  position: relative;
+  z-index: 1;
 }
 
 .page-topbar {
@@ -52,6 +71,7 @@
 
 .hero-section {
   padding: 0 24rpx;
+  margin-top: 0;
 }
 
 .hero-shell {
