@@ -582,7 +582,7 @@ func (m *TemplateModel) GetHotTemplates(limit int) ([]*Template, error) {
 	return templates, nil
 }
 
-// ListByMainTabAndSubTab 根据 main_tab 和 sub_tab 获取模板列表，按使用人数排序
+// ListByMainTabAndSubTab 根据 main_tab 和 sub_tab 获取模板列表，按点赞数排序
 func (m *TemplateModel) ListByMainTabAndSubTab(mainTab string, subTab string, status string, limit int, offset int) ([]*Template, error) {
 	query := `SELECT id, name, category, main_tab, sub_tab, description, thumbnail, preview_url, images, price, is_free, is_featured,
 	          download_count, like_count, status, publish_scope, reject_reason, source_type, creator, creator_user_id, created_at, updated_at
@@ -603,7 +603,7 @@ func (m *TemplateModel) ListByMainTabAndSubTab(mainTab string, subTab string, st
 	}
 	query += " AND publish_scope = 'square'"
 
-	query += " ORDER BY download_count DESC, created_at DESC LIMIT ? OFFSET ?"
+	query += " ORDER BY like_count DESC, created_at DESC LIMIT ? OFFSET ?"
 	args = append(args, limit, offset)
 
 	rows, err := m.DB.Query(query, args...)
