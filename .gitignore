@@ -1,0 +1,56 @@
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Build outputs
+dist/
+build/
+.tsbuild_emit/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+APPlog/
+nohup.out
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+*.tmp
+*.temp
+local_backups/
+unused_assets_backup/
+
+# Certificate files (security)
+*.p12
+*.pem
+1739402190_20260219_cert/
+
+# Compiled files
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go specific
+service/service.exe
+service/upload_miniprogram_assets.exe
+service/bin/

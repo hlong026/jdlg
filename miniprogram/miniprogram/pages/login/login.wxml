@@ -1,0 +1,114 @@
+<!--pages/login/login.wxml-->
+<view class="page">
+  <!-- 统一导航栏 -->
+  <navigation-bar title="登录" subtitle="甲第灵光 · 智能设计" />
+
+  <!-- 主内容区 -->
+  <view class="content">
+    <!-- Logo 区域 -->
+    <view class="logo-section">
+      <view class="logo-icon-wrap">
+        <t-icon name="star" size="100rpx" color="#b79066" />
+      </view>
+      <text class="app-name">甲第灵光</text>
+      <text class="app-slogan">智能设计，灵感无限</text>
+    </view>
+
+    <!-- 登录方式切换 -->
+    <view class="login-tabs">
+      <view
+        class="tab-item {{loginType === 'wechat' ? 'active' : ''}}"
+        bindtap="switchLoginType"
+        data-type="wechat"
+      >
+        <text>微信登录/注册</text>
+      </view>
+      <view
+        class="tab-item {{loginType === 'password' ? 'active' : ''}}"
+        bindtap="switchLoginType"
+        data-type="password"
+      >
+        <text>账号登录</text>
+      </view>
+    </view>
+
+    <!-- 微信登录 -->
+    <view class="login-content" wx:if="{{loginType === 'wechat'}}">
+      <view class="form-card">
+        <view class="login-tip">
+          <text>使用微信账号快速登录/注册，安全便捷</text>
+        </view>
+        <button
+          class="login-button wechat-button"
+          bindtap="handleWechatLogin"
+          disabled="{{loading || !agreedPrivacy}}"
+        >
+          <text>{{loading ? '登录中...' : '微信一键登录/注册'}}</text>
+        </button>
+      </view>
+    </view>
+
+    <!-- 账号密码登录 -->
+    <view class="login-content" wx:if="{{loginType === 'password'}}">
+      <view class="form-card">
+        <view class="form-group">
+          <view class="input-wrapper">
+            <t-icon name="user" size="40rpx" color="#b79066" />
+            <input
+              class="form-input"
+              type="text"
+              placeholder="请输入用户名"
+              placeholder-class="input-placeholder"
+              value="{{username}}"
+              bindinput="onUsernameInput"
+              disabled="{{loading}}"
+            />
+          </view>
+        </view>
+        <view class="form-group">
+          <view class="input-wrapper">
+            <t-icon name="lock-on" size="40rpx" color="#b79066" />
+            <input
+              class="form-input"
+              type="password"
+              placeholder="请输入密码"
+              placeholder-class="input-placeholder"
+              value="{{password}}"
+              bindinput="onPasswordInput"
+              password="{{true}}"
+              disabled="{{loading}}"
+            />
+          </view>
+        </view>
+        <button
+          class="login-button password-button"
+          bindtap="handlePasswordLogin"
+          disabled="{{loading || !username || !password || !agreedPrivacy}}"
+        >
+          {{loading ? '登录中...' : '登录'}}
+        </button>
+        <view class="login-extra-row">
+          <text class="login-extra-link" bindtap="goToPasswordRecovery">忘记密码</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="agreement-row">
+      <view class="agreement-check {{agreedPrivacy ? 'checked' : ''}}" bindtap="toggleAgreement">
+        <text>{{agreedPrivacy ? '✓' : ''}}</text>
+      </view>
+      <view class="agreement-copy">
+        <text>我已阅读并同意</text>
+        <text class="agreement-link" bindtap="openPrivacyPolicy">《隐私政策》</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 加载遮罩 -->
+  <view class="loading-mask" wx:if="{{loading}}">
+    <view class="loading-content">
+      <view class="loading-spinner"></view>
+      <text class="loading-text">登录中...</text>
+    </view>
+  </view>
+</view>

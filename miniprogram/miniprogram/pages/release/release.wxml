@@ -1,0 +1,193 @@
+<!--pages/release/release.wxml-->
+<view class="page">
+  <!-- 统一导航栏 -->
+  <navigation-bar title="我的发布" subtitle="作品数据 · 收益概览" />
+
+  <!-- 顶部统计卡片 -->
+  <view class="summary-card">
+    <view class="summary-top">
+      <view class="summary-item">
+        <text class="summary-label">提交作品</text>
+        <view class="summary-value-row">
+          <t-icon name="image" size="40rpx" color="#b79066" />
+          <text class="summary-value">{{totalWorks}}</text>
+        </view>
+      </view>
+      <view class="summary-item">
+        <text class="summary-label">累计曝光</text>
+        <view class="summary-value-row">
+          <t-icon name="browse" size="40rpx" color="#c39a6b" />
+          <text class="summary-value">{{totalViews}}</text>
+        </view>
+      </view>
+    </view>
+    <view class="summary-bottom">
+      <view class="summary-item">
+        <text class="summary-label">累计收益（灵石）</text>
+        <view class="summary-value-row">
+          <t-icon name="money" size="40rpx" color="#a9855b" />
+          <text class="summary-value highlight">{{totalIncome}} 灵石</text>
+        </view>
+      </view>
+      <view class="summary-item">
+        <text class="summary-label">本月收益（灵石）</text>
+        <view class="summary-value-row">
+          <t-icon name="chart-bar" size="40rpx" color="#b79066" />
+          <text class="summary-value">{{monthIncome}} 灵石</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="quick-action-bar">
+    <view class="quick-action-copy">
+      <text class="quick-action-title">上传新作品</text>
+      <text class="quick-action-desc">先展示到主页，再决定是否同步到模板广场</text>
+    </view>
+    <view class="quick-action-btn" bindtap="onCreateWork">上传作品</view>
+  </view>
+
+  <!-- 筛选与时间段 -->
+  <view class="filter-bar">
+    <view class="filter-left">
+      <view
+        class="filter-tag {{currentTab === 'works' ? 'active' : ''}}"
+        data-tab="works"
+        bindtap="onTabChange"
+      >
+        <text>作品数据</text>
+      </view>
+      <view
+        class="filter-tag {{currentTab === 'income' ? 'active' : ''}}"
+        data-tab="income"
+        bindtap="onTabChange"
+      >
+        <text>收益明细</text>
+      </view>
+    </view>
+    <view class="filter-right">
+      <view
+        class="time-tag {{currentRange === '7d' ? 'active' : ''}}"
+        data-range="7d"
+        bindtap="onRangeChange"
+      >
+        <text>近7天</text>
+      </view>
+      <view
+        class="time-tag {{currentRange === '30d' ? 'active' : ''}}"
+        data-range="30d"
+        bindtap="onRangeChange"
+      >
+        <text>近30天</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 内容区 -->
+  <view class="content">
+    <!-- 作品数据列表 -->
+    <scroll-view
+      wx:if="{{currentTab === 'works'}}"
+      class="list-scroll"
+      scroll-y="true"
+      lower-threshold="60"
+      bindscrolltolower="onReachBottom"
+    >
+      <view class="empty" wx:if="{{works.length === 0}}">
+        <t-icon name="invisible" size="72rpx" color="#8c7553" />
+        <text class="empty-title">暂无发布作品</text>
+        <text class="empty-desc">先上传到主页展示，审核通过后可选同步到模板广场</text>
+        <view class="empty-action" bindtap="onCreateWork">立即上传</view>
+      </view>
+
+      <view
+        class="work-item"
+        wx:for="{{works}}"
+        wx:key="id"
+      >
+        <image
+          class="work-cover"
+          src="{{item.cover}}"
+          mode="aspectFill"
+        />
+        <view class="work-info">
+          <view class="work-title-row">
+            <text class="work-title">{{item.title}}</text>
+            <text class="work-status {{item.status}}">{{item.statusText}}</text>
+          </view>
+          <text class="work-desc">{{item.desc}}</text>
+          <view class="work-badges">
+            <text class="work-badge">{{item.publishScopeText}}</text>
+            <text class="work-badge">{{item.sourceTypeText}}</text>
+          </view>
+          <text class="work-reject-reason" wx:if="{{item.rejectReason}}">拒绝原因：{{item.rejectReason}}</text>
+          <view class="work-metrics">
+            <view class="metric">
+              <t-icon name="browse" size="28rpx" color="#b79066" />
+              <text class="metric-text">{{item.views}} 浏览</text>
+            </view>
+            <view class="metric">
+              <t-icon name="heart" size="28rpx" color="#d37a74" />
+              <text class="metric-text">{{item.likes}} 喜欢</text>
+            </view>
+            <view class="metric">
+              <t-icon name="money" size="28rpx" color="#a9855b" />
+              <text class="metric-text">{{item.income}} 灵石</text>
+            </view>
+          </view>
+          <view class="work-footer">
+            <text class="work-time">{{item.time}}</text>
+            <view class="work-actions">
+              <view class="action-btn" bindtap="onViewWork" data-id="{{item.id}}" data-cover="{{item.cover}}" data-can-view-detail="{{item.canViewDetail}}">
+                <text>{{item.viewActionText}}</text>
+              </view>
+              <view class="action-btn" bindtap="onEditWork" data-id="{{item.id}}">
+                <text>发布预览</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+
+    <!-- 收益明细列表 -->
+    <scroll-view
+      wx:elif="{{currentTab === 'income'}}"
+      class="list-scroll"
+      scroll-y="true"
+      lower-threshold="60"
+      bindscrolltolower="onReachBottom"
+    >
+      <view class="empty" wx:if="{{incomeRecords.length === 0}}">
+        <t-icon name="invisible" size="72rpx" color="#8c7553" />
+        <text class="empty-title">暂无收益记录</text>
+        <text class="empty-desc">当用户付费使用你的模板后，会在这里看到收益明细</text>
+      </view>
+
+      <view
+        class="income-item"
+        wx:for="{{incomeRecords}}"
+        wx:key="id"
+      >
+        <view class="income-main">
+          <view class="income-left">
+            <view class="income-icon">
+              <t-icon name="money" size="32rpx" color="#a9855b" />
+            </view>
+            <view class="income-info">
+              <text class="income-title">{{item.title}}</text>
+              <text class="income-subtitle">{{item.source}}</text>
+            </view>
+          </view>
+          <view class="income-right">
+            <text class="income-amount">+{{item.amount}} 灵石</text>
+            <text class="income-time">{{item.time}}</text>
+          </view>
+        </view>
+        <view class="income-extra" wx:if="{{item.remark}}">
+          <text class="income-remark">{{item.remark}}</text>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+</view>

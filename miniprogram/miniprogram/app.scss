@@ -1,0 +1,9 @@
+/**app.wxss**/
+scroll-view {
+  /* 禁止滚动条显示 */
+  overflow: auto;
+}
+/* 隐藏垂直+水平滚动条，直接加在 page 或目标 view 上 */
+page {
+  overflow: auto;
+}

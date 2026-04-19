@@ -1,0 +1,321 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+// index.ts
+// 获取应用实例
+const asset_1 = require("../../utils/asset");
+const enterpriseWechat_1 = require("../../utils/enterpriseWechat");
+const API_BASE_URL = 'https://api.jiadilingguang.com';
+Page({
+    data: {
+        featuredGroups: [],
+        featuredGroupsLoading: false,
+        lastFeaturedGroupsFetchTime: 0,
+        contactPopupVisible: false,
+        wechatPopupVisible: false,
+        supplierPhone: enterpriseWechat_1.DEFAULT_ENTERPRISE_SERVICE_PHONE,
+        supplierWechatQr: enterpriseWechat_1.DEFAULT_ENTERPRISE_WECHAT_QRCODE,
+        supplierWechatQrAvailable: true,
+        enterpriseWechatTip: '长按识别企业微信二维码，添加后可继续咨询与服务沟通。',
+        enterpriseWechatContact: '',
+        enterpriseWechatCustomerServiceCorpId: enterpriseWechat_1.DEFAULT_CUSTOMER_SERVICE_CORP_ID,
+        enterpriseWechatCustomerServiceUrl: enterpriseWechat_1.DEFAULT_CUSTOMER_SERVICE_URL,
+        enterpriseWechatConfigLoading: false,
+        heroBgImage: (0, asset_1.resolveAssetPath)('/assets/home/logo+背景图.png'),
+        coreEntryImage: (0, asset_1.resolveAssetPath)('/assets/home/核心输入区.png'),
+        dailyCheckinImage: (0, asset_1.resolveAssetPath)('/assets/home/每日签到.png'),
+        inviteFriendImage: (0, asset_1.resolveAssetPath)('/assets/home/邀请好友.png'),
+        ruralVillaImage: (0, asset_1.resolveAssetPath)('/assets/home/乡村别墅.png'),
+        cityRenewalImage: (0, asset_1.resolveAssetPath)('/assets/home/城市更新.png'),
+        parentWorkshopImage: (0, asset_1.resolveAssetPath)('/assets/home/亲子工坊.png'),
+        allRoundDesignImage: (0, asset_1.resolveAssetPath)('/assets/home/综合设计.png'),
+        defaultCoverImage: (0, asset_1.resolveAssetPath)('/assets/images/home.jpg'),
+    },
+    syncTabBar() {
+        const tabBar = typeof this.getTabBar === 'function' ? this.getTabBar() : null;
+        if (tabBar && typeof tabBar.setCurrent === 'function') {
+            tabBar.setCurrent(0);
+        }
+    },
+    onShow() {
+        this.syncTabBar();
+        this.loadFeaturedGroups();
+    },
+    onShareAppMessage() {
+        return {
+            title: '甲第灵光 · AI设计助手',
+            path: '/pages/index/index',
+        };
+    },
+    onOpenPage(e) {
+        const { url } = e.currentTarget.dataset;
+        if (!url) {
+            return;
+        }
+        wx.navigateTo({
+            url,
+            fail: () => {
+                wx.showToast({
+                    title: '页面跳转失败',
+                    icon: 'none',
+                });
+            },
+        });
+    },
+    loadFeaturedGroups(force = false) {
+        const now = Date.now();
+        const hasFeaturedGroups = Array.isArray(this.data.featuredGroups) && this.data.featuredGroups.length > 0;
+        const lastFetchTime = Number(this.data.lastFeaturedGroupsFetchTime || 0);
+        if (this.data.featuredGroupsLoading) {
+            return;
+        }
+        if (!force && hasFeaturedGroups && now - lastFetchTime < 60000) {
+            return;
+        }
+        this.setData({
+            featuredGroupsLoading: true,
+        });
+        const apiPath = '/api/v1/miniprogram/templates/featured';
+        wx.request({
+            url: `${API_BASE_URL}${apiPath}`,
+            method: 'GET',
+            success: (res) => {
+                if (res.data && res.data.code === 0 && res.data.data && res.data.data.groups) {
+                    this.setData({
+                        featuredGroups: Array.isArray(res.data.data.groups) ? res.data.data.groups : [],
+                        featuredGroupsLoading: false,
+                        lastFeaturedGroupsFetchTime: now,
+                    });
+                    return;
+                }
+                this.setData({
+                    featuredGroups: hasFeaturedGroups ? this.data.featuredGroups : [],
+                    featuredGroupsLoading: false,
+                });
+            },
+            fail: (_error) => {
+                this.setData({
+                    featuredGroups: hasFeaturedGroups ? this.data.featuredGroups : [],
+                    featuredGroupsLoading: false,
+                });
+            },
+        });
+    },
+    onFeaturedCaseTap(e) {
+        const id = e.currentTarget.dataset.id;
+        if (!id) {
+            return;
+        }
+        wx.navigateTo({
+            url: `/pages/templatesquaredetails/templatesquaredetails?id=${id}`,
+            fail: () => {
+                wx.showToast({
+                    title: '页面跳转失败',
+                    icon: 'none',
+                });
+            },
+        });
+    },
+    onViewLocalSpec() {
+        wx.navigateTo({
+            url: '/pages/utilitytools/utilitytools',
+            fail: () => {
+                wx.showToast({
+                    title: '页面跳转失败',
+                    icon: 'none',
+                });
+            },
+        });
+    },
+    async onContactService() {
+        // 优先直接拉起企微客服，失败时再弹出选择弹窗
+        const opened = await (0, enterpriseWechat_1.tryOpenCustomerServiceDirect)({
+            customerServiceCorpId: this.data.enterpriseWechatCustomerServiceCorpId,
+            customerServiceUrl: this.data.enterpriseWechatCustomerServiceUrl,
+        });
+        if (opened) {
+            return;
+        }
+        // 拉起失败，显示联系服务商弹窗（电话 + 二维码备用）
+        this.setData({
+            contactPopupVisible: true,
+        });
+        this.loadEnterpriseWechatServiceConfig();
+    },
+    closeContactPopup() {
+        this.setData({
+            contactPopupVisible: false,
+        });
+    },
+    openWechatQrcode(forceReload = false) {
+        this.setData({
+            contactPopupVisible: false,
+            wechatPopupVisible: true,
+        });
+        this.loadEnterpriseWechatServiceConfig(forceReload);
+    },
+    closeWechatQrcode() {
+        this.setData({
+            wechatPopupVisible: false,
+        });
+    },
+    onManualServiceContact(_e) {
+        this.setData({
+            contactPopupVisible: false,
+        });
+    },
+    onCallSupplier() {
+        this.closeContactPopup();
+        wx.makePhoneCall({
+            phoneNumber: this.data.supplierPhone,
+            fail: () => {
+                wx.showToast({
+                    title: '拨号失败，请稍后重试',
+                    icon: 'none',
+                });
+            },
+        });
+    },
+    previewWechatQrcode() {
+        if (!this.data.supplierWechatQrAvailable) {
+            wx.showToast({
+                title: '请先补充二维码图片',
+                icon: 'none',
+            });
+            return;
+        }
+        wx.previewImage({
+            urls: [this.data.supplierWechatQr],
+            current: this.data.supplierWechatQr,
+        });
+    },
+    onWechatQrcodeError() {
+        this.setData({
+            supplierWechatQrAvailable: false,
+        });
+    },
+    getEnterpriseWechatServiceConfig() {
+        return {
+            qrcodeUrl: this.data.supplierWechatQr,
+            tip: this.data.enterpriseWechatTip,
+            contact: this.data.enterpriseWechatContact,
+            servicePhone: this.data.supplierPhone,
+            customerServiceCorpId: this.data.enterpriseWechatCustomerServiceCorpId,
+            customerServiceUrl: this.data.enterpriseWechatCustomerServiceUrl,
+        };
+    },
+    getEnterpriseCustomerServiceFailureMessage(reason) {
+        switch (reason) {
+            case 'missing_corp_id':
+                return '未配置企业微信 CorpID，已切换到二维码备用';
+            case 'missing_url':
+                return '未配置企业微信客服链接，已切换到二维码备用';
+            case 'api_unavailable':
+                return '当前环境不支持打开官方企微客服，已切换到二维码备用';
+            case 'open_failed':
+                return '官方企微客服拉起失败，已切换到二维码备用';
+            case 'missing_config':
+            default:
+                return '未拉起微信客服，已为你切换到二维码备用';
+        }
+    },
+    async onOpenEnterpriseCustomerService() {
+        await this.loadEnterpriseWechatServiceConfig(true);
+        const serviceConfig = this.getEnterpriseWechatServiceConfig();
+        const openResult = await (0, enterpriseWechat_1.openEnterpriseCustomerServiceChat)(serviceConfig);
+        if (openResult.opened) {
+            this.setData({
+                contactPopupVisible: false,
+                wechatPopupVisible: false,
+            });
+            return;
+        }
+        this.openWechatQrcode(true);
+        wx.showToast({
+            title: this.getEnterpriseCustomerServiceFailureMessage(openResult.reason),
+            icon: 'none',
+        });
+    },
+    async loadEnterpriseWechatServiceConfig(force = false) {
+        if (this.data.enterpriseWechatConfigLoading && !force) {
+            return;
+        }
+        const token = wx.getStorageSync('token');
+        if (!token) {
+            // 未登录时也不阻断，使用默认 corpId/url 已在 data 中初始化
+            this.setData({ enterpriseWechatConfigLoading: false });
+            return;
+        }
+        this.setData({
+            enterpriseWechatConfigLoading: true,
+        });
+        try {
+            const configData = await new Promise((resolve, reject) => {
+                wx.request({
+                    url: `${API_BASE_URL}/api/v1/miniprogram/user/ai/download-config`,
+                    method: 'GET',
+                    header: {
+                        token,
+                    },
+                    success: (res) => {
+                        if (res.statusCode === 200 && res.data) {
+                            const data = res.data;
+                            if (data.code === 0) {
+                                resolve(data.data || {});
+                                return;
+                            }
+                            reject(new Error(data.msg || '获取企业微信配置失败'));
+                            return;
+                        }
+                        reject(new Error(`请求失败: ${res.statusCode}`));
+                    },
+                    fail: reject,
+                });
+            });
+            const serviceConfig = (0, enterpriseWechat_1.resolveEnterpriseWechatServiceConfig)(configData, {
+                qrcodeUrl: this.data.supplierWechatQr,
+                tip: this.data.enterpriseWechatTip,
+                contact: this.data.enterpriseWechatContact,
+                servicePhone: this.data.supplierPhone,
+                customerServiceCorpId: this.data.enterpriseWechatCustomerServiceCorpId,
+                customerServiceUrl: this.data.enterpriseWechatCustomerServiceUrl,
+            });
+            this.setData({
+                supplierWechatQr: serviceConfig.qrcodeUrl,
+                supplierWechatQrAvailable: !!serviceConfig.qrcodeUrl,
+                enterpriseWechatTip: serviceConfig.tip || this.data.enterpriseWechatTip,
+                enterpriseWechatContact: serviceConfig.contact,
+                supplierPhone: serviceConfig.servicePhone || enterpriseWechat_1.DEFAULT_ENTERPRISE_SERVICE_PHONE,
+                enterpriseWechatCustomerServiceCorpId: serviceConfig.customerServiceCorpId,
+                enterpriseWechatCustomerServiceUrl: serviceConfig.customerServiceUrl,
+                enterpriseWechatConfigLoading: false,
+            });
+        }
+        catch (error) {
+            console.error('加载企业微信人工客服配置失败:', error);
+            this.setData({
+                enterpriseWechatConfigLoading: false,
+            });
+        }
+    },
+    // 小程序原生客服按钮 bindcontact 回调
+    onNativeContactSuccess() {
+        this.setData({
+            contactPopupVisible: false,
+            wechatPopupVisible: false,
+        });
+    },
+    // 智能客服：尝试拉起企微客服，失败弹二维码
+    async onSmartServiceTap() {
+        const { openEnterpriseCustomerServiceChat, getDefaultServiceConfig } = require('../../utils/enterpriseWechat');
+        const config = getDefaultServiceConfig({
+            customerServiceCorpId: this.data.enterpriseWechatCustomerServiceCorpId,
+            customerServiceUrl: this.data.enterpriseWechatCustomerServiceUrl,
+        });
+        const result = await openEnterpriseCustomerServiceChat(config);
+        if (!result.opened) {
+            // 企微客服拉起失败，弹出二维码弹窗
+            this.setData({ contactPopupVisible: false, wechatPopupVisible: true });
+        }
+    },
+    noop() { },
+});

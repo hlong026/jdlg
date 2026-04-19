@@ -1,0 +1,160 @@
+﻿<view class="aitoolworkbench-page">
+  <navigation-bar title="开始使用" background="#e6daca" />
+
+  <view class="aitoolworkbench-content" wx:if="{{tool}}">
+    <view class="aitoolworkbench-info-card category-{{tool.category}}" wx:if="{{!useMinimalPresentation}}">
+      <view class="aitoolworkbench-info-meta">
+        <text class="aitoolworkbench-info-category">{{categoryLabel}}</text>
+        <text class="aitoolworkbench-info-common" wx:if="{{tool.common}}">常用</text>
+      </view>
+      <view class="aitoolworkbench-info-title">{{tool.name}}</view>
+      <view class="aitoolworkbench-info-desc">{{tool.shortDescription}}</view>
+    </view>
+
+    <view class="aitoolworkbench-panel">
+      <view class="aitoolworkbench-panel-title">图片上传区</view>
+      <view class="aitoolworkbench-upload-summary">图1固定为原图，图2开始依次为参考图；双击缩略图可预览，图1必传。</view>
+      <view class="aitoolworkbench-slot-grid">
+        <view
+          class="aitoolworkbench-slot-item {{item.imageUrl ? 'filled' : 'empty'}} {{item.isAddSlot ? 'add-slot' : ''}}"
+          wx:for="{{workbenchImageSlots}}"
+          wx:key="index"
+          bindtap="onImageSlotTap"
+          data-slot-index="{{item.slotIndex}}"
+          data-image-url="{{item.imageUrl}}"
+        >
+          <image
+            wx:if="{{item.imageUrl}}"
+            class="aitoolworkbench-slot-image"
+            src="{{item.imageUrl}}"
+            mode="aspectFit"
+          />
+          <view wx:elif="{{item.isAddSlot}}" class="aitoolworkbench-slot-empty add-only">
+            <text class="aitoolworkbench-slot-plus">+</text>
+          </view>
+          <view wx:else class="aitoolworkbench-slot-empty">
+            <text class="aitoolworkbench-slot-plus">+</text>
+            <text class="aitoolworkbench-slot-empty-text">上传{{item.roleLabel}}</text>
+          </view>
+          <view class="aitoolworkbench-slot-chip" wx:if="{{!item.isAddSlot}}">{{item.chipLabel}}</view>
+          <view class="aitoolworkbench-slot-role" wx:if="{{!item.isAddSlot}}">{{item.roleLabel}}</view>
+          <view class="aitoolworkbench-slot-preview-tip" wx:if="{{item.imageUrl}}">双击预览</view>
+          <view class="aitoolworkbench-slot-actions" wx:if="{{item.imageUrl}}">
+            <view class="aitoolworkbench-slot-action" catchtap="onReuploadImageSlot" data-slot-index="{{item.slotIndex}}">换图</view>
+            <view class="aitoolworkbench-slot-action danger" catchtap="onDeleteImageSlot" data-slot-index="{{item.slotIndex}}">删除</view>
+          </view>
+        </view>
+      </view>
+      <view class="aitoolworkbench-upload-status" wx:if="{{uploadingOriginal || uploadingReference}}">{{uploadingOriginal ? '正在上传原图，请稍候...' : '正在上传参考图，请稍候...'}}</view>
+    </view>
+
+    <view class="aitoolworkbench-panel" wx:if="{{tool.presetReferences.length > 0}}">
+      <view class="aitoolworkbench-panel-title">推荐参考图（可选）</view>
+      <view class="aitoolworkbench-panel-desc">点一下即可补入上方参考图槽位，适合快速开始。</view>
+      <view class="aitoolworkbench-reference-grid">
+        <view
+          class="aitoolworkbench-reference-card {{item.imageUrl ? 'has-image' : ''}}"
+          wx:for="{{tool.presetReferences}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bindtap="onSelectPresetReference"
+        >
+          <image
+            wx:if="{{item.imageUrl}}"
+            class="aitoolworkbench-reference-image"
+            src="{{item.imageUrl}}"
+            mode="aspectFit"
+          />
+          <view class="aitoolworkbench-reference-body">
+            <view class="aitoolworkbench-reference-name">{{item.name}}</view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="aitoolworkbench-panel" wx:if="{{tool.stylePresets.length > 0 && !useMinimalPresentation}}">
+      <view class="aitoolworkbench-panel-title">效果风格区</view>
+      <view class="aitoolworkbench-style-list">
+        <view
+          class="aitoolworkbench-style-item {{selectedStyleId === item.id ? 'active' : ''}}"
+          wx:for="{{tool.stylePresets}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bindtap="onSelectStyle"
+        >
+          {{item.name}}
+        </view>
+      </view>
+    </view>
+
+    <view class="aitoolworkbench-panel">
+      <view class="aitoolworkbench-panel-title">生成参数</view>
+      <view class="aitoolworkbench-parameter-block">
+        <view class="aitoolworkbench-parameter-label">画面比例</view>
+        <view class="aitoolworkbench-canvas-row">
+          <view
+            class="aitoolworkbench-canvas-option {{selectedCanvas === item.value ? 'active' : ''}}"
+            wx:for="{{canvasOptions}}"
+            wx:key="value"
+            bindtap="onSelectCanvas"
+            data-value="{{item.value}}"
+          >
+            <view class="aitoolworkbench-canvas-icon canvas-{{item.value === '16:9' ? 'landscape' : item.value === '1:1' ? 'square' : 'portrait'}}"></view>
+            <text class="aitoolworkbench-canvas-text">{{item.size}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="aitoolworkbench-parameter-block quality-block">
+        <view class="aitoolworkbench-parameter-label">清晰度</view>
+        <view class="aitoolworkbench-quality-row">
+          <view
+            class="aitoolworkbench-quality-option {{selectedQuality === item.value ? 'active' : ''}}"
+            wx:for="{{qualityOptions}}"
+            wx:key="value"
+            bindtap="onSelectQuality"
+            data-value="{{item.value}}"
+          >
+            <text class="aitoolworkbench-quality-text">{{item.label}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="aitoolworkbench-panel">
+      <view class="aitoolworkbench-generate-count-header">
+        <view class="aitoolworkbench-panel-title">生成张数</view>
+        <view class="aitoolworkbench-generate-count-price">单张 {{currentUnitCost}} 灵石，合计 {{currentCost}} 灵石</view>
+      </view>
+      <view class="aitoolworkbench-generate-count-segment">
+        <view
+          class="aitoolworkbench-generate-count-option {{selectedGenerateCount === item ? 'active' : ''}}"
+          wx:for="{{generateCountOptions}}"
+          wx:key="*this"
+          bindtap="onSelectGenerateCount"
+          data-count="{{item}}"
+        >
+          <text>{{item}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="aitoolworkbench-panel">
+      <view class="aitoolworkbench-panel-title">提示词输入区</view>
+      <textarea
+        class="aitoolworkbench-textarea"
+        placeholder="{{tool.promptPlaceholder}}"
+        placeholder-class="aitoolworkbench-textarea-placeholder"
+        value="{{promptText}}"
+        bindinput="onPromptInput"
+        maxlength="300"
+      />
+      <view class="aitoolworkbench-prompt-tip">系统会把后台默认提示词、参考图提示词、风格提示词和你的补充提示词统一拼接。</view>
+    </view>
+
+    <view class="aitoolworkbench-action-panel">
+      <button class="aitoolworkbench-primary-btn" bindtap="onStartCreate" loading="{{generating}}" disabled="{{generating || uploadingOriginal || uploadingReference}}">开始创作</button>
+      <view class="aitoolworkbench-bottom-tip">{{bottomTipText}}</view>
+    </view>
+  </view>
+</view>

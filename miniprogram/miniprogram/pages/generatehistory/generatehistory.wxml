@@ -1,0 +1,129 @@
+<!--pages/generatehistory/generatehistory.wxml-->
+<view class="page">
+  <!-- 统一导航栏 -->
+  <navigation-bar title="生成历史" />
+
+  <!-- 工具筛选 -->
+  <view class="tool-filter" wx:if="{{hasAITools}}">
+    <text class="filter-label">AI工具：</text>
+    <view class="filter-options">
+      <view
+        class="filter-option {{selectedToolId === '' ? 'active' : ''}}"
+        bindtap="onFilterByTool"
+        data-id=""
+      >
+        <text>全部</text>
+      </view>
+      <view
+        class="filter-option {{selectedToolId === item.id ? 'active' : ''}}"
+        wx:for="{{availableTools}}"
+        wx:key="id"
+        bindtap="onFilterByTool"
+        data-id="{{item.id}}"
+      >
+        <text>{{item.name}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 加载状态 -->
+  <view class="loading-container" wx:if="{{loading && !list.length}}">
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-container" wx:elif="{{!loading && !list.length}}">
+    <t-icon name="image" size="120rpx" color="#666" />
+    <text class="empty-text">暂无生成记录</text>
+    <view class="empty-btn" bindtap="goToGenerate">去生成</view>
+  </view>
+
+  <!-- 历史列表 -->
+  <view class="history-list" wx:else>
+    <view 
+      class="history-item" 
+      wx:for="{{list}}" 
+      wx:key="id"
+      bindtap="goToDetail"
+      data-item="{{item}}"
+    >
+      <!-- 图片预览 -->
+      <view class="item-image">
+        <image 
+          wx:if="{{item.imageUrl}}"
+          src="{{item.imageUrl}}" 
+          mode="aspectFill"
+          lazy-load
+        />
+        <view class="no-image" wx:else>
+          <t-icon name="image" size="60rpx" color="#666" />
+        </view>
+        <!-- 状态标签 -->
+        <view class="status-tag {{item.status}}">
+          <text wx:if="{{item.status === 'pending'}}">等待中</text>
+          <text wx:elif="{{item.status === 'processing'}}">生成中</text>
+          <text wx:elif="{{item.status === 'success'}}">已完成</text>
+          <text wx:elif="{{item.status === 'failed'}}">失败</text>
+        </view>
+      </view>
+
+      <!-- 任务信息 -->
+      <view class="item-info">
+        <view class="info-row" wx:if="{{item.tool_name}}">
+          <text class="info-label">AI工具</text>
+          <text class="info-value tool-name">{{item.tool_name}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">场景</text>
+          <text class="info-value">{{item.sceneText}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">消耗</text>
+          <text class="info-value stones">{{item.stones_used}} 灵石</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">时间</text>
+          <text class="info-value time">{{item.createdAtText}}</text>
+        </view>
+        <view class="prompt-preview" wx:if="{{item.prompt}}">
+          <text class="prompt-text">{{item.prompt}}</text>
+        </view>
+        <view class="ref-image-wrap" wx:if="{{item.reference_image_urls && item.reference_image_urls.length}}">
+          <text class="ref-label">参考图</text>
+          <view class="ref-thumb-list">
+            <image class="ref-thumb" wx:for="{{item.reference_image_urls}}" wx:key="index" src="{{item}}" mode="aspectFill" />
+          </view>
+        </view>
+        <view class="excel-link-wrap" wx:if="{{item.scene === 'ai_cost_doc' && item.excel_url}}">
+          <text class="excel-link-tip">Excel 已生成，复制链接到浏览器下载</text>
+          <view class="copy-excel-btn" catchtap="onCopyExcelLink" data-item="{{item}}">复制下载链接</view>
+        </view>
+        <view class="excel-link-wrap pending" wx:elif="{{item.scene === 'ai_cost_doc' && item.status === 'success' && !item.excel_url}}">
+          <text class="excel-link-tip">链接加载中…</text>
+        </view>
+      </view>
+
+      <!-- 右侧：删除 + 箭头 -->
+      <view class="item-right">
+        <view class="delete-btn" catchtap="onDelete" data-item="{{item}}">
+          <t-icon name="delete" size="40rpx" color="#999" />
+          <text class="delete-text">删除</text>
+        </view>
+        <view class="item-arrow">
+          <t-icon name="chevron-right" size="40rpx" color="#666" />
+        </view>
+      </view>
+    </view>
+
+    <!-- 加载更多 -->
+    <view class="load-more" wx:if="{{hasMore}}">
+      <text wx:if="{{loadingMore}}" class="load-more-text">加载中...</text>
+      <text wx:else class="load-more-text">上拉加载更多</text>
+    </view>
+
+    <!-- 没有更多了 -->
+    <view class="no-more" wx:elif="{{list.length > 0}}">
+      <text>— 没有更多了 —</text>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,24 @@
+<view
+  class="before-after-compare"
+  style="height: {{height}};"
+  catchtouchstart="onTouchStart"
+  catchtouchmove="onTouchMove"
+  bindtap="onImageTap"
+>
+  <image class="before-after-image before-after-base" src="{{afterImage}}" mode="aspectFill" />
+
+  <view class="before-after-overlay" style="width: {{dividerPercent}}%;">
+    <image class="before-after-image" src="{{beforeImage}}" mode="aspectFill" />
+  </view>
+
+  <view class="before-after-divider" style="left: {{dividerPercent}}%;">
+    <view class="before-after-divider-line"></view>
+    <view class="before-after-divider-handle">
+      <view class="before-after-divider-arrow left"></view>
+      <view class="before-after-divider-arrow right"></view>
+    </view>
+  </view>
+
+  <view class="before-after-label before">{{beforeLabel}}</view>
+  <view class="before-after-label after">{{afterLabel}}</view>
+</view>

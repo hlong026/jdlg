@@ -1,0 +1,293 @@
+/* pages/aicost/aicost.wxss */
+.page {
+  width: 100vw;
+  min-height: 100vh;
+  background-color: #1a1f33;
+  padding-bottom: 40rpx;
+}
+
+/* 内容区域 */
+.content-scroll {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 140rpx);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 30rpx;
+  box-sizing: border-box;
+}
+
+/* 表单部分 */
+.form-section {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 20rpx;
+  margin-bottom: 30rpx;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+
+  .section-title {
+    font-size: 30rpx;
+    color: #fff;
+    font-weight: 500;
+    padding: 25rpx 30rpx;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .section-content {
+    padding: 30rpx;
+  }
+}
+
+.form-item {
+  margin-bottom: 30rpx;
+
+  .form-label {
+    display: block;
+    font-size: 28rpx;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 15rpx;
+  }
+
+  .form-input-group {
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 15rpx;
+    padding: 0 20rpx;
+    height: 88rpx;
+    box-sizing: border-box;
+
+    .form-input {
+      flex: 1;
+      height: 88rpx;
+      font-size: 28rpx;
+      color: #fff;
+      background: transparent;
+    }
+
+    .form-unit {
+      font-size: 28rpx;
+      color: rgba(255, 255, 255, 0.6);
+      margin-left: 10rpx;
+    }
+  }
+
+  .form-select {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 15rpx;
+    padding: 0 20rpx;
+    height: 88rpx;
+    box-sizing: border-box;
+
+    .select-text {
+      font-size: 28rpx;
+      color: #fff;
+      flex: 1;
+
+      &.placeholder {
+        color: rgba(255, 255, 255, 0.5);
+      }
+    }
+  }
+}
+
+/* 提交按钮区域 */
+.submit-section {
+  margin-bottom: 30rpx;
+}
+
+.submit-btn {
+  width: 100%;
+  height: 96rpx;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #fff;
+  border: none;
+  border-radius: 50rpx;
+  font-size: 32rpx;
+  font-weight: 600;
+  box-shadow: 0 8rpx 24rpx rgba(59, 130, 246, 0.3);
+
+  &[disabled] {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.5);
+    box-shadow: none;
+  }
+
+  &:active {
+    opacity: 0.9;
+  }
+
+  &.secondary {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    box-shadow: 0 8rpx 24rpx rgba(34, 197, 94, 0.3);
+  }
+}
+
+.doc-section {
+  .section-desc {
+    font-size: 24rpx;
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.5;
+    padding: 0 30rpx 20rpx;
+  }
+
+  .doc-tip {
+    font-size: 24rpx;
+    color: rgba(255, 255, 255, 0.5);
+    padding: 16rpx 30rpx 0;
+  }
+}
+
+/* 结果展示部分 */
+.result-section {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 20rpx;
+  padding: 40rpx 30rpx;
+  margin-bottom: 30rpx;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.result-title {
+  font-size: 32rpx;
+  color: #fff;
+  text-align: center;
+  margin-bottom: 40rpx;
+  line-height: 1.6;
+
+  .result-amount {
+    color: #ff6b35;
+    font-size: 40rpx;
+    font-weight: bold;
+    margin: 0 10rpx;
+  }
+}
+
+.result-detail {
+  display: flex;
+  gap: 30rpx;
+}
+
+.detail-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 25rpx;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+
+  .detail-label {
+    font-size: 24rpx;
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .detail-value {
+    font-size: 28rpx;
+    color: #fff;
+    font-weight: 500;
+  }
+}
+
+.page {
+  background: linear-gradient(180deg, #e6daca 0%, #ece4d9 100%);
+}
+
+.content-scroll {
+  top: calc(env(safe-area-inset-top) + 180rpx);
+  padding: 24rpx;
+}
+
+.form-section,
+.result-section {
+  background: linear-gradient(180deg, rgba(255, 248, 239, 0.94) 0%, rgba(245, 235, 224, 0.9) 100%);
+  border: 1px solid rgba(188, 168, 145, 0.34);
+  box-shadow: 0 16rpx 34rpx rgba(113, 80, 63, 0.08);
+}
+
+.form-section {
+  .section-title {
+    color: #5e412f;
+    border-bottom: 1px solid rgba(188, 168, 145, 0.35);
+  }
+}
+
+.form-item {
+  .form-label {
+    color: #6f5945;
+  }
+
+  .form-input-group,
+  .form-select {
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(188, 168, 145, 0.38);
+  }
+
+  .form-input-group {
+    .form-input {
+      color: #5e412f;
+    }
+
+    .form-unit {
+      color: #8c7553;
+    }
+  }
+
+  .form-select {
+    .select-text {
+      color: #5e412f;
+
+      &.placeholder {
+        color: rgba(111, 89, 69, 0.5);
+      }
+    }
+  }
+}
+
+.submit-btn {
+  background: linear-gradient(135deg, #c8a679 0%, #a9855b 100%);
+  color: #fffaf2;
+  box-shadow: 0 10rpx 24rpx rgba(113, 80, 63, 0.16);
+
+  &[disabled] {
+    background: rgba(236, 228, 217, 0.92);
+    color: rgba(111, 89, 69, 0.58);
+  }
+
+  &.secondary {
+    background: linear-gradient(135deg, #c8a679 0%, #a9855b 100%);
+    box-shadow: 0 10rpx 24rpx rgba(113, 80, 63, 0.16);
+  }
+}
+
+.doc-section {
+  .section-desc,
+  .doc-tip {
+    color: #8c7553;
+  }
+}
+
+.result-title {
+  color: #5e412f;
+
+  .result-amount {
+    color: #a9855b;
+  }
+}
+
+.detail-item {
+  .detail-label {
+    color: #8c7553;
+  }
+
+  .detail-value {
+    color: #5e412f;
+  }
+}

@@ -1,0 +1,67 @@
+甲第灵光相关数据
+
+网址：https://www.mosyy.com/
+
+后台账号：qxsyq1299
+
+后台密码：ab888888
+
+（这个是您的后台账号密码，后台密码是默认的您可以进行修改）
+
+
+老庄账号：https://laozhang.ai。账号：Yihecom。密码：Yihe@150061
+
+后台url:http://162.14.210.252:5173/login
+后台账号:admin
+后台密码:123456
+
+
+ENTERPRISE_WECHAT_SERVICE_PHONE=13959877676
+ENTERPRISE_WECHAT_CUSTOMER_SERVICE_CORP_ID=ww673b3a4edf114110
+ENTERPRISE_WECHAT_CUSTOMER_SERVICE_URL=https://work.weixin.qq.com/kfid/kfccb23bfff32bc9c6f
+
+
+手机：15959089910。邮箱381600180@qq.com
+
+100045644139 账号腾讯云
+
+
+https://162.14.210.252:8888/f7e42fb1
+
+请输入新的面板密码：jiadilingguang
+|-用户名: hjb
+|-新密码: jiadilingguang
+
+
+
+数据库：jiadilinguang
+密码：jiadilingguang123
+
+AppID(小程序ID)：wx94fdc48861913ede
+	wx94fdc48861913ede
+
+
+
+你当前已经在这个目录里了：
+
+bash
+/www/wwwroot/jiadilingguang/service/bin
+1. 先停掉旧进程 56144
+bash
+kill -9 56144
+2. 再确认 8080 端口已经空出来
+bash
+lsof -i:8080
+正常情况这里应该查不到 56144 了。
+
+3. 加载环境变量并重启新后端
+bash
+set -a
+source .env
+set +a
+nohup ./applinux > app.log 2>&1 &
+4. 启动后马上检查
+bash
+ps -ef | grep applinux
+lsof -i:8080
+tail -n 150 APPlog/$(date +%F).log

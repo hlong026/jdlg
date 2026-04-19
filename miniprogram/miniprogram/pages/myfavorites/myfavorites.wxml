@@ -1,0 +1,45 @@
+<view class="page">
+  <!-- 统一导航栏 -->
+  <navigation-bar title="我的收藏" />
+
+  <view class="content">
+    <view class="search-bar">
+      <view class="search-input-wrap">
+        <view class="search-icon"></view>
+        <input class="search-input" placeholder="搜索标题、作者或标签" value="{{searchInputValue}}" bindinput="onSearchInput" bindconfirm="onSearchConfirm" confirm-type="search" />
+        <view class="search-clear" wx:if="{{searchInputValue}}" bindtap="onSearchClear">清空</view>
+      </view>
+      <view class="search-btn" bindtap="onSearchConfirm">搜索</view>
+    </view>
+
+    <view class="loading-wrap" wx:if="{{loading}}">
+      <text class="loading-text">加载中...</text>
+    </view>
+
+    <view class="empty-wrap" wx:elif="{{!items.length}}">
+      <image class="empty-image" src="{{defaultImage}}" mode="aspectFill" />
+      <text class="empty-title">{{searchKeyword ? '未找到相关收藏' : '暂无收藏内容'}}</text>
+      <text class="empty-desc">{{emptyText}}</text>
+    </view>
+
+    <view class="card-list" wx:else>
+      <view class="favorite-card" wx:for="{{items}}" wx:key="id" bindtap="onTemplateTap" data-id="{{item.id}}">
+        <image class="favorite-image" src="{{item.image}}" mode="aspectFill" />
+        <view class="favorite-body">
+          <view class="favorite-head">
+            <text class="favorite-title">{{item.title}}</text>
+            <text class="favorite-price">{{item.priceText}}</text>
+          </view>
+          <text class="favorite-author">{{item.author}}</text>
+          <view class="favorite-tags" wx:if="{{item.tags.length}}">
+            <text class="favorite-tag" wx:for="{{item.tags}}" wx:key="*this">{{item}}</text>
+          </view>
+          <view class="favorite-meta">
+            <text class="favorite-meta-text">{{item.likeText}}</text>
+            <text class="favorite-meta-text">{{item.useText}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

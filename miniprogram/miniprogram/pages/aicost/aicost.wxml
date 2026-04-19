@@ -1,0 +1,97 @@
+<!--pages/aicost/aicost.wxml-->
+<view class="page">
+  <!-- 统一导航栏 -->
+  <navigation-bar title="免费计算建房报价" />
+
+  <scroll-view class="content-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+    <!-- 根据造价表生成测算表（AI 多模态） -->
+    <view class="form-section doc-section">
+      <view class="section-title">根据造价表生成测算表</view>
+      <view class="section-desc">填写别墅参数，系统将根据公司造价表生成五部分详表（建筑基础、建筑主体、外观装修、室内装修、花园庭院），每部分含项目名称、单位、工程量、单价、合价、备注及小计。完成后可在生成历史中复制 Excel 链接到浏览器下载。</view>
+      <view class="section-content">
+        <view class="form-item">
+          <text class="form-label">所在城市</text>
+          <view class="form-input-group">
+            <input class="form-input" type="text" value="{{city}}" bindinput="onCityInput" placeholder="请输入省/市" />
+          </view>
+        </view>
+        <view class="form-item">
+          <text class="form-label">房屋面宽</text>
+          <view class="form-input-group">
+            <input class="form-input" type="digit" value="{{houseWidth}}" bindinput="onHouseWidthInput" placeholder="米" />
+            <text class="form-unit">米</text>
+          </view>
+        </view>
+        <view class="form-item">
+          <text class="form-label">进深</text>
+          <view class="form-input-group">
+            <input class="form-input" type="digit" value="{{houseDepth}}" bindinput="onHouseDepthInput" placeholder="米" />
+            <text class="form-unit">米</text>
+          </view>
+        </view>
+        <view class="form-item">
+          <text class="form-label">占地</text>
+          <view class="form-input-group">
+            <input class="form-input" type="digit" value="{{areaBuild}}" bindinput="onAreaBuildInput" placeholder="平方米" />
+            <text class="form-unit">m²</text>
+          </view>
+        </view>
+        <view class="form-item">
+          <text class="form-label">层数</text>
+          <view class="form-input-group">
+            <input class="form-input" type="number" value="{{floors}}" bindinput="onFloorsInput" placeholder="层" />
+            <text class="form-unit">层</text>
+          </view>
+        </view>
+        <view class="form-item">
+          <text class="form-label">花园面积</text>
+          <view class="form-input-group">
+            <input class="form-input" type="digit" value="{{areaGarden}}" bindinput="onAreaGardenInput" placeholder="0" />
+            <text class="form-unit">m²</text>
+          </view>
+        </view>
+        <view class="form-item">
+          <text class="form-label">扣除庭院</text>
+          <view class="form-input-group">
+            <input class="form-input" type="digit" value="{{courtyardDeduct}}" bindinput="onCourtyardDeductInput" placeholder="0" />
+            <text class="form-unit">m²</text>
+          </view>
+        </view>
+        <view class="form-item">
+          <text class="form-label">露台扣除</text>
+          <view class="form-input-group">
+            <input class="form-input" type="digit" value="{{terraceDeduct}}" bindinput="onTerraceDeductInput" placeholder="0" />
+            <text class="form-unit">m²</text>
+          </view>
+        </view>
+        <view class="form-item">
+          <text class="form-label">结构形式</text>
+          <view class="form-select" bindtap="onSelectStructure">
+            <text class="select-text">{{structureType || '砖混结构'}}</text>
+            <t-icon name="chevron-down" size="32rpx" color="#8c7553" />
+          </view>
+        </view>
+        <view class="form-item">
+          <text class="form-label">屋顶形式</text>
+          <view class="form-select" bindtap="onSelectRoof">
+            <text class="select-text">{{roofType || '坡屋顶'}}</text>
+            <t-icon name="chevron-down" size="32rpx" color="#8c7553" />
+          </view>
+        </view>
+        <view class="form-item">
+          <text class="form-label">是否有地下室</text>
+          <view class="form-select" bindtap="onSelectBasement">
+            <text class="select-text">{{basement || '无'}}</text>
+            <t-icon name="chevron-down" size="32rpx" color="#8c7553" />
+          </view>
+        </view>
+      </view>
+      <view class="submit-section">
+        <button class="submit-btn secondary" bindtap="onSubmitDoc" disabled="{{submittingDoc}}">
+          {{submittingDoc ? '提交中...' : '生成测算表'}}
+        </button>
+      </view>
+      <view class="doc-tip" wx:if="{{docTaskNo}}">任务号：{{docTaskNo}}，请到生成历史查看</view>
+    </view>
+  </scroll-view>
+</view>

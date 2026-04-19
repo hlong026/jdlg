@@ -1,0 +1,26 @@
+<view class="page">
+  <!-- 统一导航栏 -->
+  <navigation-bar title="管理员登录" subtitle="后台管理入口" />
+
+  <view wx:if="{{supportsDirectWebview}}" class="webview-shell">
+    <web-view src="{{loginUrl}}"></web-view>
+  </view>
+
+  <view wx:else class="content">
+    <view class="hero-card">
+      <text class="hero-title">管理员登录入口已接入</text>
+      <text class="hero-desc">当前地址是 HTTP 协议，微信小程序不能直接打开这个后台登录页，所以先为你提供安全的中转页和一键复制入口。</text>
+    </view>
+
+    <view class="info-card">
+      <text class="info-label">当前登录地址</text>
+      <text class="info-url">{{loginUrl}}</text>
+      <text class="info-tip">请复制后粘贴到系统浏览器中打开，再输入管理员账号和密码登录。</text>
+    </view>
+
+    <view class="action-group">
+      <view class="primary-btn" bindtap="copyLoginUrl">复制管理员登录地址</view>
+      <view class="secondary-btn" bindtap="showOpenTip">查看打开说明</view>
+    </view>
+  </view>
+</view>

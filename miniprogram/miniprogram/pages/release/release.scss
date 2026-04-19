@@ -1,0 +1,558 @@
+/* pages/release/release.wxss */
+
+.page {
+  width: 100vw;
+  min-height: 100vh;
+  background-color: #0f172a;
+  color: #ffffff;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* 顶部统计卡片 */
+.summary-card {
+  margin: 24rpx 24rpx 12rpx;
+  padding: 20rpx 22rpx;
+  border-radius: 24rpx;
+  background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.25), transparent 60%),
+    radial-gradient(circle at bottom right, rgba(52, 211, 153, 0.2), transparent 55%),
+    linear-gradient(135deg, #020617, #020617);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 18rpx 40rpx rgba(15, 23, 42, 0.9);
+
+  .summary-top,
+  .summary-bottom {
+    display: flex;
+    gap: 16rpx;
+    margin-bottom: 10rpx;
+
+    .summary-item {
+      flex: 1;
+
+      .summary-label {
+        font-size: 22rpx;
+        color: #9ca3af;
+      }
+
+      .summary-value-row {
+        margin-top: 6rpx;
+        display: flex;
+        align-items: center;
+        gap: 8rpx;
+
+        .summary-value {
+          font-size: 28rpx;
+          font-weight: 600;
+          color: #e5e7eb;
+
+          &.highlight {
+            color: #fbbf24;
+          }
+        }
+      }
+    }
+  }
+}
+
+/* 筛选栏 */
+.filter-bar {
+  margin: 4rpx 24rpx 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  .filter-left {
+    display: flex;
+    gap: 10rpx;
+  }
+
+  .filter-right {
+    display: flex;
+    gap: 8rpx;
+  }
+
+  .filter-tag,
+  .time-tag {
+    padding: 8rpx 16rpx;
+    border-radius: 999rpx;
+    border: 1px solid rgba(55, 65, 81, 0.9);
+    background: rgba(15, 23, 42, 0.9);
+    font-size: 22rpx;
+    color: #9ca3af;
+
+    &.active {
+      border-color: rgba(59, 130, 246, 0.95);
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(37, 99, 235, 0.12));
+      color: #e5edff;
+    }
+  }
+}
+
+.content {
+  padding: 8rpx 24rpx 24rpx;
+  height: calc(100vh - 220rpx);
+
+  .list-scroll {
+    height: 100%;
+  }
+
+  .empty {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #9ca3af;
+    text-align: center;
+
+    .empty-title {
+      margin-top: 8rpx;
+      font-size: 26rpx;
+      color: #e5e7eb;
+    }
+
+    .empty-desc {
+      margin-top: 4rpx;
+      font-size: 22rpx;
+      color: #9ca3af;
+    }
+  }
+}
+
+/* 作品项 */
+.work-item {
+  display: flex;
+  gap: 14rpx;
+  padding: 14rpx 14rpx 10rpx;
+  border-radius: 20rpx;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(31, 41, 55, 0.9);
+  box-shadow: 0 14rpx 28rpx rgba(15, 23, 42, 0.85);
+  margin-bottom: 12rpx;
+
+  .work-cover {
+    width: 160rpx;
+    height: 160rpx;
+    border-radius: 16rpx;
+    background: #020617;
+    flex-shrink: 0;
+  }
+
+  .work-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+
+    .work-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      .work-title {
+        font-size: 26rpx;
+        font-weight: 600;
+        color: #f9fafb;
+        margin-right: 10rpx;
+      }
+
+      .work-status {
+        padding: 4rpx 10rpx;
+        border-radius: 999rpx;
+        font-size: 20rpx;
+        color: #e5e7eb;
+        background: rgba(31, 41, 55, 0.96);
+        border: 1px solid rgba(55, 65, 81, 0.9);
+
+        &.online {
+          border-color: rgba(74, 222, 128, 0.9);
+          color: #bbf7d0;
+        }
+
+        &.review {
+          border-color: rgba(250, 204, 21, 0.9);
+          color: #fef3c7;
+        }
+
+        &.offline {
+          border-color: rgba(148, 163, 184, 0.9);
+          color: #e5e7eb;
+        }
+      }
+    }
+
+    .work-desc {
+      margin-top: 4rpx;
+      font-size: 22rpx;
+      color: #9ca3af;
+    }
+
+    .work-metrics {
+      margin-top: 8rpx;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10rpx;
+
+      .metric {
+        display: flex;
+        align-items: center;
+        gap: 4rpx;
+
+        .metric-text {
+          font-size: 20rpx;
+          color: #9ca3af;
+        }
+      }
+    }
+
+    .work-footer {
+      margin-top: 8rpx;
+      display: flex;
+      flex-wrap: nowrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12rpx;
+
+      .work-time {
+        font-size: 20rpx;
+        color: #6b7280;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      .work-actions {
+        display: flex;
+        gap: 8rpx;
+        flex-wrap: nowrap;
+        justify-content: flex-end;
+        flex: 1;
+        min-width: 0;
+
+        .action-btn {
+          min-height: 48rpx;
+          padding: 8rpx 12rpx;
+          border-radius: 14rpx;
+          border: 1px solid rgba(55, 65, 81, 0.9);
+          background: rgba(15, 23, 42, 0.9);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+
+          text {
+            font-size: 20rpx;
+            color: #e5e7eb;
+          }
+        }
+      }
+    }
+  }
+}
+
+/* 收益项 */
+.income-item {
+  padding: 14rpx 14rpx 10rpx;
+  border-radius: 20rpx;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(31, 41, 55, 0.9);
+  box-shadow: 0 14rpx 28rpx rgba(15, 23, 42, 0.85);
+  margin-bottom: 12rpx;
+
+  .income-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .income-left {
+      display: flex;
+      align-items: center;
+      gap: 12rpx;
+
+      .income-icon {
+        width: 56rpx;
+        height: 56rpx;
+        border-radius: 18rpx;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(34, 197, 94, 0.16);
+      }
+
+      .income-info {
+        display: flex;
+        flex-direction: column;
+
+        .income-title {
+          font-size: 24rpx;
+          font-weight: 500;
+          color: #f9fafb;
+        }
+
+        .income-subtitle {
+          margin-top: 4rpx;
+          font-size: 20rpx;
+          color: #9ca3af;
+        }
+      }
+    }
+
+    .income-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4rpx;
+
+      .income-amount {
+        font-size: 24rpx;
+        font-weight: 600;
+        color: #4ade80;
+      }
+
+      .income-time {
+        font-size: 20rpx;
+        color: #6b7280;
+      }
+    }
+  }
+
+  .income-extra {
+    margin-top: 6rpx;
+
+    .income-remark {
+      font-size: 20rpx;
+      color: #9ca3af;
+    }
+  }
+}
+
+.page {
+  background: linear-gradient(180deg, #e6daca 0%, #ece4d9 100%);
+  color: #5e412f;
+}
+
+.summary-card {
+  margin: 0 24rpx 16rpx;
+  background: linear-gradient(135deg, rgba(241, 217, 184, 0.98) 0%, rgba(245, 229, 205, 0.92) 52%, rgba(220, 187, 149, 0.98) 100%);
+  border: 1px solid rgba(173, 141, 103, 0.2);
+  box-shadow: 0 16rpx 34rpx rgba(113, 80, 63, 0.1);
+
+  .summary-top,
+  .summary-bottom {
+    .summary-item {
+      .summary-label {
+        color: #8c7553;
+      }
+
+      .summary-value-row {
+        .summary-value {
+          color: #6f5637;
+
+          &.highlight {
+            color: #a9855b;
+          }
+        }
+      }
+    }
+  }
+}
+
+.quick-action-bar {
+  margin: 0 24rpx 16rpx;
+  padding: 22rpx 24rpx;
+  border-radius: 24rpx;
+  background: linear-gradient(180deg, rgba(247, 241, 232, 0.92) 0%, rgba(239, 231, 220, 0.86) 100%);
+  border: 1px solid rgba(176, 155, 130, 0.24);
+  box-shadow: 0 14rpx 28rpx rgba(113, 80, 63, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+}
+
+.quick-action-copy {
+  flex: 1;
+}
+
+.quick-action-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #5e412f;
+}
+
+.quick-action-desc {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #8c7553;
+}
+
+.quick-action-btn,
+.empty-action {
+  padding: 0 24rpx;
+  height: 72rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(135deg, #cfad85 0%, #b68d63 100%);
+  color: #fffaf2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  font-weight: 600;
+  box-shadow: 0 12rpx 20rpx rgba(169, 133, 91, 0.18);
+}
+
+.filter-bar {
+  margin: 0 24rpx 12rpx;
+
+  .filter-tag,
+  .time-tag {
+    border: 1px solid rgba(190, 169, 145, 0.85);
+    background: rgba(247, 241, 232, 0.78);
+    color: #8c7553;
+
+    &.active {
+      border-color: rgba(169, 133, 91, 0.78);
+      background: linear-gradient(135deg, #cfad85 0%, #b68d63 100%);
+      color: #fffaf2;
+      box-shadow: 0 8rpx 16rpx rgba(169, 133, 91, 0.18);
+    }
+  }
+}
+
+.content {
+  .empty {
+    color: #8c7553;
+
+    .empty-title {
+      color: #5e412f;
+    }
+
+    .empty-desc {
+      color: #8c7553;
+    }
+
+    .empty-action {
+      margin-top: 20rpx;
+    }
+  }
+}
+
+.work-item,
+.income-item {
+  background: linear-gradient(180deg, rgba(247, 241, 232, 0.92) 0%, rgba(239, 231, 220, 0.86) 100%);
+  border: 1px solid rgba(176, 155, 130, 0.24);
+  box-shadow: 0 14rpx 28rpx rgba(113, 80, 63, 0.08);
+}
+
+.work-item {
+  .work-cover {
+    background: #ead9c6;
+  }
+
+  .work-info {
+    .work-title-row {
+      .work-title {
+        color: #5e412f;
+      }
+
+      .work-status {
+        border-color: rgba(188, 168, 145, 0.8);
+        background: rgba(247, 241, 232, 0.86);
+        color: #8c7553;
+
+        &.online {
+          border-color: rgba(138, 179, 129, 0.8);
+          color: #5c8851;
+        }
+
+        &.review {
+          border-color: rgba(216, 183, 106, 0.88);
+          color: #a47b2d;
+        }
+
+        &.rejected {
+          border-color: rgba(211, 122, 116, 0.88);
+          color: #b85f59;
+        }
+      }
+    }
+
+    .work-desc,
+    .work-metrics .metric .metric-text,
+    .work-footer .work-time {
+      color: #9b8466;
+    }
+
+    .work-badges {
+      margin-top: 10rpx;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10rpx;
+    }
+
+    .work-badge {
+      padding: 6rpx 14rpx;
+      border-radius: 999rpx;
+      font-size: 20rpx;
+      color: #8c7553;
+      border: 1px solid rgba(190, 169, 145, 0.88);
+      background: rgba(247, 241, 232, 0.78);
+    }
+
+    .work-reject-reason {
+      display: block;
+      margin-top: 10rpx;
+      font-size: 21rpx;
+      line-height: 1.6;
+      color: #b85f59;
+    }
+
+    .work-footer {
+      .work-actions {
+        .action-btn {
+          border-color: rgba(190, 169, 145, 0.88);
+          background: rgba(247, 241, 232, 0.8);
+          box-sizing: border-box;
+
+          text {
+            color: #6f5637;
+          }
+        }
+      }
+    }
+  }
+}
+
+.income-item {
+  .income-main {
+    .income-left {
+      .income-icon {
+        background: rgba(200, 166, 121, 0.16);
+      }
+
+      .income-info {
+        .income-title {
+          color: #5e412f;
+        }
+
+        .income-subtitle {
+          color: #9b8466;
+        }
+      }
+    }
+
+    .income-right {
+      .income-amount {
+        color: #a9855b;
+      }
+
+      .income-time {
+        color: #9b8466;
+      }
+    }
+  }
+
+  .income-extra {
+    .income-remark {
+      color: #8c7553;
+    }
+  }
+}

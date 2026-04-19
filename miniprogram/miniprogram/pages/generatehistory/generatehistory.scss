@@ -1,0 +1,474 @@
+/* pages/generatehistory/generatehistory.scss */
+.page {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #e6daca 0%, #ece4d9 100%);
+  padding-bottom: 40rpx;
+}
+
+/* 工具筛选 */
+.tool-filter {
+  width: 694rpx;
+  margin: 20rpx auto 0;
+  padding: 16rpx 20rpx;
+  border-radius: 24rpx;
+  background: rgba(251, 248, 243, 0.98);
+  border: 1rpx solid rgba(188, 168, 145, 0.3);
+  box-shadow: 0 8rpx 18rpx rgba(103, 79, 52, 0.06);
+  box-sizing: border-box;
+}
+
+.filter-label {
+  font-size: 24rpx;
+  color: #7d6a56;
+  font-weight: 600;
+  margin-right: 12rpx;
+}
+
+.filter-options {
+  display: inline-flex;
+  align-items: center;
+  gap: 10rpx;
+  flex-wrap: wrap;
+}
+
+.filter-option {
+  height: 52rpx;
+  padding: 0 20rpx;
+  border-radius: 26rpx;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(233, 223, 211, 0.9);
+  border: 1rpx solid rgba(188, 168, 145, 0.4);
+  transition: all 0.2s;
+
+  text {
+    font-size: 22rpx;
+    color: #6f5d49;
+  }
+
+  &.active {
+    background: linear-gradient(180deg, #d6b48b 0%, #b88e61 100%);
+    border-color: transparent;
+    box-shadow: 0 8rpx 16rpx rgba(130, 93, 57, 0.16);
+
+    text {
+      color: #fff9f1;
+      font-weight: 600;
+    }
+  }
+}
+
+/* 加载状态 */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 200rpx;
+}
+
+.loading-text {
+  font-size: 28rpx;
+  color: #8c7553;
+}
+
+/* 空状态 */
+.empty-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 200rpx;
+
+  .empty-text {
+    margin-top: 30rpx;
+    font-size: 28rpx;
+    color: #9ca3af;
+  }
+
+  .empty-btn {
+    margin-top: 40rpx;
+    padding: 20rpx 60rpx;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    border-radius: 40rpx;
+    color: #fff;
+    font-size: 28rpx;
+    font-weight: 500;
+    box-shadow: 0 4rpx 20rpx rgba(59, 130, 246, 0.4);
+  }
+}
+
+/* 历史列表 */
+.history-list {
+  padding: 0 30rpx;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20rpx;
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+  transition: all 0.2s ease;
+
+  &:active {
+    transform: scale(0.98);
+    background: rgba(255, 255, 255, 0.08);
+  }
+}
+
+.item-image {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 16rpx;
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+  background: rgba(0, 0, 0, 0.3);
+
+  image {
+    width: 100%;
+    height: 100%;
+  }
+
+  .no-image {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .status-tag {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 8rpx 0;
+    text-align: center;
+    font-size: 20rpx;
+    color: #fff;
+
+    &.pending {
+      background: rgba(107, 114, 128, 0.9);
+    }
+
+    &.processing {
+      background: rgba(59, 130, 246, 0.9);
+    }
+
+    &.success {
+      background: rgba(34, 197, 94, 0.9);
+    }
+
+    &.failed {
+      background: rgba(239, 68, 68, 0.9);
+    }
+  }
+}
+
+.item-info {
+  flex: 1;
+  margin-left: 24rpx;
+  overflow: hidden;
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12rpx;
+
+  .info-label {
+    font-size: 24rpx;
+    color: #9ca3af;
+    width: 70rpx;
+    flex-shrink: 0;
+  }
+
+  .info-value {
+    font-size: 24rpx;
+    color: #e5e7eb;
+
+    &.stones {
+      color: #f59e0b;
+      font-weight: 500;
+    }
+
+    &.time {
+      color: #6b7280;
+    }
+
+    &.tool-name {
+      color: #c89160;
+      font-weight: 600;
+    }
+  }
+}
+
+.prompt-preview {
+  margin-top: 12rpx;
+  padding: 12rpx;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8rpx;
+
+  .prompt-text {
+    font-size: 22rpx;
+    color: #9ca3af;
+    display: -webkit-box;
+    line-clamp: 2;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.5;
+  }
+}
+
+.ref-image-wrap {
+  margin-top: 12rpx;
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+
+  .ref-label {
+    font-size: 22rpx;
+    color: #9ca3af;
+    flex-shrink: 0;
+  }
+
+  .ref-thumb-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10rpx;
+    max-width: 220rpx;
+  }
+
+  .ref-thumb {
+    width: 64rpx;
+    height: 64rpx;
+    border-radius: 8rpx;
+    background: rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.18);
+  }
+}
+
+.excel-link-wrap {
+  margin-top: 12rpx;
+  padding: 12rpx;
+  background: rgba(34, 197, 94, 0.15);
+  border-radius: 8rpx;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+
+  .excel-link-tip {
+    font-size: 22rpx;
+    color: #86efac;
+    display: block;
+    margin-bottom: 8rpx;
+  }
+
+  .copy-excel-btn {
+    font-size: 24rpx;
+    color: #22c55e;
+    padding: 8rpx 0;
+    text-decoration: underline;
+  }
+
+  &.pending .excel-link-tip {
+    color: #9ca3af;
+  }
+}
+
+.item-right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+
+.delete-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-right: 20rpx;
+  padding: 12rpx;
+
+  .delete-text {
+    font-size: 22rpx;
+    color: #9ca3af;
+    margin-top: 4rpx;
+  }
+
+  &:active {
+    opacity: 0.7;
+  }
+}
+
+.item-arrow {
+  flex-shrink: 0;
+}
+
+/* 加载更多 */
+.load-more {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 30rpx 0;
+
+  .load-more-text {
+    font-size: 24rpx;
+    color: #6b7280;
+  }
+}
+
+.no-more {
+  text-align: center;
+  padding: 30rpx 0;
+
+  text {
+    font-size: 24rpx;
+    color: #4b5563;
+  }
+}
+
+.page {
+  background: linear-gradient(180deg, #e6daca 0%, #ece4d9 100%);
+  padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
+}
+
+.loading-container,
+.empty-container {
+  color: #8c7553;
+
+  .empty-text {
+    color: #8c7553;
+  }
+
+  .empty-btn {
+    background: linear-gradient(135deg, #cfad85 0%, #b68d63 100%);
+    color: #fffaf2;
+    box-shadow: 0 10rpx 24rpx rgba(169, 133, 91, 0.24);
+  }
+}
+
+.history-list {
+  padding: 0 24rpx;
+}
+
+.history-item {
+  background: linear-gradient(180deg, rgba(247, 241, 232, 0.92) 0%, rgba(239, 231, 220, 0.86) 100%);
+  border: 1px solid rgba(176, 155, 130, 0.24);
+  box-shadow: 0 14rpx 28rpx rgba(113, 80, 63, 0.08);
+
+  &:active {
+    background: rgba(244, 235, 224, 0.96);
+  }
+}
+
+.item-image {
+  background: #ead9c6;
+
+  .no-image {
+    background: rgba(247, 241, 232, 0.76);
+  }
+}
+
+.info-row {
+  .info-label {
+    color: #9b8466;
+  }
+
+  .info-value {
+    color: #5e412f;
+
+    &.stones {
+      color: #9f734b;
+    }
+
+    &.time {
+      color: #9b8466;
+    }
+  }
+}
+
+.prompt-preview {
+  background: rgba(247, 241, 232, 0.72);
+
+  .prompt-text {
+    color: #8c7553;
+  }
+}
+
+.ref-image-wrap {
+  .ref-label {
+    color: #9b8466;
+  }
+
+  .ref-thumb {
+    background: #ead9c6;
+  }
+}
+
+.excel-link-wrap {
+  background: rgba(238, 230, 217, 0.92);
+  border: 1px solid rgba(176, 155, 130, 0.28);
+
+  .excel-link-tip {
+    color: #8c7553;
+  }
+
+  .copy-excel-btn {
+    color: #8b633f;
+  }
+
+  &.pending .excel-link-tip {
+    color: #9b8466;
+  }
+}
+
+.delete-btn {
+  .delete-text {
+    color: #9b8466;
+  }
+}
+
+.load-more {
+  .load-more-text {
+    color: #9b8466;
+  }
+}
+
+.no-more {
+  text {
+    color: #9b8466;
+  }
+}
+
+.info-row {
+  .info-value {
+    &.stones {
+      color: #a9855b;
+    }
+  }
+}
+
+.excel-link-wrap {
+  background: rgba(238, 230, 217, 0.92);
+  border: 1px solid rgba(176, 155, 130, 0.28);
+
+  .excel-link-tip {
+    color: #8c7553;
+  }
+
+  .copy-excel-btn {
+    color: #a9855b;
+  }
+
+  &.pending .excel-link-tip {
+    color: #9b8466;
+  }
+}

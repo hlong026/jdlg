@@ -1,0 +1,138 @@
+﻿<!--pages/settings/settings.wxml-->
+<view class="page {{darkMode ? 'dark-mode' : 'light-mode'}}">
+  <view class="page-glow page-glow-left"></view>
+  <view class="page-glow page-glow-right"></view>
+  <!-- 统一导航栏 -->
+  <navigation-bar title="账号设置" subtitle="账户 · 隐私 · 关于" />
+
+  <!-- 内容区域 -->
+  <scroll-view class="content-scroll" scroll-y enhanced show-scrollbar="false">
+    <view class="content">
+    <!-- 账号与安全 -->
+    <view class="section-card">
+      <view class="section-header">
+        <view class="section-heading">
+          <text class="section-kicker">账户</text>
+          <text class="section-title">账号与安全</text>
+        </view>
+        <text class="section-meta">3项</text>
+      </view>
+      <view class="section-body">
+        <view class="setting-item" bindtap="goToProfile">
+          <view class="item-left">
+            <view class="item-icon-wrap warm">
+              <text class="item-icon">人</text>
+            </view>
+            <view class="item-texts">
+              <text class="item-title">个人资料</text>
+              <text class="item-desc">修改昵称、头像等基础信息</text>
+            </view>
+          </view>
+          <view class="item-tail">
+            <text class="item-arrow">›</text>
+          </view>
+        </view>
+
+        <view class="setting-item" bindtap="goToPasswordSecurity">
+          <view class="item-left">
+            <view class="item-icon-wrap accent">
+              <text class="item-icon">锁</text>
+            </view>
+            <view class="item-texts">
+              <text class="item-title">修改登录密码</text>
+              <text class="item-desc">修改用户名、登录密码和账号安全信息</text>
+            </view>
+          </view>
+          <view class="item-tail">
+            <text class="item-arrow">›</text>
+          </view>
+        </view>
+
+        <view class="setting-item" bindtap="goToPasswordRecovery">
+          <view class="item-left">
+            <view class="item-icon-wrap accent-soft">
+              <text class="item-icon">找</text>
+            </view>
+            <view class="item-texts">
+              <text class="item-title">忘记密码找回</text>
+              <text class="item-desc">通过微信手机号验证后重置登录密码</text>
+            </view>
+          </view>
+          <view class="item-tail">
+            <text class="item-arrow">›</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 隐私与缓存 -->
+    <view class="section-card">
+      <view class="section-header">
+        <view class="section-heading">
+          <text class="section-kicker">安全</text>
+          <text class="section-title">隐私与缓存</text>
+        </view>
+        <text class="section-meta">2项</text>
+      </view>
+      <view class="section-body">
+        <view class="setting-item" bindtap="onClearCache">
+          <view class="item-left">
+            <view class="item-icon-wrap light-danger">
+              <text class="item-icon danger">清</text>
+            </view>
+            <view class="item-texts">
+              <text class="item-title">清理缓存</text>
+              <text class="item-desc">释放本地缓存空间</text>
+            </view>
+          </view>
+          <view class="item-tail">
+            <text class="item-extra">{{cacheSize}}</text>
+          </view>
+        </view>
+
+        <view class="setting-item" bindtap="onViewPrivacy">
+          <view class="item-left">
+            <view class="item-icon-wrap accent-soft">
+              <text class="item-icon">盾</text>
+            </view>
+            <view class="item-texts">
+              <text class="item-title">隐私政策</text>
+              <text class="item-desc">了解数据收集和使用规则</text>
+            </view>
+          </view>
+          <view class="item-tail">
+            <text class="item-arrow">›</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 关于 -->
+    <view class="section-card">
+      <view class="section-header">
+        <view class="section-heading">
+          <text class="section-kicker">品牌</text>
+          <text class="section-title">关于</text>
+        </view>
+        <text class="section-meta">1项</text>
+      </view>
+      <view class="section-body">
+        <view class="setting-item" bindtap="onViewAbout">
+          <view class="item-left">
+            <view class="item-icon-wrap warm">
+              <text class="item-icon">关</text>
+            </view>
+            <view class="item-texts">
+              <text class="item-title">关于甲第灵光</text>
+              <text class="item-desc">甲第灵光（福建）科技有限公司</text>
+            </view>
+          </view>
+          <view class="item-tail">
+            <text class="item-extra">v{{version}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    </view>
+  </scroll-view>
+</view>
