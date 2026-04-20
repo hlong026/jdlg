@@ -7,6 +7,8 @@ const asset_1 = require("../../utils/asset");
 // API基础地址
 const API_BASE_URL = 'https://api.jiadilingguang.com'; // 根据实际情况修改
 const LOCAL_ENTERPRISE_WECHAT_QRCODE = (0, asset_1.resolveAssetPath)('/assets/企业微信二维码.png');
+const PAGE_BACKGROUND_TOP = '#e6daca';
+const PAGE_BACKGROUND_BOTTOM = '#ece4d9';
 function mapDesignerCertStatusLabel(status) {
     const value = String(status || '').trim();
     if (value === 'approved')
@@ -96,6 +98,7 @@ Page({
     onLoad(options) {
         const token = wx.getStorageSync('token') || '';
         this.setData({ token, previewShowMenu: false });
+        this.syncWindowBackground();
         this.initLayoutMetrics();
         const id = options.id ? parseInt(options.id) : 0;
         if (id > 0) {
@@ -109,6 +112,7 @@ Page({
      * 生命周期函数--监听页面显示
      */
     onShow() {
+        this.syncWindowBackground();
         const token = wx.getStorageSync('token') || '';
         if (token !== this.data.token) {
             this.setData({ token });
@@ -978,6 +982,16 @@ Page({
                 heroHeight: 420,
             });
         }
+    },
+    syncWindowBackground() {
+        if (typeof wx.setBackgroundColor !== 'function') {
+            return;
+        }
+        wx.setBackgroundColor({
+            backgroundColor: PAGE_BACKGROUND_BOTTOM,
+            backgroundColorTop: PAGE_BACKGROUND_TOP,
+            backgroundColorBottom: PAGE_BACKGROUND_BOTTOM,
+        });
     },
     buildDisplayPrompt() {
         return String(this.data.prompt || this.data.templateDesc || this.data.noteContent || '').trim();

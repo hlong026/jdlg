@@ -1,7 +1,11 @@
 /* pages/templatesquaredetails/templatesquaredetails.scss */
+page {
+  background: #e6daca;
+}
+
 .page {
   min-height: 100vh;
-  background: linear-gradient(180deg, #e6daca 0%, #ece4d9 100%);
+  background: linear-gradient(180deg, #e6daca 0%, #e6daca 220rpx, #ece4d9 560rpx, #ece4d9 100%);
   color: #5e412f;
   padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
   position: relative;
@@ -13,7 +17,7 @@
   left: 0;
   right: 0;
   height: calc(env(safe-area-inset-top) + 160rpx);
-  background: linear-gradient(180deg, #e6daca 0%, #ece4d9 100%);
+  background: #e6daca;
   z-index: 0;
   pointer-events: none;
 }
