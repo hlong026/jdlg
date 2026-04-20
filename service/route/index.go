@@ -53,7 +53,7 @@ func RegisterRoutes(r *gin.Engine, authProcessor *processor.AuthProcessor,
 	{
 		// 用户DB模型（共用）
 		userDBModel := model.NewUserModel(component.GetDB())
-		
+
 		// 小程序API
 		miniprogram := v1.Group("/miniprogram")
 		RegisterMiniprogramRoutes(miniprogram, authProcessor, codeSessionModel, userModel, stoneRecordModel, inviteRelationModel, userDBModel, userInviteCodeModel, userProfileModel, aiToolModel)
@@ -86,7 +86,7 @@ func RegisterRoutes(r *gin.Engine, authProcessor *processor.AuthProcessor,
 		// 用户数据接口（简化token认证，不需要签名参数）
 		RegisterUserDataRoutes(miniprogram, codeSessionModel, userModel, pricingModel, taskModel, videoTaskModel, stoneRecordModel, userOrderModel, inviteRelationModel, userDBModel, templateModel, userProfileModel, userInviteCodeModel, certificationApplicationModel, designerReviewModel, designerFollowModel, aiToolModel, cfg)
 		// 模板接口（公开接口，部分需要token验证）
-		RegisterTemplateRoutes(miniprogram, templateModel, templateCategoryModel, templateSquareConfigModel, templateUnlockModel, templateLikeModel, templateCommentModel, templateShareModel, codeSessionModel, userModel, stoneRecordModel, userOrderModel, userProfileModel, userMembershipModel, userDBModel, featuredCaseGroupModel, taskModel)
+		RegisterTemplateRoutes(miniprogram, templateModel, templateCategoryModel, templateSquareConfigModel, templateUnlockModel, templateLikeModel, templateCommentModel, templateShareModel, codeSessionModel, userModel, pricingModel, stoneRecordModel, userOrderModel, userProfileModel, userMembershipModel, userDBModel, featuredCaseGroupModel, taskModel, aiToolModel)
 		RegisterInspirationRoutes(miniprogram, inspirationModel)
 		// 用户信息修改接口
 		RegisterUserProfileRoutes(miniprogram, codeSessionModel, userDBModel, userProfileModel)
@@ -99,7 +99,7 @@ func RegisterRoutes(r *gin.Engine, authProcessor *processor.AuthProcessor,
 		management := v1.Group("/management")
 		// 登录接口不需要认证
 		RegisterManagementRoutes(management, authProcessor, userDBModel, userModel, userProfileModel, stoneRecordModel)
-		
+
 		// 需要认证的管理接口
 		managementAuth := management.Group("")
 		managementAuth.Use(AuthRequired)
@@ -114,17 +114,17 @@ func RegisterRoutes(r *gin.Engine, authProcessor *processor.AuthProcessor,
 		RegisterRiskControlManagementRoutes(managementAuth, userDBModel)
 		RegisterReportCenterManagementRoutes(managementAuth, userDBModel)
 		RegisterTemplateManagementRoutes(managementAuth, templateModel, templateCategoryModel, templateSquareConfigModel, featuredCaseGroupModel)
-	 	RegisterInspirationManagementRoutes(managementAuth, inspirationModel)
-	 	RegisterUtilityToolManagementRoutes(managementAuth, utilityToolModel)
+		RegisterInspirationManagementRoutes(managementAuth, inspirationModel)
+		RegisterUtilityToolManagementRoutes(managementAuth, utilityToolModel)
 		RegisterAIToolManagementRoutes(managementAuth, aiToolModel, taskModel)
-	 	RegisterRechargeConfigManagementRoutes(managementAuth, rechargeConfigModel)
+		RegisterRechargeConfigManagementRoutes(managementAuth, rechargeConfigModel)
 		RegisterMembershipManagementRoutes(managementAuth, membershipPlanModel)
 		RegisterMembershipOperationsManagementRoutes(managementAuth, userDBModel, userProfileModel, userMembershipModel, userOrderModel)
 		RegisterSupportTicketManagementRoutes(managementAuth, supportTicketModel)
-  		// 认证工单管理：列表、详情、审核（通过/拒绝），通过后更新用户 can_withdraw
- 		RegisterCertificationManagementRoutes(managementAuth, certificationApplicationModel, userDBModel, userProfileModel)
-  		
-  		// 小程序实用工具接口（公开接口）
-  		RegisterUtilityToolRoutes(miniprogram, utilityToolModel)
-  	}
+		// 认证工单管理：列表、详情、审核（通过/拒绝），通过后更新用户 can_withdraw
+		RegisterCertificationManagementRoutes(managementAuth, certificationApplicationModel, userDBModel, userProfileModel)
+
+		// 小程序实用工具接口（公开接口）
+		RegisterUtilityToolRoutes(miniprogram, utilityToolModel)
+	}
 }

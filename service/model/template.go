@@ -8,29 +8,60 @@ import (
 
 // Template 模板结构
 type Template struct {
-	ID            int64     `json:"id"`
-	Name          string    `json:"name"`
-	Category      string    `json:"category"`     // villa, urban, family, culture, etc.
-	MainTab       string    `json:"main_tab"`     // 一级tab value，可为空
-	SubTab        string    `json:"sub_tab"`      // 二级tab value，可为空（如果设置了main_tab但sub_tab为空，表示属于父tab）
-	Description   string    `json:"description"`
-	Thumbnail     string    `json:"thumbnail"`    // 缩略图URL
-	PreviewURL    string    `json:"preview_url"`  // 预览图URL
-	Images        string    `json:"images"`       // 多张图片，JSON数组格式
-	Price         int64     `json:"price"`        // 价格（灵石）
-	IsFree        bool      `json:"is_free"`      // 是否免费
-	IsFeatured    bool      `json:"is_featured"`  // 是否为精选案例
-	DownloadCount int64     `json:"download_count"` // 下载次数
-	LikeCount     int64     `json:"like_count"`    // 点赞数
-	Status        string    `json:"status"`       // published, draft, archived, pending, rejected
-	PublishScope  string    `json:"publish_scope"`
-	RejectReason  string    `json:"reject_reason"`
-	SourceType    string    `json:"source_type"`
-	Creator       string    `json:"creator"`      // 创建者展示名
-	CreatorUserID int64     `json:"creator_user_id"` // 小程序用户提交时的 user_id，用于「我的方案」
-	OriginalTaskID int64    `json:"original_task_id"` // 原始AI任务ID，用于获取提示词和参考图
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID             int64     `json:"id"`
+	Name           string    `json:"name"`
+	Category       string    `json:"category"` // villa, urban, family, culture, etc.
+	MainTab        string    `json:"main_tab"` // 一级tab value，可为空
+	SubTab         string    `json:"sub_tab"`  // 二级tab value，可为空（如果设置了main_tab但sub_tab为空，表示属于父tab）
+	Description    string    `json:"description"`
+	InternalPrompt string    `json:"-"`
+	Thumbnail      string    `json:"thumbnail"`      // 缩略图URL
+	PreviewURL     string    `json:"preview_url"`    // 预览图URL
+	Images         string    `json:"images"`         // 多张图片，JSON数组格式
+	Price          int64     `json:"price"`          // 价格（灵石）
+	IsFree         bool      `json:"is_free"`        // 是否免费
+	IsFeatured     bool      `json:"is_featured"`    // 是否为精选案例
+	DownloadCount  int64     `json:"download_count"` // 下载次数
+	LikeCount      int64     `json:"like_count"`     // 点赞数
+	Status         string    `json:"status"`         // published, draft, archived, pending, rejected
+	PublishScope   string    `json:"publish_scope"`
+	RejectReason   string    `json:"reject_reason"`
+	SourceType     string    `json:"source_type"`
+	Creator        string    `json:"creator"`          // 创建者展示名
+	CreatorUserID  int64     `json:"creator_user_id"`  // 小程序用户提交时的 user_id，用于「我的方案」
+	OriginalTaskID int64     `json:"original_task_id"` // 原始AI任务ID，用于获取提示词和参考图
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+const LegacyTemplatePromptPrefix = "\n\n提示词: "
+
+func SplitTemplateDescriptionPrompt(description string) (publicDescription, prompt string) {
+	if strings.TrimSpace(description) == "" {
+		return "", ""
+	}
+	index := strings.Index(description, LegacyTemplatePromptPrefix)
+	if index < 0 {
+		return strings.TrimSpace(description), ""
+	}
+	return strings.TrimSpace(description[:index]), strings.TrimSpace(description[index+len(LegacyTemplatePromptPrefix):])
+}
+
+func normalizeTemplateRecord(template *Template) {
+	if template == nil {
+		return
+	}
+	template.Description = strings.TrimSpace(template.Description)
+	template.InternalPrompt = strings.TrimSpace(template.InternalPrompt)
+	if template.InternalPrompt != "" {
+		return
+	}
+	publicDescription, prompt := SplitTemplateDescriptionPrompt(template.Description)
+	if prompt == "" {
+		return
+	}
+	template.Description = publicDescription
+	template.InternalPrompt = prompt
 }
 
 // TemplateModel 模板模型
@@ -53,6 +84,7 @@ CREATE TABLE IF NOT EXISTS templates (
 	main_tab VARCHAR(64) DEFAULT '' COMMENT '一级tab value，可为空',
 	sub_tab VARCHAR(64) DEFAULT '' COMMENT '二级tab value，可为空（如果设置了main_tab但sub_tab为空，表示属于父tab）',
 	description TEXT COMMENT '模板描述',
+	internal_prompt LONGTEXT COMMENT '模板内部提示词（不对前端公开）',
 	thumbnail VARCHAR(512) COMMENT '缩略图URL',
 	preview_url VARCHAR(512) COMMENT '预览图URL',
 	images TEXT COMMENT '多张图片，JSON数组格式',
@@ -89,6 +121,7 @@ CREATE TABLE IF NOT EXISTS templates (
 	// 兼容旧表：增加 main_tab 和 sub_tab 用于「模板广场双重Tab配置」
 	_, _ = m.DB.Exec(`ALTER TABLE templates ADD COLUMN main_tab VARCHAR(64) DEFAULT '' COMMENT '一级tab value，可为空'`)
 	_, _ = m.DB.Exec(`ALTER TABLE templates ADD COLUMN sub_tab VARCHAR(64) DEFAULT '' COMMENT '二级tab value，可为空'`)
+	_, _ = m.DB.Exec(`ALTER TABLE templates ADD COLUMN internal_prompt LONGTEXT COMMENT '模板内部提示词（不对前端公开）'`)
 	_, _ = m.DB.Exec(`ALTER TABLE templates ADD INDEX idx_main_tab (main_tab)`)
 	_, _ = m.DB.Exec(`ALTER TABLE templates ADD INDEX idx_sub_tab (sub_tab)`)
 	// 兼容旧表：增加 original_task_id 用于「获取原始任务的提示词和参考图」
@@ -117,8 +150,8 @@ func (m *TemplateModel) Create(template *Template) error {
 		}
 	}
 	rejectReason := strings.TrimSpace(template.RejectReason)
-	query := `INSERT INTO templates (name, category, main_tab, sub_tab, description, thumbnail, preview_url, images, price, is_free, is_featured, status, publish_scope, reject_reason, source_type, creator, creator_user_id, original_task_id)
-	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO templates (name, category, main_tab, sub_tab, description, internal_prompt, thumbnail, preview_url, images, price, is_free, is_featured, status, publish_scope, reject_reason, source_type, creator, creator_user_id, original_task_id)
+	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	isFreeInt := 0
 	if template.IsFree {
 		isFreeInt = 1
@@ -127,7 +160,7 @@ func (m *TemplateModel) Create(template *Template) error {
 	if template.IsFeatured {
 		isFeaturedInt = 1
 	}
-	result, err := m.DB.Exec(query, template.Name, template.Category, template.MainTab, template.SubTab, template.Description,
+	result, err := m.DB.Exec(query, template.Name, template.Category, template.MainTab, template.SubTab, strings.TrimSpace(template.Description), strings.TrimSpace(template.InternalPrompt),
 		template.Thumbnail, template.PreviewURL, template.Images, template.Price,
 		isFreeInt, isFeaturedInt, template.Status, publishScope, rejectReason, sourceType, template.Creator, nullableInt64(template.CreatorUserID), nullableInt64(template.OriginalTaskID))
 	if err != nil {
@@ -153,14 +186,14 @@ func nullableInt64(v int64) interface{} {
 
 // GetByID 根据ID获取模板
 func (m *TemplateModel) GetByID(id int64) (*Template, error) {
-	query := `SELECT id, name, category, main_tab, sub_tab, description, thumbnail, preview_url, images, price, is_free, is_featured,
+	query := `SELECT id, name, category, main_tab, sub_tab, description, internal_prompt, thumbnail, preview_url, images, price, is_free, is_featured,
 	          download_count, like_count, status, publish_scope, reject_reason, source_type, creator, creator_user_id, original_task_id, created_at, updated_at
 	          FROM templates WHERE id = ?`
 	template := &Template{}
 	var isFreeInt, isFeaturedInt int
 	var creatorUserID, originalTaskID sql.NullInt64
 	err := m.DB.QueryRow(query, id).Scan(
-		&template.ID, &template.Name, &template.Category, &template.MainTab, &template.SubTab, &template.Description,
+		&template.ID, &template.Name, &template.Category, &template.MainTab, &template.SubTab, &template.Description, &template.InternalPrompt,
 		&template.Thumbnail, &template.PreviewURL, &template.Images,
 		&template.Price, &isFreeInt, &isFeaturedInt, &template.DownloadCount, &template.LikeCount,
 		&template.Status, &template.PublishScope, &template.RejectReason, &template.SourceType, &template.Creator, &creatorUserID, &originalTaskID, &template.CreatedAt, &template.UpdatedAt)
@@ -175,6 +208,7 @@ func (m *TemplateModel) GetByID(id int64) (*Template, error) {
 	}
 	template.IsFree = isFreeInt == 1
 	template.IsFeatured = isFeaturedInt == 1
+	normalizeTemplateRecord(template)
 	return template, nil
 }
 
@@ -221,6 +255,7 @@ func (m *TemplateModel) List(category string, status string, limit int, offset i
 		}
 		template.IsFree = isFreeInt == 1
 		template.IsFeatured = isFeaturedInt == 1
+		normalizeTemplateRecord(template)
 		templates = append(templates, template)
 	}
 	return templates, nil
@@ -260,6 +295,7 @@ func (m *TemplateModel) ListPublicByCategory(category string, limit int, offset 
 		}
 		template.IsFree = isFreeInt == 1
 		template.IsFeatured = isFeaturedInt == 1
+		normalizeTemplateRecord(template)
 		templates = append(templates, template)
 	}
 	return templates, nil
@@ -333,6 +369,7 @@ func (m *TemplateModel) ListByCreatorUserID(creatorUserID int64, category string
 		}
 		template.IsFree = isFreeInt == 1
 		template.IsFeatured = isFeaturedInt == 1
+		normalizeTemplateRecord(template)
 		templates = append(templates, template)
 	}
 	return templates, nil
@@ -400,6 +437,7 @@ func (m *TemplateModel) ListPublishedByCreatorUserID(creatorUserID int64, catego
 		}
 		template.IsFree = isFreeInt == 1
 		template.IsFeatured = isFeaturedInt == 1
+		normalizeTemplateRecord(template)
 		templates = append(templates, template)
 	}
 	return templates, nil
@@ -440,7 +478,7 @@ func (m *TemplateModel) Update(template *Template) error {
 		isFeaturedInt = 1
 	}
 	query := `UPDATE templates
-		SET name = ?, category = ?, main_tab = ?, sub_tab = ?, description = ?, thumbnail = ?, preview_url = ?, images = ?,
+		SET name = ?, category = ?, main_tab = ?, sub_tab = ?, description = ?, internal_prompt = ?, thumbnail = ?, preview_url = ?, images = ?,
 		    price = ?, is_free = ?, is_featured = ?, status = ?, publish_scope = ?, reject_reason = ?, source_type = ?,
 		    creator = ?, creator_user_id = ?, original_task_id = ?
 		WHERE id = ?`
@@ -450,7 +488,8 @@ func (m *TemplateModel) Update(template *Template) error {
 		template.Category,
 		template.MainTab,
 		template.SubTab,
-		template.Description,
+		strings.TrimSpace(template.Description),
+		strings.TrimSpace(template.InternalPrompt),
 		template.Thumbnail,
 		template.PreviewURL,
 		template.Images,
@@ -534,6 +573,7 @@ func (m *TemplateModel) SearchPublishedTemplates(keyword string, limit int, offs
 		}
 		template.IsFree = isFreeInt == 1
 		template.IsFeatured = isFeaturedInt == 1
+		normalizeTemplateRecord(template)
 		templates = append(templates, template)
 	}
 
@@ -577,6 +617,7 @@ func (m *TemplateModel) GetHotTemplates(limit int) ([]*Template, error) {
 		}
 		template.IsFree = isFreeInt == 1
 		template.IsFeatured = isFeaturedInt == 1
+		normalizeTemplateRecord(template)
 		templates = append(templates, template)
 	}
 	return templates, nil
@@ -630,6 +671,7 @@ func (m *TemplateModel) ListByMainTabAndSubTab(mainTab string, subTab string, st
 		}
 		template.IsFree = isFreeInt == 1
 		template.IsFeatured = isFeaturedInt == 1
+		normalizeTemplateRecord(template)
 		templates = append(templates, template)
 	}
 	return templates, nil
@@ -690,6 +732,7 @@ func (m *TemplateModel) GetLatestTemplates(limit int) ([]*Template, error) {
 		}
 		template.IsFree = isFreeInt == 1
 		template.IsFeatured = isFeaturedInt == 1
+		normalizeTemplateRecord(template)
 		templates = append(templates, template)
 	}
 	return templates, nil

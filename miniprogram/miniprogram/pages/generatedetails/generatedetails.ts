@@ -1907,7 +1907,6 @@ Page({
   },
 
   publishToSquare() {
-    const { taskData } = this.data;
     const mainTabs = this.data.mainTabs || [];
     const allSubTabs = this.data.allSubTabs || [];
     const mainTabValue = this.data.publishForm.mainTab || mainTabs[0]?.value || '';
@@ -1923,7 +1922,7 @@ Page({
       subTabIndex: nextSubIndex,
       publishForm: {
         name: '',
-        description: taskData.prompt || '',
+        description: '',
         isFree: true,
         price: 0,
         mainTab: mainTabValue,
@@ -1938,7 +1937,7 @@ Page({
     const userInfo = wx.getStorageSync('userInfo') || {};
     const payload = {
       title: publishForm.name || '未命名模板',
-      description: publishForm.description || taskData.prompt || '',
+      description: publishForm.description || '',
       imageUrl: taskData.imageUrl || '',
       userName: userInfo.username || userInfo.name || '预览用户',
       userAvatar: userInfo.avatar || '',
@@ -2048,6 +2047,7 @@ Page({
       const isFree = !!publishForm.isFree;
       const price = isFree ? 0 : (publishForm.price > 0 ? publishForm.price : 1);
       const mappedCategory = publishForm.mainTab || 'scene';
+      const hiddenPrompt = String(taskData.user_prompt || taskData.prompt || '').trim();
       const body = JSON.stringify({
         name: publishForm.name,
         description: publishForm.description,
@@ -2055,7 +2055,7 @@ Page({
         main_tab: publishForm.mainTab || undefined,
         sub_tab: publishForm.subTab || undefined,
         image_url: taskData.imageUrl,
-        prompt: taskData.prompt || '',
+        prompt: hiddenPrompt,
         is_free: isFree,
         price,
         original_task_id: taskData.id || null, // 传递原始任务ID
@@ -2076,7 +2076,7 @@ Page({
           main_tab: publishForm.mainTab || undefined,
           sub_tab: publishForm.subTab || undefined,
           image_url: taskData.imageUrl,
-          prompt: taskData.prompt || '',
+          prompt: hiddenPrompt,
           is_free: isFree,
           price,
           original_task_id: taskData.id || null, // 传递原始任务ID

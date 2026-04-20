@@ -83,8 +83,10 @@ func handleGetTaskInfo(c *gin.Context, codeSessionModel *model.CodeSessionRedisM
 
 	// 提取提示词
 	prompt := ""
-	if v, ok := payload["prompt"].(string); ok {
-		prompt = v
+	if !shouldHidePromptFromPayloadMap(payload) {
+		if v, ok := payload["prompt"].(string); ok {
+			prompt = v
+		}
 	}
 	originalImageURLs := parseOriginalImagesFromPayload(task.RequestPayload)
 	referenceImageURLs := parseReferenceImagesFromPayload(task.RequestPayload)
@@ -92,7 +94,7 @@ func handleGetTaskInfo(c *gin.Context, codeSessionModel *model.CodeSessionRedisM
 
 	// 提取图片URL（支持多种字段名）
 	var imageURLs []string
-	
+
 	// 检查 images 数组
 	if images, ok := payload["images"].([]interface{}); ok {
 		for _, img := range images {
@@ -101,7 +103,7 @@ func handleGetTaskInfo(c *gin.Context, codeSessionModel *model.CodeSessionRedisM
 			}
 		}
 	}
-	
+
 	// 检查 image_urls 数组
 	if imageUrls, ok := payload["image_urls"].([]interface{}); ok {
 		for _, img := range imageUrls {
@@ -110,7 +112,7 @@ func handleGetTaskInfo(c *gin.Context, codeSessionModel *model.CodeSessionRedisM
 			}
 		}
 	}
-	
+
 	// 检查 reference_images 数组
 	if refImages, ok := payload["reference_images"].([]interface{}); ok {
 		for _, img := range refImages {
@@ -119,7 +121,7 @@ func handleGetTaskInfo(c *gin.Context, codeSessionModel *model.CodeSessionRedisM
 			}
 		}
 	}
-	
+
 	// 如果没有数组，检查单个图片字段
 	if len(imageURLs) == 0 {
 		if v, ok := payload["image"].(string); ok && v != "" {
@@ -158,7 +160,7 @@ func parseTaskID(taskIDStr string) (int64, error) {
 	if taskID, err := strconv.ParseInt(taskIDStr, 10, 64); err == nil {
 		return taskID, nil
 	}
-	
+
 	// 如果不是数字，可能是任务编号，需要通过任务编号查询
 	// 这里简化处理，如果前端传的是任务编号，需要修改调用方式
 	return 0, fmt.Errorf("invalid task ID format")

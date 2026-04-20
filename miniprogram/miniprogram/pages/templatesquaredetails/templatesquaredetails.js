@@ -1018,6 +1018,39 @@ Page({
             },
         });
     },
+    async requestTemplateGenerateTask(source) {
+        const token = this.getSimpleToken();
+        const apiPath = `/api/v1/miniprogram/templates/${this.data.templateId}/generate`;
+        const requestBody = {
+            source: String(source || '').trim(),
+        };
+        const params = (0, parameter_1.generateRequestParams)(token, requestBody, apiPath, (0, deviceFingerprint_1.getCachedDeviceFingerprint)() || '');
+        const headers = {
+            ...(0, parameter_1.paramsToHeaders)(params),
+            'Content-Type': 'application/json',
+        };
+        return new Promise((resolve, reject) => {
+            wx.request({
+                url: `${API_BASE_URL}${apiPath}`,
+                method: 'POST',
+                header: headers,
+                data: requestBody,
+                success: (res) => {
+                    if (res.statusCode === 200 && res.data) {
+                        const responseData = res.data;
+                        if (responseData.code === 0) {
+                            resolve(responseData.data || {});
+                            return;
+                        }
+                        reject(new Error(responseData.msg || 'Create task failed'));
+                        return;
+                    }
+                    reject(new Error(`Request failed: ${res.statusCode}`));
+                },
+                fail: reject,
+            });
+        });
+    },
     async startUseTemplateFlow(source) {
         if (this.data.isExhibitionTemplate) {
             await this.recordTemplateUse();
@@ -1026,6 +1059,32 @@ Page({
         }
         const ready = await this.ensureTemplateUsable();
         if (!ready) {
+            return;
+        }
+        try {
+            wx.showLoading({ title: 'Submitting...' });
+            const taskData = await this.requestTemplateGenerateTask(source);
+            wx.hideLoading();
+            const taskNo = encodeURIComponent(String(taskData.task_no || '').trim());
+            const taskType = encodeURIComponent(String(taskData.task_type || 'ai_draw').trim() || 'ai_draw');
+            const sourceQuery = encodeURIComponent(String(source || 'template').trim() || 'template');
+            wx.navigateTo({
+                url: `/pages/generatedetails/generatedetails?task_no=${taskNo}&task_type=${taskType}&source=${sourceQuery}`,
+                fail: () => {
+                    wx.showToast({
+                        title: 'Navigation failed',
+                        icon: 'none',
+                    });
+                },
+            });
+            return;
+        }
+        catch (error) {
+            wx.hideLoading();
+            wx.showToast({
+                title: String((error === null || error === void 0 ? void 0 : error.message) || 'Create task failed'),
+                icon: 'none',
+            });
             return;
         }
         await this.recordTemplateUse();

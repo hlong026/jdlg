@@ -1097,6 +1097,40 @@ Page({
     });
   },
 
+  async requestTemplateGenerateTask(source: string) {
+    const token = this.getSimpleToken();
+    const apiPath = `/api/v1/miniprogram/templates/${this.data.templateId}/generate`;
+    const requestBody = {
+      source: String(source || '').trim(),
+    };
+    const params = generateRequestParams(token, requestBody, apiPath, getCachedDeviceFingerprint() || '');
+    const headers = {
+      ...paramsToHeaders(params),
+      'Content-Type': 'application/json',
+    };
+    return new Promise<any>((resolve, reject) => {
+      wx.request({
+        url: `${API_BASE_URL}${apiPath}`,
+        method: 'POST',
+        header: headers,
+        data: requestBody,
+        success: (res) => {
+          if (res.statusCode === 200 && res.data) {
+            const responseData = res.data as any;
+            if (responseData.code === 0) {
+              resolve(responseData.data || {});
+              return;
+            }
+            reject(new Error(responseData.msg || 'Create task failed'));
+            return;
+          }
+          reject(new Error(`Request failed: ${res.statusCode}`));
+        },
+        fail: reject,
+      });
+    });
+  },
+
   async startUseTemplateFlow(source: string) {
     if (this.data.isExhibitionTemplate) {
       await this.recordTemplateUse();
@@ -1106,6 +1140,32 @@ Page({
 
     const ready = await this.ensureTemplateUsable();
     if (!ready) {
+      return;
+    }
+
+    try {
+      wx.showLoading({ title: 'Submitting...' });
+      const taskData = await this.requestTemplateGenerateTask(source);
+      wx.hideLoading();
+      const taskNo = encodeURIComponent(String(taskData.task_no || '').trim());
+      const taskType = encodeURIComponent(String(taskData.task_type || 'ai_draw').trim() || 'ai_draw');
+      const sourceQuery = encodeURIComponent(String(source || 'template').trim() || 'template');
+      wx.navigateTo({
+        url: `/pages/generatedetails/generatedetails?task_no=${taskNo}&task_type=${taskType}&source=${sourceQuery}`,
+        fail: () => {
+          wx.showToast({
+            title: 'Navigation failed',
+            icon: 'none',
+          });
+        },
+      });
+      return;
+    } catch (error: any) {
+      wx.hideLoading();
+      wx.showToast({
+        title: String(error?.message || 'Create task failed'),
+        icon: 'none',
+      });
       return;
     }
 

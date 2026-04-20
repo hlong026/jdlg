@@ -52,7 +52,6 @@
       <view class="headline-top">
         <view class="headline-main">
           <text class="template-title">{{templateName || '模板详情'}}</text>
-          <text class="template-desc">{{templateDesc || noteContent || '这套效果图适合直接做同款参考使用。'}}</text>
         </view>
         <view class="status-badge {{isExhibitionTemplate ? 'display' : (isFree || unlocked ? 'active' : 'locked')}}">
           <text>{{statusBadgeText}}</text>

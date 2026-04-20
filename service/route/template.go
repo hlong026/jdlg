@@ -1,11 +1,15 @@
 package route
 
 import (
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"service/component"
+	"service/function"
 	"service/model"
 
 	"github.com/gin-gonic/gin"
@@ -69,6 +73,171 @@ func resolveTemplateDisplayImageURL(template *model.Template, imageIndex int) st
 		imageIndex = 0
 	}
 	return strings.TrimSpace(urls[imageIndex])
+}
+
+type templateGenerateBalanceError struct {
+	Required int64
+	Current  int64
+}
+
+func (e *templateGenerateBalanceError) Error() string {
+	return "insufficient balance"
+}
+
+func buildTemplateGeneratePayload(template *model.Template, taskModel *model.AITaskModel) (string, map[string]interface{}, error) {
+	if template == nil {
+		return "", nil, fmt.Errorf("template not found")
+	}
+	imageURLs := collectTemplateDisplayImageURLs(template)
+	if len(imageURLs) == 0 {
+		return "", nil, fmt.Errorf("template has no usable reference images")
+	}
+
+	payload := make(map[string]interface{})
+	scene := ""
+	if template.OriginalTaskID > 0 && taskModel != nil {
+		task, err := taskModel.GetByID(template.OriginalTaskID)
+		if err == nil && task != nil {
+			scene = strings.TrimSpace(task.Scene)
+			if strings.TrimSpace(task.RequestPayload) != "" {
+				_ = json.Unmarshal([]byte(task.RequestPayload), &payload)
+			}
+		}
+	}
+	if payload == nil {
+		payload = make(map[string]interface{})
+	}
+	if scene != "ai_draw_single" && scene != "ai_draw_multi" {
+		if len(imageURLs) > 1 {
+			scene = "ai_draw_multi"
+		} else {
+			scene = "ai_draw_single"
+		}
+	}
+
+	prompt := strings.TrimSpace(getStringFromPayload(payload, "prompt"))
+	if prompt == "" {
+		prompt = strings.TrimSpace(template.InternalPrompt)
+	}
+	if prompt == "" {
+		return "", nil, fmt.Errorf("template has no hidden prompt configured")
+	}
+
+	payload["prompt"] = prompt
+	payload["user_prompt"] = ""
+	payload["template_id"] = template.ID
+	payload["hide_prompt_in_response"] = true
+	payload["generate_count"] = 1
+	payload["images"] = imageURLs
+	payload["reference_image_urls"] = imageURLs
+	payload["ordered_image_urls"] = imageURLs
+	payload["original_image_urls"] = []string{}
+	payload["reference_image_url"] = imageURLs[0]
+	if len(imageURLs) == 1 {
+		payload["image_url"] = imageURLs[0]
+	} else {
+		delete(payload, "image_url")
+	}
+
+	return scene, payload, nil
+}
+
+func createTemplateGenerateTask(userID int64, scene string, payload map[string]interface{}, userModel *model.UserRedisModel, pricingModel *model.AIPricingModel, taskModel *model.AITaskModel, stoneRecordModel *model.StoneRecordModel, userOrderModel *model.UserOrderModel, aiToolModel *model.AIToolModel) (*model.AITask, int64, error) {
+	pricing, err := pricingModel.GetByScene(scene)
+	if err != nil {
+		return nil, 0, fmt.Errorf("invalid generation scene: %w", err)
+	}
+
+	generateCount := int64(1)
+	if pricingConfig := parsePricingExtraConfig(pricing); pricingConfig != nil {
+		if configGenerateCount, ok := getPricingIntOption(pricingConfig, "generate_count", "default_generate_count"); ok && configGenerateCount > 0 {
+			generateCount = configGenerateCount
+		}
+	}
+	if payloadGenerateCount := getInt64FromPayload(payload, "generate_count"); payloadGenerateCount > 0 {
+		generateCount = payloadGenerateCount
+	}
+	if generateCount > 3 {
+		generateCount = 3
+	}
+	payload["generate_count"] = generateCount
+
+	if strings.HasPrefix(scene, "ai_draw") {
+		payload["prompt"] = component.BuildAIDrawPrompt(payload)
+	}
+
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to marshal generation payload: %w", err)
+	}
+
+	totalStones := pricing.Stones * generateCount
+	currentStones, err := userModel.GetStones(userID)
+	if err != nil {
+		return nil, 0, err
+	}
+	if currentStones < totalStones {
+		return nil, 0, &templateGenerateBalanceError{Required: totalStones, Current: currentStones}
+	}
+	if err := userModel.DeductStones(userID, totalStones); err != nil {
+		return nil, 0, err
+	}
+
+	tx, err := taskModel.DB.Begin()
+	if err != nil {
+		_ = userModel.AddStones(userID, totalStones)
+		return nil, 0, err
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	consumeTitle := fmt.Sprintf("template-generate-%s-%d", scene, generateCount)
+	if stoneRecordModel != nil {
+		if err := stoneRecordModel.CreateWithTx(tx, userID, "consume", totalStones, consumeTitle, ""); err != nil {
+			_ = userModel.AddStones(userID, totalStones)
+			return nil, 0, err
+		}
+	}
+	if userOrderModel != nil {
+		orderNo := model.GenerateOrderNo("ORD")
+		if err := userOrderModel.CreateWithTx(tx, userID, orderNo, "consume", -totalStones, "success", consumeTitle, ""); err != nil {
+			_ = userModel.AddStones(userID, totalStones)
+			return nil, 0, err
+		}
+	}
+
+	task := &model.AITask{
+		TaskNo:         function.GenerateTaskNo(),
+		UserID:         userID,
+		Scene:          scene,
+		RequestPayload: string(payloadJSON),
+		Status:         "pending",
+		StonesUsed:     totalStones,
+	}
+	if toolID := getInt64FromPayload(payload, "tool_id"); toolID > 0 {
+		task.ToolID = sql.NullInt64{Int64: toolID, Valid: true}
+	}
+	if err := taskModel.CreateWithTx(tx, task); err != nil {
+		_ = userModel.AddStones(userID, totalStones)
+		return nil, 0, err
+	}
+	if task.ToolID.Valid && aiToolModel != nil {
+		if err := aiToolModel.IncrementUsageCountWithTx(tx, task.ToolID.Int64); err != nil {
+			_ = userModel.AddStones(userID, totalStones)
+			return nil, 0, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		_ = userModel.AddStones(userID, totalStones)
+		return nil, 0, err
+	}
+	committed = true
+
+	return task, totalStones, nil
 }
 
 func defaultTemplateSquareMainTabs() []gin.H {
@@ -151,17 +320,13 @@ func isPublicSquareTemplate(template *model.Template) bool {
 
 // templateToResponse 组装模板详情响应，保证返回 name、description、thumbnail、preview_url、images 等字段；
 // showPrompt 为 true 时返回 prompt 字段；paidLocked 为 true 时 description 不含提示词
-func templateToResponse(template *model.Template, showPrompt, paidLocked bool, creatorInfo *gin.H) gin.H {
-	descWithoutPrompt, prompt := splitDescriptionPrompt(template.Description)
-	description := template.Description
-	if paidLocked {
-		description = descWithoutPrompt
-	}
+func templateToResponse(template *model.Template, paidLocked bool, creatorInfo *gin.H) gin.H {
+	_ = paidLocked
 	resp := gin.H{
 		"id":                template.ID,
 		"name":              template.Name,
 		"category":          template.Category,
-		"description":       description,
+		"description":       template.Description,
 		"thumbnail":         template.Thumbnail,
 		"preview_url":       template.PreviewURL,
 		"images":            template.Images,
@@ -178,9 +343,6 @@ func templateToResponse(template *model.Template, showPrompt, paidLocked bool, c
 		"created_at":        template.CreatedAt,
 		"updated_at":        template.UpdatedAt,
 		"has_original_task": template.OriginalTaskID > 0,
-	}
-	if showPrompt {
-		resp["prompt"] = prompt
 	}
 	resp["unlocked"] = !paidLocked
 	// 添加创建者用户信息
@@ -291,7 +453,7 @@ func fillTemplateStats(resp gin.H, templateID int64, templateCommentModel *model
 }
 
 // RegisterTemplateRoutes 注册小程序模板路由
-func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateModel, templateCategoryModel *model.TemplateCategoryModel, templateSquareConfigModel *model.TemplateSquareConfigModel, templateUnlockModel *model.TemplateUnlockModel, templateLikeModel *model.TemplateLikeModel, templateCommentModel *model.TemplateCommentModel, templateShareModel *model.TemplateShareModel, codeSessionModel *model.CodeSessionRedisModel, userModel *model.UserRedisModel, stoneRecordModel *model.StoneRecordModel, userOrderModel *model.UserOrderModel, userProfileModel *model.UserProfileModel, userMembershipModel *model.UserMembershipModel, userDBModel *model.UserModel, featuredCaseGroupModel *model.FeaturedCaseGroupModel, taskModel *model.AITaskModel) {
+func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateModel, templateCategoryModel *model.TemplateCategoryModel, templateSquareConfigModel *model.TemplateSquareConfigModel, templateUnlockModel *model.TemplateUnlockModel, templateLikeModel *model.TemplateLikeModel, templateCommentModel *model.TemplateCommentModel, templateShareModel *model.TemplateShareModel, codeSessionModel *model.CodeSessionRedisModel, userModel *model.UserRedisModel, pricingModel *model.AIPricingModel, stoneRecordModel *model.StoneRecordModel, userOrderModel *model.UserOrderModel, userProfileModel *model.UserProfileModel, userMembershipModel *model.UserMembershipModel, userDBModel *model.UserModel, featuredCaseGroupModel *model.FeaturedCaseGroupModel, taskModel *model.AITaskModel, aiToolModel *model.AIToolModel) {
 	templates := r.Group("/templates")
 	{
 		// 获取模板列表（公开接口，不需要认证）
@@ -438,17 +600,17 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 				if err == nil && case1 != nil && isPublicSquareTemplate(case1) {
 					creatorInfo := buildTemplateCreatorInfo(case1.CreatorUserID, userProfileModel, userDBModel)
 					groupData["case1"] = gin.H{
-						"id":             case1.ID,
-						"name":           case1.Name,
-						"description":    case1.Description,
-						"thumbnail":      case1.Thumbnail,
-						"preview_url":    case1.PreviewURL,
-						"images":         case1.Images,
-						"price":          case1.Price,
-						"is_free":        case1.IsFree,
-						"download_count": case1.DownloadCount,
-						"like_count":     case1.LikeCount,
-						"creator":        case1.Creator,
+						"id":              case1.ID,
+						"name":            case1.Name,
+						"description":     case1.Description,
+						"thumbnail":       case1.Thumbnail,
+						"preview_url":     case1.PreviewURL,
+						"images":          case1.Images,
+						"price":           case1.Price,
+						"is_free":         case1.IsFree,
+						"download_count":  case1.DownloadCount,
+						"like_count":      case1.LikeCount,
+						"creator":         case1.Creator,
 						"creator_user_id": case1.CreatorUserID,
 						"creator_info":    creatorInfo,
 					}
@@ -460,17 +622,17 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 					if err == nil && case2 != nil && isPublicSquareTemplate(case2) {
 						creatorInfo := buildTemplateCreatorInfo(case2.CreatorUserID, userProfileModel, userDBModel)
 						groupData["case2"] = gin.H{
-							"id":             case2.ID,
-							"name":           case2.Name,
-							"description":    case2.Description,
-							"thumbnail":      case2.Thumbnail,
-							"preview_url":    case2.PreviewURL,
-							"images":         case2.Images,
-							"price":          case2.Price,
-							"is_free":        case2.IsFree,
-							"download_count": case2.DownloadCount,
-							"like_count":     case2.LikeCount,
-							"creator":        case2.Creator,
+							"id":              case2.ID,
+							"name":            case2.Name,
+							"description":     case2.Description,
+							"thumbnail":       case2.Thumbnail,
+							"preview_url":     case2.PreviewURL,
+							"images":          case2.Images,
+							"price":           case2.Price,
+							"is_free":         case2.IsFree,
+							"download_count":  case2.DownloadCount,
+							"like_count":      case2.LikeCount,
+							"creator":         case2.Creator,
 							"creator_user_id": case2.CreatorUserID,
 							"creator_info":    creatorInfo,
 						}
@@ -572,26 +734,26 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 				}
 				creatorInfo := buildTemplateCreatorInfo(t.CreatorUserID, userProfileModel, userDBModel)
 				respList = append(respList, gin.H{
-					"id":             t.ID,
-					"name":           t.Name,
-					"description":    t.Description,
-					"thumbnail":      t.Thumbnail,
-					"preview_url":    t.PreviewURL,
-					"images":         t.Images,
-					"price":          t.Price,
-					"is_free":        t.IsFree,
-					"download_count": t.DownloadCount,
-					"like_count":     t.LikeCount,
-					"category":       t.Category,
-					"main_tab":       t.MainTab,
-					"sub_tab":        t.SubTab,
-					"status":         t.Status,
-					"publish_scope":  t.PublishScope,
-					"source_type":    t.SourceType,
-					"creator":        t.Creator,
+					"id":              t.ID,
+					"name":            t.Name,
+					"description":     t.Description,
+					"thumbnail":       t.Thumbnail,
+					"preview_url":     t.PreviewURL,
+					"images":          t.Images,
+					"price":           t.Price,
+					"is_free":         t.IsFree,
+					"download_count":  t.DownloadCount,
+					"like_count":      t.LikeCount,
+					"category":        t.Category,
+					"main_tab":        t.MainTab,
+					"sub_tab":         t.SubTab,
+					"status":          t.Status,
+					"publish_scope":   t.PublishScope,
+					"source_type":     t.SourceType,
+					"creator":         t.Creator,
 					"creator_user_id": t.CreatorUserID,
-					"created_at":     t.CreatedAt,
-					"updated_at":     t.UpdatedAt,
+					"created_at":      t.CreatedAt,
+					"updated_at":      t.UpdatedAt,
 					"creator_info":    creatorInfo,
 				})
 			}
@@ -674,7 +836,7 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 					continue
 				}
 				creatorInfo := buildTemplateCreatorInfo(template.CreatorUserID, userProfileModel, userDBModel)
-				item := templateToResponse(template, false, false, creatorInfo)
+				item := templateToResponse(template, false, creatorInfo)
 				item["main_tab"] = template.MainTab
 				item["sub_tab"] = template.SubTab
 				item["liked"] = true
@@ -718,7 +880,7 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 			// 获取创建者用户信息
 			creatorInfo := buildTemplateCreatorInfo(template.CreatorUserID, userProfileModel, userDBModel)
 
-			data := templateToResponse(template, false, paidLocked, creatorInfo)
+			data := templateToResponse(template, paidLocked, creatorInfo)
 			fillTemplateStats(data, template.ID, templateCommentModel, templateShareModel)
 			appendTemplateDownloadState(data, false, false, false, nil, false)
 			c.JSON(http.StatusOK, gin.H{
@@ -849,7 +1011,7 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 			// 获取创建者用户信息
 			creatorInfo := buildTemplateCreatorInfo(template.CreatorUserID, userProfileModel, userDBModel)
 
-			data := templateToResponse(template, !paidLocked, paidLocked, creatorInfo)
+			data := templateToResponse(template, paidLocked, creatorInfo)
 			fillTemplateStats(data, template.ID, templateCommentModel, templateShareModel)
 			phoneVerified, rechargeMember, canDownload, activeMembership, legacyRecharge, accessErr := resolveTemplateDownloadAccess(userOrderModel, userProfileModel, userMembershipModel, codeSession.UserID)
 			if accessErr != nil {
@@ -859,6 +1021,48 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 			appendTemplateDownloadState(data, true, phoneVerified, rechargeMember, activeMembership, legacyRecharge)
 			data["can_download_images"] = canDownload
 			c.JSON(http.StatusOK, gin.H{"code": 0, "msg": "success", "data": data})
+		})
+
+		templatesAuth.POST("/:id/generate", func(c *gin.Context) {
+			codeSession := GetTokenCodeSession(c)
+			if codeSession == nil {
+				c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": "token validation failed"})
+				return
+			}
+			id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "invalid template id"})
+				return
+			}
+			template, err := templateModel.GetByID(id)
+			if err != nil || !isPublicSquareTemplate(template) {
+				c.JSON(http.StatusNotFound, gin.H{"code": 404, "msg": "template not found"})
+				return
+			}
+			if !template.IsFree && template.Price > 0 {
+				unlocked, _ := templateUnlockModel.HasUnlocked(codeSession.UserID, id)
+				if !unlocked {
+					c.JSON(http.StatusForbidden, gin.H{"code": 403, "msg": "please unlock template before generating"})
+					return
+				}
+			}
+
+			scene, payload, err := buildTemplateGeneratePayload(template, taskModel)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": err.Error()})
+				return
+			}
+			task, totalStones, err := createTemplateGenerateTask(codeSession.UserID, scene, payload, userModel, pricingModel, taskModel, stoneRecordModel, userOrderModel, aiToolModel)
+			if err != nil {
+				if balanceErr, ok := err.(*templateGenerateBalanceError); ok {
+					c.JSON(http.StatusPaymentRequired, gin.H{"code": 402, "msg": "insufficient balance", "data": gin.H{"required": balanceErr.Required, "current": balanceErr.Current}})
+					return
+				}
+				c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "failed to create template task: " + err.Error()})
+				return
+			}
+			_ = templateModel.IncrementDownloadCount(id)
+			c.JSON(http.StatusOK, gin.H{"code": 0, "msg": "task submitted", "data": gin.H{"task_id": task.ID, "task_no": task.TaskNo, "task_type": "ai_draw", "stones_used": totalStones}})
 		})
 
 		// 发表评论（需要 token）
@@ -1070,8 +1274,8 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 			}
 			templateModel.IncrementDownloadCount(id)
 			c.JSON(http.StatusOK, gin.H{"code": 0, "msg": "下载成功", "data": gin.H{
-				"template_id": id,
-				"image_urls": imageURLs,
+				"template_id":   id,
+				"image_urls":    imageURLs,
 				"download_urls": downloadURLs,
 			}})
 		})
@@ -1215,8 +1419,8 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 				Name           string `json:"name" binding:"required"`
 				Description    string `json:"description"`
 				Category       string `json:"category"`
-				MainTab        string `json:"main_tab"`          // 一级 Tab（可选）
-				SubTab         string `json:"sub_tab"`           // 二级 Tab（可选）
+				MainTab        string `json:"main_tab"` // 一级 Tab（可选）
+				SubTab         string `json:"sub_tab"`  // 二级 Tab（可选）
 				ImageURL       string `json:"image_url" binding:"required"`
 				Prompt         string `json:"prompt"`
 				IsFree         *bool  `json:"is_free"`          // 是否免费，默认 true
@@ -1246,25 +1450,21 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 
 			// 创建模板为待审核（status=pending），后台审核通过后改为 published 才会在广场展示
 			template := &model.Template{
-				Name: req.Name,
-				Description: req.Description + (func() string {
-					if req.Prompt != "" {
-						return "\n\n提示词: " + req.Prompt
-					}
-					return ""
-				})(),
-				Category:      req.Category,
-				MainTab:       req.MainTab,
-				SubTab:        req.SubTab,
-				Thumbnail:     req.ImageURL,
-				PreviewURL:    req.ImageURL,
-				IsFree:        isFree,
-				Price:         price,
-				Creator:       "用户投稿",
-				CreatorUserID: codeSession.UserID, // 用于「我的方案」展示
-				Status:        "pending",          // 待审核，后台通过后改为 published
-				PublishScope:  "square",
-				SourceType:    "ai_generated",
+				Name:           req.Name,
+				Description:    strings.TrimSpace(req.Description),
+				InternalPrompt: strings.TrimSpace(req.Prompt),
+				Category:       req.Category,
+				MainTab:        req.MainTab,
+				SubTab:         req.SubTab,
+				Thumbnail:      req.ImageURL,
+				PreviewURL:     req.ImageURL,
+				IsFree:         isFree,
+				Price:          price,
+				Creator:        "用户投稿",
+				CreatorUserID:  codeSession.UserID, // 用于「我的方案」展示
+				Status:         "pending",          // 待审核，后台通过后改为 published
+				PublishScope:   "square",
+				SourceType:     "ai_generated",
 			}
 
 			// 如果提供了原始任务ID，设置关联
@@ -1357,6 +1557,7 @@ func handleGetTemplateOriginalTask(c *gin.Context, templateModel *model.Template
 	if v, ok := payload["prompt"].(string); ok {
 		prompt = v
 	}
+	_ = prompt
 
 	// 提取参考图URL（支持多种字段名）
 	var imageURLs []string
@@ -1419,7 +1620,7 @@ func handleGetTemplateOriginalTask(c *gin.Context, templateModel *model.Template
 		"code": 0,
 		"msg":  "success",
 		"data": gin.H{
-			"prompt":               prompt,
+			"prompt":               "",
 			"image_urls":           imageURLs,
 			"original_image_urls":  []string{},
 			"reference_image_urls": referenceImageURLs,
