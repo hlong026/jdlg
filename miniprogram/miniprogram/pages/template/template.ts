@@ -87,7 +87,7 @@ type CardTapEvent = {
 const TEMPLATE_DETAIL_CACHE_TTL = 2 * 60 * 1000;
 const detailPrefetchingKeys = new Set<string>();
 
-const AI_TOOLS_MAIN_TAB: MainTabItem = { label: 'AI生图工具', value: 'ai_tools' };
+const AI_TOOLS_MAIN_TAB: MainTabItem = { label: '工具', value: 'ai_tools' };
 
 const TEMPLATE_MAIN_TABS: MainTabItem[] = [
   { label: '场景', value: 'scene' },

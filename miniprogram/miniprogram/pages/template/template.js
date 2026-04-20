@@ -6,7 +6,7 @@ const perf_1 = require("../../utils/perf");
 const API_BASE_URL = 'https://api.jiadilingguang.com';
 const TEMPLATE_DETAIL_CACHE_TTL = 2 * 60 * 1000;
 const detailPrefetchingKeys = new Set();
-const AI_TOOLS_MAIN_TAB = { label: 'AI生图工具', value: 'ai_tools' };
+const AI_TOOLS_MAIN_TAB = { label: '工具', value: 'ai_tools' };
 const TEMPLATE_MAIN_TABS = [
     { label: '场景', value: 'scene' },
     { label: '风格', value: 'style' },
