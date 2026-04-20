@@ -366,7 +366,7 @@ Page({
   },
 
   async onMakeSame() {
-    await this.startUseTemplateFlow('template');
+    await this.startUseTemplateFlow('make_same');
   },
 
   getSimpleToken(): string {
@@ -1112,7 +1112,7 @@ Page({
     };
     const query = [
       `templateId=${this.data.templateId || 0}`,
-      `source=${encodeURIComponent(source || 'template_display')}`,
+      `source=${encodeURIComponent(source || 'make_same')}`,
     ];
 
     if (referenceImage) {
@@ -1141,7 +1141,7 @@ Page({
     }
 
     await this.recordTemplateUse();
-    await this.navigateToDisplayGenerate(source || 'template');
+    await this.navigateToDisplayGenerate(source || 'make_same');
     return;
     /*
     wx.navigateTo({

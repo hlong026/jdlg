@@ -332,7 +332,7 @@ Page({
         }
     },
     async onMakeSame() {
-        await this.startUseTemplateFlow('template');
+        await this.startUseTemplateFlow('make_same');
     },
     getSimpleToken() {
         const token = String(wx.getStorageSync('token') || '').trim();
@@ -1033,7 +1033,7 @@ Page({
         };
         const query = [
             `templateId=${this.data.templateId || 0}`,
-            `source=${encodeURIComponent(source || 'template_display')}`,
+            `source=${encodeURIComponent(source || 'make_same')}`,
         ];
         if (referenceImage) {
             query.push(`reference_image_url=${encodeURIComponent(referenceImage)}`);
@@ -1059,7 +1059,7 @@ Page({
             }
         }
         await this.recordTemplateUse();
-        await this.navigateToDisplayGenerate(source || 'template');
+        await this.navigateToDisplayGenerate(source || 'make_same');
         return;
         /*
         wx.navigateTo({
