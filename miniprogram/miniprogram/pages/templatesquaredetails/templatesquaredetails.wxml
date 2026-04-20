@@ -53,6 +53,7 @@
       <view class="headline-top">
         <view class="headline-main">
           <text class="template-title">{{templateName || '模板详情'}}</text>
+          <text wx:if="{{templateDesc || noteContent}}" class="template-desc">{{templateDesc || noteContent}}</text>
         </view>
         <view class="status-badge {{isExhibitionTemplate ? 'display' : (isFree || unlocked ? 'active' : 'locked')}}">
           <text>{{statusBadgeText}}</text>
