@@ -1,6 +1,7 @@
 // pages/template/template.ts
 
 import { resolveAssetPath } from '../../utils/asset';
+import { getPageCache, prefetchImages, setPageCache } from '../../utils/perf';
 
 export {};
 
@@ -82,6 +83,9 @@ type CardTapEvent = {
     };
   };
 };
+
+const TEMPLATE_DETAIL_CACHE_TTL = 2 * 60 * 1000;
+const detailPrefetchingKeys = new Set<string>();
 
 const AI_TOOLS_MAIN_TAB: MainTabItem = { label: 'AI生图工具', value: 'ai_tools' };
 
@@ -521,6 +525,59 @@ function buildTemplateCacheKey(mainTabValue: string, subTabValue: string, keywor
   return [String(mainTabValue || '').trim(), String(subTabValue || '').trim(), String(keyword || '').trim().toLowerCase()].join('::');
 }
 
+function buildDetailCacheKey(targetType: 'template' | 'inspiration', id: number) {
+  return `${targetType}-detail:${Number(id || 0)}`;
+}
+
+function parseTemplateImages(value: unknown): string[] {
+  const rawValue = typeof value === 'string' ? value.trim() : '';
+  if (!rawValue) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    const urls: string[] = [];
+    parsed.forEach((item) => {
+      if (typeof item === 'string' && item.trim()) {
+        urls.push(item.trim());
+        return;
+      }
+      if (item && typeof item === 'object') {
+        const imageUrl = String((item as { image?: string; url?: string; preview_url?: string }).image || (item as { url?: string }).url || (item as { preview_url?: string }).preview_url || '').trim();
+        if (imageUrl) {
+          urls.push(imageUrl);
+        }
+      }
+    });
+    return urls;
+  } catch (error) {
+    return [];
+  }
+}
+
+function getTemplatePrefetchImageCandidates(payload: any, fallbackImage = ''): string[] {
+  return [
+    String(payload?.preview_url || '').trim(),
+    String(payload?.thumbnail || '').trim(),
+    ...parseTemplateImages(payload?.images),
+    String(fallbackImage || '').trim(),
+  ].filter((item, index, list) => Boolean(item) && list.indexOf(item) === index);
+}
+
+function getInspirationPrefetchImageCandidates(payload: any, fallbackImage = ''): string[] {
+  const images = Array.isArray(payload?.images) ? payload.images : [];
+  return [
+    String(payload?.cover_image || '').trim(),
+    ...images.map((item: unknown) => String(item || '').trim()),
+    String(fallbackImage || '').trim(),
+  ].filter((item, index, list) => Boolean(item) && list.indexOf(item) === index);
+}
+
 Page({
   templateFirstPageCache: {} as Record<string, { cards: TemplateListItem[]; hasMore: boolean; nextPage: number }>,
   requestSerial: 0,
@@ -593,6 +650,51 @@ Page({
       leftColumnCards,
       rightColumnCards,
     });
+  },
+
+  prefetchCardDetail(card: TemplateListItem) {
+    if (!card || card.localDemo || !Number(card.id) || (card.targetType !== 'template' && card.targetType !== 'inspiration')) {
+      return;
+    }
+
+    const targetType = card.targetType === 'inspiration' ? 'inspiration' : 'template';
+    const cacheKey = buildDetailCacheKey(targetType, Number(card.id));
+    if (getPageCache(cacheKey) || detailPrefetchingKeys.has(cacheKey)) {
+      return;
+    }
+
+    detailPrefetchingKeys.add(cacheKey);
+    wx.request({
+      url: targetType === 'template'
+        ? `${API_BASE_URL}/api/v1/miniprogram/templates/${Number(card.id)}`
+        : `${API_BASE_URL}/api/v1/miniprogram/inspirations/${Number(card.id)}`,
+      method: 'GET',
+      success: (res) => {
+        const response = (res.data || {}) as { code?: number; data?: any };
+        if (res.statusCode !== 200 || response.code !== 0 || !response.data) {
+          return;
+        }
+
+        setPageCache(cacheKey, response.data, TEMPLATE_DETAIL_CACHE_TTL);
+        const imageCandidates = targetType === 'template'
+          ? getTemplatePrefetchImageCandidates(response.data, card.image)
+          : getInspirationPrefetchImageCandidates(response.data, card.image);
+        void prefetchImages(imageCandidates, 2);
+      },
+      complete: () => {
+        detailPrefetchingKeys.delete(cacheKey);
+      },
+    });
+  },
+
+  warmLeadingCards(cards: TemplateListItem[], count = 2) {
+    const nextCards = Array.isArray(cards) ? cards.filter((item) => item && !item.localDemo) : [];
+    if (!nextCards.length) {
+      return;
+    }
+
+    void prefetchImages(nextCards.map((item) => item.image), count);
+    nextCards.slice(0, count).forEach((item) => this.prefetchCardDetail(item));
   },
 
   async initializePage() {
@@ -728,6 +830,7 @@ Page({
       const cachedEntry = this.templateFirstPageCache[currentCacheKey];
       if (cachedEntry && Array.isArray(cachedEntry.cards) && cachedEntry.cards.length > 0) {
         this.syncWaterfallCards(cachedEntry.cards);
+        this.warmLeadingCards(cachedEntry.cards, 2);
         this.setData({
           loading: false,
           page: cachedEntry.nextPage,
@@ -800,6 +903,7 @@ Page({
 
     const nextCards = reset ? mappedList : [...this.data.displayCards, ...mappedList];
     this.syncWaterfallCards(nextCards);
+    this.warmLeadingCards(reset ? nextCards : mappedList, reset ? 2 : 1);
 
     if (reset) {
       this.templateFirstPageCache[currentCacheKey] = {
@@ -822,6 +926,7 @@ Page({
     const id = Number(e.currentTarget.dataset.id);
     const targetType = String(e.currentTarget.dataset.targetType || 'template');
     const localDemo = e.currentTarget.dataset.localDemo === true || e.currentTarget.dataset.localDemo === 'true';
+    const targetCard = (this.data.displayCards || []).find((item) => Number(item.id) === id && item.targetType === targetType);
 
     if (localDemo) {
       wx.showToast({
@@ -834,6 +939,10 @@ Page({
     const detailUrl = targetType === 'inspiration'
       ? `/pages/inspirationdetail/inspirationdetail?id=${id}`
       : `/pages/templatesquaredetails/templatesquaredetails?id=${id}`;
+
+    if (targetCard) {
+      this.prefetchCardDetail(targetCard);
+    }
 
     wx.navigateTo({
       url: detailUrl,

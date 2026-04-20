@@ -1,6 +1,14 @@
+import { getPageCache, prefetchImages, setPageCache } from '../../utils/perf';
+
 const API_BASE_URL = 'https://api.jiadilingguang.com';
 
 export {};
+
+const INSPIRATION_DETAIL_CACHE_TTL = 2 * 60 * 1000;
+
+function buildInspirationDetailCacheKey(inspirationId: number) {
+  return `inspiration-detail:${Number(inspirationId || 0)}`;
+}
 
 type InspirationDetail = {
   id: number;
@@ -36,7 +44,13 @@ Page({
       setTimeout(() => this.onBack(), 300);
       return;
     }
-    this.loadDetail();
+    const cachedDetail = getPageCache<InspirationDetail>(buildInspirationDetailCacheKey(inspirationId));
+    if (cachedDetail) {
+      this.applyDetail(cachedDetail);
+      void this.loadDetail(true);
+      return;
+    }
+    void this.loadDetail();
   },
 
   onBack() {
@@ -125,8 +139,19 @@ Page({
     return String(raw).replace('T', ' ').slice(0, 16);
   },
 
-  async loadDetail() {
-    this.setData({ loading: true });
+  applyDetail(detail: InspirationDetail) {
+    this.setData({
+      detail,
+      currentImage: detail.images?.[0] || detail.cover_image || '',
+      loading: false,
+    });
+    void prefetchImages([detail.cover_image || '', ...(Array.isArray(detail.images) ? detail.images : [])], 2);
+  },
+
+  async loadDetail(silent = false) {
+    if (!silent) {
+      this.setData({ loading: true });
+    }
     wx.request({
       url: `${API_BASE_URL}/api/v1/miniprogram/inspirations/${this.data.inspirationId}`,
       method: 'GET',
@@ -137,11 +162,8 @@ Page({
             ...response.data,
             created_at: this.formatDate(String(response.data.created_at || '')),
           };
-          this.setData({
-            detail,
-            currentImage: detail.images?.[0] || detail.cover_image || '',
-            loading: false,
-          });
+          setPageCache(buildInspirationDetailCacheKey(this.data.inspirationId), detail, INSPIRATION_DETAIL_CACHE_TTL);
+          this.applyDetail(detail);
           return;
         }
         this.setData({ loading: false });

@@ -3,8 +3,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 // index.ts
 // 获取应用实例
 const asset_1 = require("../../utils/asset");
+const perf_1 = require("../../utils/perf");
 const enterpriseWechat_1 = require("../../utils/enterpriseWechat");
 const API_BASE_URL = 'https://api.jiadilingguang.com';
+const TEMPLATE_DETAIL_CACHE_TTL = 2 * 60 * 1000;
+const featuredDetailPrefetching = new Set();
+function buildTemplateDetailCacheKey(templateId) {
+    return `template-detail:${Number(templateId || 0)}`;
+}
 Page({
     data: {
         featuredGroups: [],
@@ -80,11 +86,13 @@ Page({
             method: 'GET',
             success: (res) => {
                 if (res.data && res.data.code === 0 && res.data.data && res.data.data.groups) {
+                    const groups = Array.isArray(res.data.data.groups) ? res.data.data.groups : [];
                     this.setData({
-                        featuredGroups: Array.isArray(res.data.data.groups) ? res.data.data.groups : [],
+                        featuredGroups: groups,
                         featuredGroupsLoading: false,
                         lastFeaturedGroupsFetchTime: now,
                     });
+                    this.prefetchFeaturedGroups(groups);
                     return;
                 }
                 this.setData({
@@ -98,6 +106,44 @@ Page({
                     featuredGroupsLoading: false,
                 });
             },
+        });
+    },
+    prefetchFeaturedGroups(groups) {
+        const cases = [];
+        (Array.isArray(groups) ? groups : []).forEach((group) => {
+            if (group?.case1) {
+                cases.push(group.case1);
+            }
+            if (group?.case2) {
+                cases.push(group.case2);
+            }
+        });
+        const uniqueCases = cases.filter((item, index, list) => {
+            const id = Number(item?.id || 0);
+            return id > 0 && list.findIndex((candidate) => Number(candidate?.id || 0) === id) === index;
+        });
+        void (0, perf_1.prefetchImages)(uniqueCases.map((item) => item.thumbnail || item.preview_url || ''), 2);
+        uniqueCases.slice(0, 2).forEach((item) => {
+            const templateId = Number(item?.id || 0);
+            const cacheKey = buildTemplateDetailCacheKey(templateId);
+            if (!templateId || (0, perf_1.getPageCache)(cacheKey) || featuredDetailPrefetching.has(templateId)) {
+                return;
+            }
+            featuredDetailPrefetching.add(templateId);
+            wx.request({
+                url: `${API_BASE_URL}/api/v1/miniprogram/templates/${templateId}`,
+                method: 'GET',
+                success: (response) => {
+                    const body = response?.data || {};
+                    if (response?.statusCode === 200 && body.code === 0 && body.data) {
+                        (0, perf_1.setPageCache)(cacheKey, body.data, TEMPLATE_DETAIL_CACHE_TTL);
+                        void (0, perf_1.prefetchImages)([body.data.preview_url || '', body.data.thumbnail || ''], 2);
+                    }
+                },
+                complete: () => {
+                    featuredDetailPrefetching.delete(templateId);
+                },
+            });
         });
     },
     onFeaturedCaseTap(e) {

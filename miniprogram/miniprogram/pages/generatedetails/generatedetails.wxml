@@ -41,6 +41,7 @@
                       class="result-gallery-image"
                       src="{{item}}"
                       mode="aspectFill"
+                      lazy-load
                       data-index="{{index}}"
                       bindtap="previewResultImage"
                       show-menu-by-longpress="false"
@@ -236,6 +237,7 @@
             class="reference-image"
             src="{{item}}"
             mode="aspectFill"
+            lazy-load
             data-index="{{index}}"
             bindtap="previewReferenceImage"
           />

@@ -4,6 +4,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const parameter_1 = require("../../utils/parameter");
 const asset_1 = require("../../utils/asset");
 const aiError_1 = require("../../utils/aiError");
+const perf_1 = require("../../utils/perf");
 // API基础地址
 const API_BASE_URL = 'https://api.jiadilingguang.com';
 function getTaskStatusPollDelay(attempt) {
@@ -252,11 +253,6 @@ Page({
                 reference_image_url: incomingReferenceImages[0] || '',
                 reference_image_urls: incomingReferenceImages,
             });
-            setTimeout(() => {
-                if (this.data.taskData.task_no) {
-                    this.loadTaskDetail(decodedTaskNo);
-                }
-            }, 80);
         }
     },
     initNavLayout() {
@@ -470,8 +466,11 @@ Page({
         if ((data.taskKind === 'image' || data.taskKind === 'video') && data.status === 'success' && wx.getStorageSync('token')) {
             this.loadEnterpriseWechatConfig();
         }
-        if (data.status === 'pending' || data.status === 'processing') {
-            this.startPolling(data.task_no);
+        if (data.status === 'success') {
+            void (0, perf_1.prefetchImages)([
+                ...(Array.isArray(data.resultImages) ? data.resultImages : []),
+                ...(Array.isArray(data.reference_image_urls) ? data.reference_image_urls : []),
+            ], 3);
         }
     },
     onShow() {

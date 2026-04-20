@@ -20,6 +20,7 @@
               class="hero-image"
               src="{{item}}"
               mode="aspectFill"
+              lazy-load
               data-index="{{index}}"
               bindtap="onPreviewImage"
             />
@@ -111,7 +112,7 @@
       </view>
       <view class="designer-card-main">
         <view class="designer-avatar-shell">
-          <image wx:if="{{userInfo.avatar}}" class="designer-avatar" src="{{userInfo.avatar}}" mode="aspectFill" />
+          <image wx:if="{{userInfo.avatar}}" class="designer-avatar" src="{{userInfo.avatar}}" mode="aspectFill" lazy-load />
           <view wx:else class="designer-avatar designer-avatar-fallback">{{userInfo.avatarText}}</view>
         </view>
         <view class="designer-info">
@@ -145,7 +146,7 @@
       <view class="comment-list" wx:elif="{{localComments.length}}">
         <view class="comment-item" wx:for="{{localComments}}" wx:key="id">
           <view class="comment-avatar-wrap">
-            <image wx:if="{{item.userAvatar}}" class="comment-avatar" src="{{item.userAvatar}}" mode="aspectFill" />
+            <image wx:if="{{item.userAvatar}}" class="comment-avatar" src="{{item.userAvatar}}" mode="aspectFill" lazy-load />
             <view wx:else class="comment-avatar comment-avatar-fallback">{{item.userAvatarText}}</view>
           </view>
           <view class="comment-body">

@@ -1,6 +1,7 @@
 // index.ts
 // 获取应用实例
 import { resolveAssetPath } from '../../utils/asset'
+import { getPageCache, prefetchImages, setPageCache } from '../../utils/perf'
 import {
   DEFAULT_ENTERPRISE_SERVICE_PHONE,
   DEFAULT_ENTERPRISE_WECHAT_QRCODE,
@@ -12,6 +13,12 @@ import {
 } from '../../utils/enterpriseWechat'
 
 const API_BASE_URL = 'https://api.jiadilingguang.com'
+const TEMPLATE_DETAIL_CACHE_TTL = 2 * 60 * 1000
+const featuredDetailPrefetching = new Set<number>()
+
+function buildTemplateDetailCacheKey(templateId: number) {
+  return `template-detail:${Number(templateId || 0)}`
+}
 
 Page({
   data: {
@@ -95,11 +102,13 @@ Page({
       method: 'GET',
       success: (res: any) => {
         if (res.data && res.data.code === 0 && res.data.data && res.data.data.groups) {
+          const groups = Array.isArray(res.data.data.groups) ? res.data.data.groups : [];
           this.setData({
-            featuredGroups: Array.isArray(res.data.data.groups) ? res.data.data.groups : [],
+            featuredGroups: groups,
             featuredGroupsLoading: false,
             lastFeaturedGroupsFetchTime: now,
           });
+          this.prefetchFeaturedGroups(groups);
           return;
         }
 
@@ -114,6 +123,46 @@ Page({
           featuredGroupsLoading: false,
         });
       },
+    });
+  },
+  prefetchFeaturedGroups(groups: any[]) {
+    const cases: any[] = [];
+    (Array.isArray(groups) ? groups : []).forEach((group) => {
+      if (group?.case1) {
+        cases.push(group.case1);
+      }
+      if (group?.case2) {
+        cases.push(group.case2);
+      }
+    });
+    const uniqueCases = cases.filter((item, index, list) => {
+      const id = Number(item?.id || 0);
+      return id > 0 && list.findIndex((candidate) => Number(candidate?.id || 0) === id) === index;
+    });
+
+    void prefetchImages(uniqueCases.map((item) => item.thumbnail || item.preview_url || ''), 2);
+    uniqueCases.slice(0, 2).forEach((item) => {
+      const templateId = Number(item?.id || 0);
+      const cacheKey = buildTemplateDetailCacheKey(templateId);
+      if (!templateId || getPageCache(cacheKey) || featuredDetailPrefetching.has(templateId)) {
+        return;
+      }
+
+      featuredDetailPrefetching.add(templateId);
+      wx.request({
+        url: `${API_BASE_URL}/api/v1/miniprogram/templates/${templateId}`,
+        method: 'GET',
+        success: (response: any) => {
+          const body = response?.data || {};
+          if (response?.statusCode === 200 && body.code === 0 && body.data) {
+            setPageCache(cacheKey, body.data, TEMPLATE_DETAIL_CACHE_TTL);
+            void prefetchImages([body.data.preview_url || '', body.data.thumbnail || ''], 2);
+          }
+        },
+        complete: () => {
+          featuredDetailPrefetching.delete(templateId);
+        },
+      });
     });
   },
   onFeaturedCaseTap(e: any) {

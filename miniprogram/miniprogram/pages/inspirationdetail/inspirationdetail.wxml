@@ -4,9 +4,9 @@
 
   <view class="page-body" wx:if="{{!loading && detail}}">
     <view class="hero-card">
-      <image class="hero-image" src="{{currentImage || detail.cover_image}}" mode="aspectFill" bindtap="onPreviewImage" data-url="{{currentImage || detail.cover_image}}" />
+      <image class="hero-image" src="{{currentImage || detail.cover_image}}" mode="aspectFill" lazy-load bindtap="onPreviewImage" data-url="{{currentImage || detail.cover_image}}" />
       <view class="thumb-list" wx:if="{{detail.images && detail.images.length > 1}}">
-        <image class="thumb-item" wx:for="{{detail.images}}" wx:key="*this" src="{{item}}" mode="aspectFill" bindtap="onPreviewImage" data-url="{{item}}" />
+        <image class="thumb-item" wx:for="{{detail.images}}" wx:key="*this" src="{{item}}" mode="aspectFill" lazy-load bindtap="onPreviewImage" data-url="{{item}}" />
       </view>
     </view>
 

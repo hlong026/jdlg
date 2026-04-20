@@ -24,7 +24,7 @@
               <view class="case-item" bindtap="onFeaturedCaseTap" data-id="{{item.case1.id}}">
                 <view class="case-image-wrapper">
                   <text class="case-label">{{item.case1_label}}</text>
-                  <image class="case-image" src="{{item.case1.thumbnail || item.case1.preview_url || defaultCoverImage}}" mode="widthFix"></image>
+                  <image class="case-image" src="{{item.case1.thumbnail || item.case1.preview_url || defaultCoverImage}}" mode="widthFix" lazy-load></image>
                 </view>
                 <view class="case-content">
                   <text class="case-item-title">{{item.case1.name}}</text>
@@ -37,7 +37,7 @@
               <view class="case-item" bindtap="onFeaturedCaseTap" data-id="{{item.case2.id}}">
                 <view class="case-image-wrapper">
                   <text class="case-label">{{item.case2_label}}</text>
-                  <image class="case-image" src="{{item.case2.thumbnail || item.case2.preview_url || defaultCoverImage}}" mode="widthFix"></image>
+                  <image class="case-image" src="{{item.case2.thumbnail || item.case2.preview_url || defaultCoverImage}}" mode="widthFix" lazy-load></image>
                 </view>
                 <view class="case-content">
                   <text class="case-item-title">{{item.case2.name}}</text>
@@ -52,7 +52,7 @@
               <view class="case-item" bindtap="onFeaturedCaseTap" data-id="{{item.case1.id}}">
                 <view class="case-image-wrapper">
                   <text class="case-label">{{item.case1_label}}</text>
-                  <image class="case-image" src="{{item.case1.thumbnail || item.case1.preview_url || defaultCoverImage}}" mode="widthFix"></image>
+                  <image class="case-image" src="{{item.case1.thumbnail || item.case1.preview_url || defaultCoverImage}}" mode="widthFix" lazy-load></image>
                 </view>
                 <view class="case-content">
                   <text class="case-item-title">{{item.case1.name}}</text>
@@ -64,7 +64,7 @@
               <view class="case-item" bindtap="onFeaturedCaseTap" data-id="{{item.case2.id}}">
                 <view class="case-image-wrapper">
                   <text class="case-label">{{item.case2_label}}</text>
-                  <image class="case-image" src="{{item.case2.thumbnail || item.case2.preview_url || defaultCoverImage}}" mode="widthFix"></image>
+                  <image class="case-image" src="{{item.case2.thumbnail || item.case2.preview_url || defaultCoverImage}}" mode="widthFix" lazy-load></image>
                 </view>
                 <view class="case-content">
                   <text class="case-item-title">{{item.case2.name}}</text>
@@ -78,7 +78,7 @@
             <view class="case-card" wx:if="{{item.case1}}">
               <view class="case-item" bindtap="onFeaturedCaseTap" data-id="{{item.case1.id}}">
                 <view class="case-image-wrapper">
-                  <image class="case-image" src="{{item.case1.thumbnail || item.case1.preview_url || defaultCoverImage}}" mode="widthFix"></image>
+                  <image class="case-image" src="{{item.case1.thumbnail || item.case1.preview_url || defaultCoverImage}}" mode="widthFix" lazy-load></image>
                 </view>
                 <view class="case-content">
                   <text class="case-item-title">{{item.case1.name}}</text>

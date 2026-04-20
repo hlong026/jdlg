@@ -2,6 +2,7 @@
 import { generateRequestParams, paramsToHeaders } from '../../utils/parameter';
 import { resolveAssetPath } from '../../utils/asset';
 import { sanitizeAIGenerationErrorMessage } from '../../utils/aiError';
+import { prefetchImages } from '../../utils/perf';
 
 // API基础地址
 const API_BASE_URL = 'https://api.jiadilingguang.com';
@@ -321,11 +322,6 @@ Page({
         reference_image_url: incomingReferenceImages[0] || '',
         reference_image_urls: incomingReferenceImages,
       });
-      setTimeout(() => {
-        if (this.data.taskData.task_no) {
-          this.loadTaskDetail(decodedTaskNo);
-        }
-      }, 80);
     }
   },
 
@@ -548,8 +544,11 @@ Page({
       this.loadEnterpriseWechatConfig();
     }
 
-    if (data.status === 'pending' || data.status === 'processing') {
-      this.startPolling(data.task_no);
+    if (data.status === 'success') {
+      void prefetchImages([
+        ...(Array.isArray(data.resultImages) ? data.resultImages : []),
+        ...(Array.isArray(data.reference_image_urls) ? data.reference_image_urls : []),
+      ], 3);
     }
   },
 

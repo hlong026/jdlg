@@ -240,6 +240,14 @@
   box-shadow: 0 8rpx 20rpx rgba(123, 95, 68, 0.04);
 }
 
+.template-card-media {
+  position: relative;
+  width: 100%;
+  height: 320rpx;
+  overflow: hidden;
+  background: #ebe4d9;
+}
+
 .template-card-skeleton {
   overflow: hidden;
 }
@@ -293,6 +301,7 @@
 .template-card-image {
   display: block;
   width: 100%;
+  height: 100%;
   background: #ebe4d9;
 }
 

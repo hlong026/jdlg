@@ -1,13 +1,19 @@
-// pages/templatesquaredetails/templatesquaredetails.ts
+﻿// pages/templatesquaredetails/templatesquaredetails.ts
 import { generateRequestParams, paramsToHeaders } from '../../utils/parameter';
 import { getCachedDeviceFingerprint } from '../../utils/deviceFingerprint';
 import { resolveAssetPath } from '../../utils/asset';
+import { getPageCache, prefetchImages, setPageCache } from '../../utils/perf';
 
 // API基础地址
 const API_BASE_URL = 'https://api.jiadilingguang.com'; // 根据实际情况修改
 const LOCAL_ENTERPRISE_WECHAT_QRCODE = resolveAssetPath('/assets/企业微信二维码.png');
 const PAGE_BACKGROUND_TOP = '#e6daca';
 const PAGE_BACKGROUND_BOTTOM = '#ece4d9';
+const TEMPLATE_DETAIL_CACHE_TTL = 3 * 60 * 1000;
+
+function buildTemplateDetailCacheKey(templateId: number) {
+  return `template-detail:${Number(templateId || 0)}`;
+}
 
 interface LocalCommentItem {
   id: string;
@@ -104,6 +110,8 @@ Page({
   },
 
   enterpriseWechatAutoCheckTimer: null as any,
+  detailLoadedToken: '',
+  detailNeedsRefreshOnShow: false,
 
   /**
    * 生命周期函数--监听页面加载
@@ -113,15 +121,14 @@ Page({
     this.setData({ token, previewShowMenu: false });
     this.syncWindowBackground();
     this.initLayoutMetrics();
+    this.initUIData();
     const id = options.id ? parseInt(options.id) : 0;
 
     if (id > 0) {
       this.setData({ templateId: id });
-      this.loadTemplateDetail();
+      const hasCachedDetail = Boolean(getPageCache<any>(buildTemplateDetailCacheKey(id)));
+      void this.loadTemplateDetail(hasCachedDetail);
     }
-
-    // 初始化UI数据
-    this.initUIData();
   },
 
   /**
@@ -130,14 +137,16 @@ Page({
   onShow() {
     this.syncWindowBackground();
     const token = wx.getStorageSync('token') || '';
+    const tokenChanged = token !== this.detailLoadedToken;
     if (token !== this.data.token) {
       this.setData({ token });
     }
     if (this.data.showEnterpriseWechatModal && Number(this.data.pendingDownloadImageIndex) >= 0) {
       this.startEnterpriseWechatAutoCheck();
     }
-    if (this.data.templateId > 0) {
-      this.loadTemplateDetail();
+    if (this.data.templateId > 0 && (this.detailNeedsRefreshOnShow || tokenChanged || !this.data.template)) {
+      this.detailNeedsRefreshOnShow = false;
+      void this.loadTemplateDetail(!!this.data.template);
     }
   },
 
@@ -746,6 +755,7 @@ Page({
       confirmText: '去充值',
       success: (res) => {
         if (res.confirm) {
+          this.detailNeedsRefreshOnShow = true;
           wx.navigateTo({ url: '/pages/topupcenter/topupcenter' });
         }
       }
@@ -767,6 +777,7 @@ Page({
         confirmText: '去登录',
         success: (res) => {
           if (res.confirm) {
+            this.detailNeedsRefreshOnShow = true;
             wx.navigateTo({ url: '/pages/login/login' });
           }
         }
@@ -800,24 +811,28 @@ Page({
     this.saveImageToAlbum(url, '保存二维码中...', '二维码已保存');
   },
 
-  async loadTemplateDetail(): Promise<void> {
-    if (this.data.loading) return;
-    this.setData({ loading: true });
+  async loadTemplateDetail(silent = false): Promise<void> {
+    if (this.data.loading && !silent) return;
+    if (!silent) {
+      this.setData({ loading: true });
+    }
 
     const token = this.data.token;
     const url = token
       ? `${API_BASE_URL}/api/v1/miniprogram/templates/${this.data.templateId}/detail`
       : `${API_BASE_URL}/api/v1/miniprogram/templates/${this.data.templateId}`;
     try {
-      const deviceID = getCachedDeviceFingerprint() || '';
-      const body = {};
-      const apiPath = token
-        ? `/api/v1/miniprogram/templates/${this.data.templateId}/detail`
-        : `/api/v1/miniprogram/templates/${this.data.templateId}`;
-      const headers = token
-        ? { ...paramsToHeaders(generateRequestParams(token, body, apiPath, deviceID)), 'Content-Type': 'application/json' }
-        : {};
-      const res = await new Promise<any>((resolve, reject) => {
+      const cacheKey = buildTemplateDetailCacheKey(this.data.templateId);
+      const cachedDetail = getPageCache<any>(cacheKey);
+      const res = cachedDetail || await new Promise<any>((resolve, reject) => {
+        const deviceID = getCachedDeviceFingerprint() || '';
+        const body = {};
+        const apiPath = token
+          ? `/api/v1/miniprogram/templates/${this.data.templateId}/detail`
+          : `/api/v1/miniprogram/templates/${this.data.templateId}`;
+        const headers = token
+          ? { ...paramsToHeaders(generateRequestParams(token, body, apiPath, deviceID)), 'Content-Type': 'application/json' }
+          : {};
         wx.request({
           url,
           method: 'GET',
@@ -838,6 +853,7 @@ Page({
           fail: reject,
         });
       });
+      setPageCache(cacheKey, res, TEMPLATE_DETAIL_CACHE_TTL);
 
       let imageList: string[] = [];
       if (res.images) {
@@ -917,14 +933,18 @@ Page({
         downloadActionHint: String(res.download_action_hint || '登录后可继续验证并下载当前模板图片'),
         enterpriseWechatVerified: !!res.user_phone_verified,
       });
+      this.detailLoadedToken = String(token || '').trim();
+      void prefetchImages([mainImage, ...imageList], 2);
       if (Number(userInfo.userId) > 0) {
         void this.loadCreatorCertificationStatus(Number(userInfo.userId));
       }
       this.updatePrimaryActionState();
-      await Promise.all([this.loadLikedState(), this.loadComments()]);
+      void Promise.allSettled([this.loadLikedState(), this.loadComments()]);
     } catch (error: any) {
       console.error('加载模板详情失败:', error);
-      wx.showToast({ title: error.message || '加载失败', icon: 'none' });
+      if (!silent) {
+        wx.showToast({ title: error.message || '加载失败', icon: 'none' });
+      }
       this.setData({ loading: false });
     }
   },

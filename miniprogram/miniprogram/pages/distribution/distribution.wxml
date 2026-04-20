@@ -52,7 +52,7 @@
           <view class="designer-person-top">
             <view class="designer-person-main">
               <view class="designer-person-avatar-shell">
-                <image wx:if="{{item.designerAvatar}}" class="designer-person-avatar" src="{{item.designerAvatar}}" mode="aspectFill"></image>
+                <image wx:if="{{item.designerAvatar}}" class="designer-person-avatar" src="{{item.designerAvatar}}" mode="aspectFill" lazy-load></image>
                 <view wx:else class="designer-person-avatar designer-person-avatar-fallback">{{item.designerAvatarText}}</view>
               </view>
 
@@ -77,7 +77,7 @@
 
           <view class="designer-person-work" bindtap="onWorkTap" data-id="{{item.id}}" data-user-id="{{item.designerUserId}}" data-publish-scope="{{item.publishScope}}">
             <view class="designer-person-work-cover {{item.placeholderToneClass}}">
-              <image wx:if="{{item.workImage}}" class="designer-person-work-image" src="{{item.workImage}}" mode="aspectFill"></image>
+              <image wx:if="{{item.workImage}}" class="designer-person-work-image" src="{{item.workImage}}" mode="aspectFill" lazy-load></image>
               <view wx:else class="designer-person-work-cover-frame">
                 <view class="designer-person-work-cover-top">
                   <view class="designer-person-work-cover-dots">

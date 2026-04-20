@@ -2,11 +2,16 @@
 // pages/template/template.ts
 Object.defineProperty(exports, "__esModule", { value: true });
 const asset_1 = require("../../utils/asset");
+const perf_1 = require("../../utils/perf");
 const API_BASE_URL = 'https://api.jiadilingguang.com';
+const TEMPLATE_DETAIL_CACHE_TTL = 2 * 60 * 1000;
+const detailPrefetchingKeys = new Set();
+const AI_TOOLS_MAIN_TAB = { label: 'AI生图工具', value: 'ai_tools' };
 const TEMPLATE_MAIN_TABS = [
     { label: '场景', value: 'scene' },
     { label: '风格', value: 'style' },
     { label: '灵感', value: 'inspiration' },
+    AI_TOOLS_MAIN_TAB,
 ];
 const TEMPLATE_SUB_TAB_MAP = {
     scene: [
@@ -39,7 +44,18 @@ function normalizeMainTabs(list) {
         value: String(item?.value || '').trim(),
     }))
         .filter((item) => item.label && item.value);
-    return normalized.length ? normalized : TEMPLATE_MAIN_TABS;
+    const result = normalized.length ? normalized : TEMPLATE_MAIN_TABS.slice();
+    const hasAIToolsTab = result.some((item) => item.value === AI_TOOLS_MAIN_TAB.value);
+    if (!hasAIToolsTab) {
+        const inspirationIndex = result.findIndex((item) => item.value === 'inspiration');
+        if (inspirationIndex >= 0) {
+            result.splice(inspirationIndex + 1, 0, AI_TOOLS_MAIN_TAB);
+        }
+        else {
+            result.push(AI_TOOLS_MAIN_TAB);
+        }
+    }
+    return result;
 }
 function normalizeSubTabs(list, mainTabs) {
     const mainValues = new Set(mainTabs.map((item) => item.value));
@@ -390,6 +406,54 @@ function getNavLayout() {
 function buildTemplateCacheKey(mainTabValue, subTabValue, keyword) {
     return [String(mainTabValue || '').trim(), String(subTabValue || '').trim(), String(keyword || '').trim().toLowerCase()].join('::');
 }
+function buildDetailCacheKey(targetType, id) {
+    return `${targetType}-detail:${Number(id || 0)}`;
+}
+function parseTemplateImages(value) {
+    const rawValue = typeof value === 'string' ? value.trim() : '';
+    if (!rawValue) {
+        return [];
+    }
+    try {
+        const parsed = JSON.parse(rawValue);
+        if (!Array.isArray(parsed)) {
+            return [];
+        }
+        const urls = [];
+        parsed.forEach((item) => {
+            if (typeof item === 'string' && item.trim()) {
+                urls.push(item.trim());
+                return;
+            }
+            if (item && typeof item === 'object') {
+                const imageUrl = String(item.image || item.url || item.preview_url || '').trim();
+                if (imageUrl) {
+                    urls.push(imageUrl);
+                }
+            }
+        });
+        return urls;
+    }
+    catch (error) {
+        return [];
+    }
+}
+function getTemplatePrefetchImageCandidates(payload, fallbackImage = '') {
+    return [
+        String(payload?.preview_url || '').trim(),
+        String(payload?.thumbnail || '').trim(),
+        ...parseTemplateImages(payload?.images),
+        String(fallbackImage || '').trim(),
+    ].filter((item, index, list) => Boolean(item) && list.indexOf(item) === index);
+}
+function getInspirationPrefetchImageCandidates(payload, fallbackImage = '') {
+    const images = Array.isArray(payload?.images) ? payload.images : [];
+    return [
+        String(payload?.cover_image || '').trim(),
+        ...images.map((item) => String(item || '').trim()),
+        String(fallbackImage || '').trim(),
+    ].filter((item, index, list) => Boolean(item) && list.indexOf(item) === index);
+}
 Page({
     templateFirstPageCache: {},
     requestSerial: 0,
@@ -454,6 +518,45 @@ Page({
             rightColumnCards,
         });
     },
+    prefetchCardDetail(card) {
+        if (!card || card.localDemo || !Number(card.id) || (card.targetType !== 'template' && card.targetType !== 'inspiration')) {
+            return;
+        }
+        const targetType = card.targetType === 'inspiration' ? 'inspiration' : 'template';
+        const cacheKey = buildDetailCacheKey(targetType, Number(card.id));
+        if ((0, perf_1.getPageCache)(cacheKey) || detailPrefetchingKeys.has(cacheKey)) {
+            return;
+        }
+        detailPrefetchingKeys.add(cacheKey);
+        wx.request({
+            url: targetType === 'template'
+                ? `${API_BASE_URL}/api/v1/miniprogram/templates/${Number(card.id)}`
+                : `${API_BASE_URL}/api/v1/miniprogram/inspirations/${Number(card.id)}`,
+            method: 'GET',
+            success: (res) => {
+                const response = (res.data || {});
+                if (res.statusCode !== 200 || response.code !== 0 || !response.data) {
+                    return;
+                }
+                (0, perf_1.setPageCache)(cacheKey, response.data, TEMPLATE_DETAIL_CACHE_TTL);
+                const imageCandidates = targetType === 'template'
+                    ? getTemplatePrefetchImageCandidates(response.data, card.image)
+                    : getInspirationPrefetchImageCandidates(response.data, card.image);
+                void (0, perf_1.prefetchImages)(imageCandidates, 2);
+            },
+            complete: () => {
+                detailPrefetchingKeys.delete(cacheKey);
+            },
+        });
+    },
+    warmLeadingCards(cards, count = 2) {
+        const nextCards = Array.isArray(cards) ? cards.filter((item) => item && !item.localDemo) : [];
+        if (!nextCards.length) {
+            return;
+        }
+        void (0, perf_1.prefetchImages)(nextCards.map((item) => item.image), count);
+        nextCards.slice(0, count).forEach((item) => this.prefetchCardDetail(item));
+    },
     async initializePage() {
         const tabConfig = await requestTabConfig();
         const mainTabs = normalizeMainTabs(tabConfig?.main_tabs);
@@ -476,6 +579,18 @@ Page({
         const index = Number(e.currentTarget.dataset.index);
         const tab = this.data.mainTabs[index];
         if (Number.isNaN(index) || index === this.data.currentMainTabIndex || !tab) {
+            return;
+        }
+        if (tab.value === AI_TOOLS_MAIN_TAB.value) {
+            wx.navigateTo({
+                url: '/pages/aitools/aitools',
+                fail: () => {
+                    wx.showToast({
+                        title: '页面跳转失败',
+                        icon: 'none',
+                    });
+                },
+            });
             return;
         }
         const nextSubTabs = getSubTabsByMainTab(tab.value, this.data.allSubTabs || []);
@@ -557,6 +672,7 @@ Page({
             const cachedEntry = this.templateFirstPageCache[currentCacheKey];
             if (cachedEntry && Array.isArray(cachedEntry.cards) && cachedEntry.cards.length > 0) {
                 this.syncWaterfallCards(cachedEntry.cards);
+                this.warmLeadingCards(cachedEntry.cards, 2);
                 this.setData({
                     loading: false,
                     page: cachedEntry.nextPage,
@@ -624,6 +740,7 @@ Page({
         }
         const nextCards = reset ? mappedList : [...this.data.displayCards, ...mappedList];
         this.syncWaterfallCards(nextCards);
+        this.warmLeadingCards(reset ? nextCards : mappedList, reset ? 2 : 1);
         if (reset) {
             this.templateFirstPageCache[currentCacheKey] = {
                 cards: nextCards,
@@ -643,6 +760,7 @@ Page({
         const id = Number(e.currentTarget.dataset.id);
         const targetType = String(e.currentTarget.dataset.targetType || 'template');
         const localDemo = e.currentTarget.dataset.localDemo === true || e.currentTarget.dataset.localDemo === 'true';
+        const targetCard = (this.data.displayCards || []).find((item) => Number(item.id) === id && item.targetType === targetType);
         if (localDemo) {
             wx.showToast({
                 title: '当前为本地演示卡片，请等待模板接口恢复',
@@ -653,6 +771,9 @@ Page({
         const detailUrl = targetType === 'inspiration'
             ? `/pages/inspirationdetail/inspirationdetail?id=${id}`
             : `/pages/templatesquaredetails/templatesquaredetails?id=${id}`;
+        if (targetCard) {
+            this.prefetchCardDetail(targetCard);
+        }
         wx.navigateTo({
             url: detailUrl,
             fail: () => {

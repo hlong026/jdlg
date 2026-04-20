@@ -1,6 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const perf_1 = require("../../utils/perf");
 const API_BASE_URL = 'https://api.jiadilingguang.com';
+const INSPIRATION_DETAIL_CACHE_TTL = 2 * 60 * 1000;
+function buildInspirationDetailCacheKey(inspirationId) {
+    return `inspiration-detail:${Number(inspirationId || 0)}`;
+}
 Page({
     data: {
         inspirationId: 0,
@@ -19,7 +24,13 @@ Page({
             setTimeout(() => this.onBack(), 300);
             return;
         }
-        this.loadDetail();
+        const cachedDetail = (0, perf_1.getPageCache)(buildInspirationDetailCacheKey(inspirationId));
+        if (cachedDetail) {
+            this.applyDetail(cachedDetail);
+            void this.loadDetail(true);
+            return;
+        }
+        void this.loadDetail();
     },
     onBack() {
         const pages = getCurrentPages();
@@ -104,8 +115,18 @@ Page({
             return '';
         return String(raw).replace('T', ' ').slice(0, 16);
     },
-    async loadDetail() {
-        this.setData({ loading: true });
+    applyDetail(detail) {
+        this.setData({
+            detail,
+            currentImage: detail.images?.[0] || detail.cover_image || '',
+            loading: false,
+        });
+        void (0, perf_1.prefetchImages)([detail.cover_image || '', ...(Array.isArray(detail.images) ? detail.images : [])], 2);
+    },
+    async loadDetail(silent = false) {
+        if (!silent) {
+            this.setData({ loading: true });
+        }
         wx.request({
             url: `${API_BASE_URL}/api/v1/miniprogram/inspirations/${this.data.inspirationId}`,
             method: 'GET',
@@ -116,11 +137,8 @@ Page({
                         ...response.data,
                         created_at: this.formatDate(String(response.data.created_at || '')),
                     };
-                    this.setData({
-                        detail,
-                        currentImage: detail.images?.[0] || detail.cover_image || '',
-                        loading: false,
-                    });
+                    (0, perf_1.setPageCache)(buildInspirationDetailCacheKey(this.data.inspirationId), detail, INSPIRATION_DETAIL_CACHE_TTL);
+                    this.applyDetail(detail);
                     return;
                 }
                 this.setData({ loading: false });

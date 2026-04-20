@@ -4,11 +4,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const parameter_1 = require("../../utils/parameter");
 const deviceFingerprint_1 = require("../../utils/deviceFingerprint");
 const asset_1 = require("../../utils/asset");
+const perf_1 = require("../../utils/perf");
 // API基础地址
 const API_BASE_URL = 'https://api.jiadilingguang.com'; // 根据实际情况修改
 const LOCAL_ENTERPRISE_WECHAT_QRCODE = (0, asset_1.resolveAssetPath)('/assets/企业微信二维码.png');
 const PAGE_BACKGROUND_TOP = '#e6daca';
 const PAGE_BACKGROUND_BOTTOM = '#ece4d9';
+const TEMPLATE_DETAIL_CACHE_TTL = 3 * 60 * 1000;
+function buildTemplateDetailCacheKey(templateId) {
+    return `template-detail:${Number(templateId || 0)}`;
+}
 function mapDesignerCertStatusLabel(status) {
     const value = String(status || '').trim();
     if (value === 'approved')
@@ -92,6 +97,8 @@ Page({
         pendingDownloadImageIndex: -1,
     },
     enterpriseWechatAutoCheckTimer: null,
+    detailLoadedToken: '',
+    detailNeedsRefreshOnShow: false,
     /**
      * 生命周期函数--监听页面加载
      */
@@ -100,13 +107,13 @@ Page({
         this.setData({ token, previewShowMenu: false });
         this.syncWindowBackground();
         this.initLayoutMetrics();
+        this.initUIData();
         const id = options.id ? parseInt(options.id) : 0;
         if (id > 0) {
             this.setData({ templateId: id });
-            this.loadTemplateDetail();
+            const hasCachedDetail = Boolean((0, perf_1.getPageCache)(buildTemplateDetailCacheKey(id)));
+            void this.loadTemplateDetail(hasCachedDetail);
         }
-        // 初始化UI数据
-        this.initUIData();
     },
     /**
      * 生命周期函数--监听页面显示
@@ -114,14 +121,16 @@ Page({
     onShow() {
         this.syncWindowBackground();
         const token = wx.getStorageSync('token') || '';
+        const tokenChanged = token !== this.detailLoadedToken;
         if (token !== this.data.token) {
             this.setData({ token });
         }
         if (this.data.showEnterpriseWechatModal && Number(this.data.pendingDownloadImageIndex) >= 0) {
             this.startEnterpriseWechatAutoCheck();
         }
-        if (this.data.templateId > 0) {
-            this.loadTemplateDetail();
+        if (this.data.templateId > 0 && (this.detailNeedsRefreshOnShow || tokenChanged || !this.data.template)) {
+            this.detailNeedsRefreshOnShow = false;
+            void this.loadTemplateDetail(!!this.data.template);
         }
     },
     /**
@@ -684,6 +693,7 @@ Page({
             confirmText: '去充值',
             success: (res) => {
                 if (res.confirm) {
+                    this.detailNeedsRefreshOnShow = true;
                     wx.navigateTo({ url: '/pages/topupcenter/topupcenter' });
                 }
             }
@@ -703,6 +713,7 @@ Page({
                 confirmText: '去登录',
                 success: (res) => {
                     if (res.confirm) {
+                        this.detailNeedsRefreshOnShow = true;
                         wx.navigateTo({ url: '/pages/login/login' });
                     }
                 }
@@ -733,24 +744,28 @@ Page({
         }
         this.saveImageToAlbum(url, '保存二维码中...', '二维码已保存');
     },
-    async loadTemplateDetail() {
-        if (this.data.loading)
+    async loadTemplateDetail(silent = false) {
+        if (this.data.loading && !silent)
             return;
-        this.setData({ loading: true });
+        if (!silent) {
+            this.setData({ loading: true });
+        }
         const token = this.data.token;
         const url = token
             ? `${API_BASE_URL}/api/v1/miniprogram/templates/${this.data.templateId}/detail`
             : `${API_BASE_URL}/api/v1/miniprogram/templates/${this.data.templateId}`;
         try {
-            const deviceID = (0, deviceFingerprint_1.getCachedDeviceFingerprint)() || '';
-            const body = {};
-            const apiPath = token
-                ? `/api/v1/miniprogram/templates/${this.data.templateId}/detail`
-                : `/api/v1/miniprogram/templates/${this.data.templateId}`;
-            const headers = token
-                ? { ...(0, parameter_1.paramsToHeaders)((0, parameter_1.generateRequestParams)(token, body, apiPath, deviceID)), 'Content-Type': 'application/json' }
-                : {};
-            const res = await new Promise((resolve, reject) => {
+            const cacheKey = buildTemplateDetailCacheKey(this.data.templateId);
+            const cachedDetail = (0, perf_1.getPageCache)(cacheKey);
+            const res = cachedDetail || await new Promise((resolve, reject) => {
+                const deviceID = (0, deviceFingerprint_1.getCachedDeviceFingerprint)() || '';
+                const body = {};
+                const apiPath = token
+                    ? `/api/v1/miniprogram/templates/${this.data.templateId}/detail`
+                    : `/api/v1/miniprogram/templates/${this.data.templateId}`;
+                const headers = token
+                    ? { ...(0, parameter_1.paramsToHeaders)((0, parameter_1.generateRequestParams)(token, body, apiPath, deviceID)), 'Content-Type': 'application/json' }
+                    : {};
                 wx.request({
                     url,
                     method: 'GET',
@@ -771,6 +786,7 @@ Page({
                     fail: reject,
                 });
             });
+            (0, perf_1.setPageCache)(cacheKey, res, TEMPLATE_DETAIL_CACHE_TTL);
             let imageList = [];
             if (res.images) {
                 try {
@@ -847,15 +863,19 @@ Page({
                 downloadActionHint: String(res.download_action_hint || '登录后可继续验证并下载当前模板图片'),
                 enterpriseWechatVerified: !!res.user_phone_verified,
             });
+            this.detailLoadedToken = String(token || '').trim();
+            void (0, perf_1.prefetchImages)([mainImage, ...imageList], 2);
             if (Number(userInfo.userId) > 0) {
                 void this.loadCreatorCertificationStatus(Number(userInfo.userId));
             }
             this.updatePrimaryActionState();
-            await Promise.all([this.loadLikedState(), this.loadComments()]);
+            void Promise.allSettled([this.loadLikedState(), this.loadComments()]);
         }
         catch (error) {
             console.error('加载模板详情失败:', error);
-            wx.showToast({ title: error.message || '加载失败', icon: 'none' });
+            if (!silent) {
+                wx.showToast({ title: error.message || '加载失败', icon: 'none' });
+            }
             this.setData({ loading: false });
         }
     },
@@ -1041,28 +1061,20 @@ Page({
         await this.recordTemplateUse();
         await this.navigateToDisplayGenerate(source || 'template');
         return;
-        const prompt = this.buildDisplayPrompt();
-        const referenceImages = this.buildDisplayReferenceImages();
-        const referenceImage = referenceImages[0] || '';
-        const prefillData = {
-            prompt,
-            reference_image_url: referenceImage,
-            reference_image_urls: referenceImages,
-            original_image_urls: [],
-            ordered_image_urls: referenceImages,
-        };
+        /*
         wx.navigateTo({
-            url: `/pages/aigenerate/aigenerate?templateId=${this.data.templateId}&source=${source}${referenceImage ? `&reference_image_url=${encodeURIComponent(referenceImage)}` : ''}`,
-            success: (navRes) => {
-                navRes.eventChannel.emit('prefillGenerateData', prefillData);
-            },
-            fail: () => {
-                wx.showToast({
-                    title: '页面跳转失败',
-                    icon: 'none',
-                });
-            },
+          url: `/pages/aigenerate/aigenerate?templateId=${this.data.templateId}&source=${source}${referenceImage ? `&reference_image_url=${encodeURIComponent(referenceImage)}` : ''}`,
+          success: (navRes) => {
+            navRes.eventChannel.emit('prefillGenerateData', prefillData);
+          },
+          fail: () => {
+            wx.showToast({
+              title: '页面跳转失败',
+              icon: 'none',
+            });
+          },
         });
+        */
     },
     async ensureTemplateUsable() {
         if (this.data.isFree || this.data.unlocked) {

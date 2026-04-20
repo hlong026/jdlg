@@ -68,7 +68,9 @@
               data-target-type="{{item.targetType}}"
               data-local-demo="{{item.localDemo}}"
             >
-              <image class="template-card-image" src="{{item.image}}" mode="widthFix" />
+              <view class="template-card-media">
+                <image class="template-card-image" src="{{item.image}}" mode="aspectFill" lazy-load />
+              </view>
               <view class="template-card-badge" wx:if="{{item.tags.length > 0}}">{{item.tags[0]}}</view>
               <view class="template-card-overlay">
                 <view class="template-title-text">{{item.displayTitle}}</view>
@@ -87,7 +89,9 @@
               data-target-type="{{item.targetType}}"
               data-local-demo="{{item.localDemo}}"
             >
-              <image class="template-card-image" src="{{item.image}}" mode="widthFix" />
+              <view class="template-card-media">
+                <image class="template-card-image" src="{{item.image}}" mode="aspectFill" lazy-load />
+              </view>
               <view class="template-card-badge" wx:if="{{item.tags.length > 0}}">{{item.tags[0]}}</view>
               <view class="template-card-overlay">
                 <view class="template-title-text">{{item.displayTitle}}</view>
