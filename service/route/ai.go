@@ -13,11 +13,11 @@ import (
 	"io"
 	"net/http"
 	"regexp"
-	"strconv"
 	"service/component"
 	"service/config"
 	"service/function"
 	"service/model"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -83,6 +83,75 @@ func getInt64FromPayload(payload map[string]interface{}, keys ...string) int64 {
 		}
 	}
 	return 0
+}
+
+func mergeTemplatePromptPayload(payload map[string]interface{}, userID int64, templateModel *model.TemplateModel, templateUnlockModel *model.TemplateUnlockModel) error {
+	if payload == nil || templateModel == nil {
+		return nil
+	}
+	templateID := getInt64FromPayload(payload, "template_id")
+	if templateID <= 0 {
+		return nil
+	}
+	template, err := templateModel.GetByID(templateID)
+	if err != nil || template == nil {
+		return fmt.Errorf("template not found")
+	}
+	if !isPublicSquareTemplate(template) {
+		return fmt.Errorf("template is not available")
+	}
+	if !template.IsFree && template.Price > 0 && template.CreatorUserID != userID {
+		if templateUnlockModel == nil {
+			return fmt.Errorf("template unlock service unavailable")
+		}
+		unlocked, unlockErr := templateUnlockModel.HasUnlocked(userID, templateID)
+		if unlockErr != nil {
+			return unlockErr
+		}
+		if !unlocked {
+			return fmt.Errorf("please unlock template before generating")
+		}
+	}
+
+	userPrompt := strings.TrimSpace(getStringFromPayload(payload, "user_prompt"))
+	hiddenPrompt := strings.TrimSpace(template.InternalPrompt)
+	basePrompt := strings.TrimSpace(getStringFromPayload(payload, "prompt"))
+	if basePrompt == "" {
+		basePrompt = userPrompt
+	}
+
+	if len(parseImageURLArrayFromPayloadMap(payload, "images")) == 0 && len(parseImageURLArrayFromPayloadMap(payload, "reference_image_urls")) == 0 {
+		imageURLs := collectTemplateDisplayImageURLs(template)
+		if len(imageURLs) > 0 {
+			payload["images"] = imageURLs
+			payload["reference_image_urls"] = imageURLs
+			payload["ordered_image_urls"] = imageURLs
+			payload["reference_image_url"] = imageURLs[0]
+			if len(imageURLs) == 1 {
+				payload["image_url"] = imageURLs[0]
+			}
+		}
+	}
+
+	finalPrompt := basePrompt
+	if hiddenPrompt != "" {
+		if finalPrompt != "" {
+			finalPrompt = finalPrompt + "；" + hiddenPrompt
+		} else {
+			finalPrompt = hiddenPrompt
+		}
+		payload["hide_prompt_in_response"] = true
+	} else {
+		delete(payload, "hide_prompt_in_response")
+	}
+
+	payload["user_prompt"] = userPrompt
+	if strings.TrimSpace(finalPrompt) == "" {
+		delete(payload, "prompt")
+	} else {
+		payload["prompt"] = finalPrompt
+	}
+	return nil
 }
 
 func joinPromptSegments(parts ...string) string {
@@ -278,7 +347,7 @@ func RegisterAIPublicRoutes(r *gin.RouterGroup, pricingModel *model.AIPricingMod
 			"code": 0,
 			"msg":  "success",
 			"data": gin.H{
-				"prices": prices,
+				"prices":  prices,
 				"configs": configs,
 			},
 		})
@@ -286,15 +355,15 @@ func RegisterAIPublicRoutes(r *gin.RouterGroup, pricingModel *model.AIPricingMod
 }
 
 // RegisterAIRoutes 注册AI相关路由（绘画和聊天）
-func RegisterAIRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSessionRedisModel, userModel *model.UserRedisModel, pricingModel *model.AIPricingModel, taskModel *model.AITaskModel, stoneRecordModel *model.StoneRecordModel, userOrderModel *model.UserOrderModel, inviteRelationModel *model.InviteRelationModel, aiToolModel *model.AIToolModel) {
+func RegisterAIRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSessionRedisModel, userModel *model.UserRedisModel, pricingModel *model.AIPricingModel, taskModel *model.AITaskModel, stoneRecordModel *model.StoneRecordModel, userOrderModel *model.UserOrderModel, inviteRelationModel *model.InviteRelationModel, aiToolModel *model.AIToolModel, templateModel *model.TemplateModel, templateUnlockModel *model.TemplateUnlockModel) {
 	// AI绘画接口
 	r.POST("/ai/draw", func(c *gin.Context) {
-		handleAIRequest(c, codeSessionModel, userModel, pricingModel, taskModel, stoneRecordModel, userOrderModel, inviteRelationModel, aiToolModel)
+		handleAIRequest(c, codeSessionModel, userModel, pricingModel, taskModel, stoneRecordModel, userOrderModel, inviteRelationModel, aiToolModel, templateModel, templateUnlockModel)
 	})
 
 	// AI聊天接口
 	r.POST("/ai/chat", func(c *gin.Context) {
-		handleAIRequest(c, codeSessionModel, userModel, pricingModel, taskModel, stoneRecordModel, userOrderModel, inviteRelationModel, aiToolModel)
+		handleAIRequest(c, codeSessionModel, userModel, pricingModel, taskModel, stoneRecordModel, userOrderModel, inviteRelationModel, aiToolModel, templateModel, templateUnlockModel)
 	})
 
 	// 根据聊天内容生成提示词接口
@@ -388,7 +457,7 @@ func RegisterAIRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSessionRed
 }
 
 // handleAIRequest 统一的AI请求处理
-func handleAIRequest(c *gin.Context, codeSessionModel *model.CodeSessionRedisModel, userModel *model.UserRedisModel, pricingModel *model.AIPricingModel, taskModel *model.AITaskModel, stoneRecordModel *model.StoneRecordModel, userOrderModel *model.UserOrderModel, inviteRelationModel *model.InviteRelationModel, aiToolModel *model.AIToolModel) {
+func handleAIRequest(c *gin.Context, codeSessionModel *model.CodeSessionRedisModel, userModel *model.UserRedisModel, pricingModel *model.AIPricingModel, taskModel *model.AITaskModel, stoneRecordModel *model.StoneRecordModel, userOrderModel *model.UserOrderModel, inviteRelationModel *model.InviteRelationModel, aiToolModel *model.AIToolModel, templateModel *model.TemplateModel, templateUnlockModel *model.TemplateUnlockModel) {
 	var req AIRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -416,6 +485,15 @@ func handleAIRequest(c *gin.Context, codeSessionModel *model.CodeSessionRedisMod
 			c.JSON(http.StatusBadRequest, gin.H{
 				"code": 400,
 				"msg":  FormatValidationError(enrichErr.Error(), "ToolID"),
+			})
+			return
+		}
+	}
+	if strings.HasPrefix(req.Scene, "ai_draw") {
+		if mergeErr := mergeTemplatePromptPayload(req.Payload, codeSession.UserID, templateModel, templateUnlockModel); mergeErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code": 400,
+				"msg":  mergeErr.Error(),
 			})
 			return
 		}
@@ -585,6 +663,7 @@ func handleAIRequest(c *gin.Context, codeSessionModel *model.CodeSessionRedisMod
 		},
 	})
 }
+
 type TaskStatusRequest struct {
 	TaskNo   string `json:"task_no" binding:"required"`
 	TaskType string `json:"task_type" binding:"required"` // ai_draw / ai_chat / ai_video / ai_cost_doc
@@ -631,10 +710,10 @@ func RegisterTaskStatusRoute(r *gin.RouterGroup, codeSessionModel *model.CodeSes
 			}
 			status := model.AIVideoStatusForUserWithResult(task.Status, strings.TrimSpace(task.OSSURL) != "")
 			responseData := gin.H{
-				"id":         task.ID,
-				"task_no":    req.TaskNo,
-				"status":     status,
-				"scene":      "ai_video",
+				"id":          task.ID,
+				"task_no":     req.TaskNo,
+				"status":      status,
+				"scene":       "ai_video",
 				"stones_used": getVideoStones(pricingModel, task.SegmentCount),
 				"user_prompt": task.Prompt,
 			}

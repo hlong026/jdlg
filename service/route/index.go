@@ -64,7 +64,7 @@ func RegisterRoutes(r *gin.Engine, authProcessor *processor.AuthProcessor,
 		// AI接口（需要token验证）
 		miniprogramAI := miniprogram.Group("")
 		miniprogramAI.Use(TokenAuthRequired(codeSessionModel))
-		RegisterAIRoutes(miniprogramAI, codeSessionModel, userModel, pricingModel, taskModel, stoneRecordModel, userOrderModel, inviteRelationModel, aiToolModel)
+		RegisterAIRoutes(miniprogramAI, codeSessionModel, userModel, pricingModel, taskModel, stoneRecordModel, userOrderModel, inviteRelationModel, aiToolModel, templateModel, templateUnlockModel)
 		RegisterRuralVillaDesignRoutes(miniprogramAI, codeSessionModel, userModel, pricingModel, taskModel, stoneRecordModel, userOrderModel, inviteRelationModel)
 		RegisterAllroundDesignRoutes(miniprogramAI, codeSessionModel, userModel, pricingModel, taskModel, stoneRecordModel, userOrderModel, inviteRelationModel)
 		RegisterBuildingReplacementRoutes(miniprogramAI, codeSessionModel, userModel, pricingModel, taskModel, stoneRecordModel, userOrderModel, inviteRelationModel)

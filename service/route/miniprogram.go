@@ -356,11 +356,11 @@ func parseUserPromptFromPayload(requestPayload string) string {
 	if err := json.Unmarshal([]byte(requestPayload), &payload); err != nil {
 		return ""
 	}
-	if shouldHidePromptFromPayloadMap(payload) {
-		return ""
-	}
 	if userPrompt, ok := payload["user_prompt"].(string); ok && strings.TrimSpace(userPrompt) != "" {
 		return strings.TrimSpace(userPrompt)
+	}
+	if shouldHidePromptFromPayloadMap(payload) {
+		return ""
 	}
 	prompt, _ := payload["prompt"].(string)
 	return component.StripUserPromptFromAIDraw(prompt)

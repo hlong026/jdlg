@@ -235,6 +235,7 @@ Page({
     dragOverImageIndex: -1,
     promptText: '',
     promptDirty: false,
+    templateId: 0,
     navSafeTop: 0,
     navBarHeight: 96,
     navContentHeight: 44,
@@ -315,6 +316,7 @@ Page({
     if (options.templateId) {
       const templateId = parseInt(options.templateId);
       if (templateId > 0) {
+        this.setData({ templateId });
         await this.loadTemplateOriginalTask(templateId);
       }
     }
@@ -1043,15 +1045,24 @@ Page({
       const selectedStyle = String(this.data.selectedStyle || '').trim();
       const sceneLabel = this.data.selectedSceneTab === 'interior' ? '室内' : '外立面';
       const defaultServiceLabel = this.data.showSceneTabs ? `${sceneLabel}${DEFAULT_SERVICE_LABEL}` : DEFAULT_SERVICE_LABEL;
-      const userPrompt = this.data.promptText || `生成${defaultServiceLabel}`;
+      const isTemplateFlow = Number(this.data.templateId || 0) > 0;
+      const userPrompt = isTemplateFlow
+        ? String(this.data.promptText || '').trim()
+        : (this.data.promptText || `生成${defaultServiceLabel}`);
       const payload: any = {
         service_type: this.data.selectedType,
         service: this.data.selectedService,
         quality: this.data.selectedQuality,
         canvas: this.data.selectedCanvas,
-        prompt: userPrompt,
         generate_count: generateCount,
       };
+      if (isTemplateFlow) {
+        payload.template_id = Number(this.data.templateId || 0);
+        payload.user_prompt = userPrompt;
+      } else {
+        payload.prompt = userPrompt;
+        payload.user_prompt = userPrompt;
+      }
       if (this.data.showSceneTabs) {
         payload.scene_direction = sceneLabel;
       }
@@ -1107,9 +1118,10 @@ Page({
           ? `&source=${encodeURIComponent(this.data.entrySource)}`
           : '';
         const taskNo = encodeURIComponent(res.task_no);
-        const promptText = this.data.promptText || userPrompt;
+        const promptText = String(this.data.promptText || '').trim();
+        const promptQuery = promptText ? `&prompt=${encodeURIComponent(promptText)}` : '';
         wx.navigateTo({
-          url: `/pages/generatedetails/generatedetails?task_no=${taskNo}&tab=${this.data.selectedSceneTab}&showSceneTabs=${this.data.showSceneTabs ? 1 : 0}${sourceQuery}&prompt=${encodeURIComponent(promptText)}${orderedImageUrls[0] ? `&reference_image_url=${encodeURIComponent(orderedImageUrls[0])}` : ''}`,
+          url: `/pages/generatedetails/generatedetails?task_no=${taskNo}&tab=${this.data.selectedSceneTab}&showSceneTabs=${this.data.showSceneTabs ? 1 : 0}${sourceQuery}${promptQuery}${orderedImageUrls[0] ? `&reference_image_url=${encodeURIComponent(orderedImageUrls[0])}` : ''}`,
           success: (navRes) => {
             navRes.eventChannel.emit('taskData', {
               id: 0,
