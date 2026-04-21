@@ -913,6 +913,7 @@ func buildDesignerCenterPayload(targetUserID int64, userDBModel *model.UserModel
 			"description":     item.Description,
 			"main_tab":        item.MainTab,
 			"sub_tab":         item.SubTab,
+			"third_tab":       item.ThirdTab,
 			"category":        item.Category,
 			"price":           item.Price,
 			"is_free":         item.IsFree,
@@ -1686,6 +1687,7 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 				"source_type":    t.SourceType,
 				"main_tab":       t.MainTab,
 				"sub_tab":        t.SubTab,
+				"third_tab":      t.ThirdTab,
 				"creator":        t.Creator,
 				"is_free":        isFreeInt,
 				"price":          t.Price,
@@ -1775,6 +1777,7 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			Category     string   `json:"category"`
 			MainTab      string   `json:"main_tab"`
 			SubTab       string   `json:"sub_tab"`
+			ThirdTab     string   `json:"third_tab"`
 			ImageURLs    []string `json:"image_urls" binding:"required,min=1"`
 			CoverURL     string   `json:"cover_url"`
 			PublishScope string   `json:"publish_scope" binding:"required,oneof=homepage_only square"`
@@ -1825,6 +1828,7 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			Category:      category,
 			MainTab:       strings.TrimSpace(req.MainTab),
 			SubTab:        strings.TrimSpace(req.SubTab),
+			ThirdTab:      strings.TrimSpace(req.ThirdTab),
 			Thumbnail:     coverURL,
 			PreviewURL:    coverURL,
 			Images:        string(imagesJSON),
@@ -1898,6 +1902,7 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			Category    *string `json:"category"`
 			MainTab     *string `json:"main_tab"`
 			SubTab      *string `json:"sub_tab"`
+			ThirdTab    *string `json:"third_tab"`
 			IsFree      *bool   `json:"is_free"`
 			Price       *int64  `json:"price"`
 		}
@@ -1938,6 +1943,9 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 		}
 		if req.SubTab != nil {
 			tpl.SubTab = *req.SubTab
+		}
+		if req.ThirdTab != nil {
+			tpl.ThirdTab = *req.ThirdTab
 		}
 		if req.Description != nil {
 			// Description 中可能包含「提示词: xxx」，这里只替换描述部分，保留原有提示词

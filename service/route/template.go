@@ -326,6 +326,9 @@ func templateToResponse(template *model.Template, paidLocked bool, creatorInfo *
 		"id":                template.ID,
 		"name":              template.Name,
 		"category":          template.Category,
+		"main_tab":          template.MainTab,
+		"sub_tab":           template.SubTab,
+		"third_tab":         template.ThirdTab,
 		"description":       template.Description,
 		"thumbnail":         template.Thumbnail,
 		"preview_url":       template.PreviewURL,
@@ -458,9 +461,10 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 	{
 		// 获取模板列表（公开接口，不需要认证）
 		templates.GET("", func(c *gin.Context) {
-			category := c.Query("category") // villa, urban, family, culture, hot, latest
-			mainTab := c.Query("main_tab")  // 一级tab value
-			subTab := c.Query("sub_tab")    // 二级tab value
+			category := c.Query("category")  // villa, urban, family, culture, hot, latest
+			mainTab := c.Query("main_tab")   // 一级tab value
+			subTab := c.Query("sub_tab")     // 二级tab value
+			thirdTab := c.Query("third_tab") // 三级tab value
 			page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 			pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
@@ -478,9 +482,9 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 			// 如果指定了 main_tab，使用新的查询方法（支持按使用人数排序）
 			if mainTab != "" {
 				offset := (page - 1) * pageSize
-				templateList, err = templateModel.ListByMainTabAndSubTab(mainTab, subTab, "published", pageSize, offset)
+				templateList, err = templateModel.ListByMainTabAndSubTab(mainTab, subTab, thirdTab, "published", pageSize, offset)
 				if err == nil {
-					total, err = templateModel.CountByMainTabAndSubTab(mainTab, subTab, "published")
+					total, err = templateModel.CountByMainTabAndSubTab(mainTab, subTab, thirdTab, "published")
 				}
 			} else {
 				// 处理特殊分类：hot（最热）和 latest（最新）
@@ -524,6 +528,7 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 					"category":        t.Category,
 					"main_tab":        t.MainTab,
 					"sub_tab":         t.SubTab,
+					"third_tab":       t.ThirdTab,
 					"price":           t.Price,
 					"is_free":         t.IsFree,
 					"download_count":  t.DownloadCount,
@@ -661,6 +666,7 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 
 			mainTabs := make([]gin.H, 0)
 			subTabs := make([]gin.H, 0)
+			thirdTabs := make([]gin.H, 0)
 			cfg, err := templateSquareConfigModel.Get()
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "读取 Tab 配置失败: " + err.Error()})
@@ -686,11 +692,19 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 						subTabs = append(subTabs, gin.H{"label": t.Label, "value": t.Value, "parent": t.Parent})
 					}
 				}
+				thirdList, err := templateSquareConfigModel.ParseThirdTabs(cfg.ThirdTabs)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "解析三级 Tab 配置失败: " + err.Error()})
+					return
+				}
+				for _, t := range thirdList {
+					thirdTabs = append(thirdTabs, gin.H{"label": t.Label, "value": t.Value, "parent": t.Parent})
+				}
 			}
 			c.JSON(http.StatusOK, gin.H{
 				"code": 0,
 				"msg":  "success",
-				"data": gin.H{"main_tabs": mainTabs, "sub_tabs": subTabs},
+				"data": gin.H{"main_tabs": mainTabs, "sub_tabs": subTabs, "third_tabs": thirdTabs},
 			})
 		})
 
@@ -744,6 +758,7 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 					"category":        t.Category,
 					"main_tab":        t.MainTab,
 					"sub_tab":         t.SubTab,
+					"third_tab":       t.ThirdTab,
 					"status":          t.Status,
 					"publish_scope":   t.PublishScope,
 					"source_type":     t.SourceType,
@@ -836,6 +851,7 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 				item := templateToResponse(template, false, creatorInfo)
 				item["main_tab"] = template.MainTab
 				item["sub_tab"] = template.SubTab
+				item["third_tab"] = template.ThirdTab
 				item["liked"] = true
 				fillTemplateStats(item, template.ID, templateCommentModel, templateShareModel)
 				respList = append(respList, item)
@@ -1416,8 +1432,9 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 				Name           string `json:"name" binding:"required"`
 				Description    string `json:"description"`
 				Category       string `json:"category"`
-				MainTab        string `json:"main_tab"` // 一级 Tab（可选）
-				SubTab         string `json:"sub_tab"`  // 二级 Tab（可选）
+				MainTab        string `json:"main_tab"`  // 一级 Tab（可选）
+				SubTab         string `json:"sub_tab"`   // 二级 Tab（可选）
+				ThirdTab       string `json:"third_tab"` // 三级 Tab（可选）
 				ImageURL       string `json:"image_url" binding:"required"`
 				Prompt         string `json:"prompt"`
 				IsFree         *bool  `json:"is_free"`          // 是否免费，默认 true
@@ -1453,6 +1470,7 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 				Category:       req.Category,
 				MainTab:        req.MainTab,
 				SubTab:         req.SubTab,
+				ThirdTab:       req.ThirdTab,
 				Thumbnail:      req.ImageURL,
 				PreviewURL:     req.ImageURL,
 				IsFree:         isFree,

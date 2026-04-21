@@ -37,6 +37,7 @@ type TemplateApiListItem = {
   name?: string;
   category?: string;
   sub_tab?: string;
+  third_tab?: string;
   main_tab?: string;
   description?: string;
   thumbnail?: string;
@@ -220,14 +221,14 @@ function requestListApi<T>(path: string, data?: Record<string, unknown>): Promis
   });
 }
 
-function requestTabConfig(parent?: string): Promise<{ main_tabs?: MainTabItem[]; sub_tabs?: SubTabItem[] } | null> {
+function requestTabConfig(parent?: string): Promise<{ main_tabs?: MainTabItem[]; sub_tabs?: SubTabItem[]; third_tabs?: SubTabItem[] } | null> {
   return new Promise((resolve) => {
     wx.request({
       url: `${API_BASE_URL}/api/v1/miniprogram/templates/tab-config`,
       method: 'GET',
       data: parent ? { parent } : undefined,
       success: (res) => {
-        const response = (res.data || {}) as { code?: number; data?: { main_tabs?: MainTabItem[]; sub_tabs?: SubTabItem[] } };
+        const response = (res.data || {}) as { code?: number; data?: { main_tabs?: MainTabItem[]; sub_tabs?: SubTabItem[]; third_tabs?: SubTabItem[] } };
         if (res.statusCode !== 200 || !res.data || response.code !== 0) {
           resolve(null);
           return;
@@ -252,11 +253,35 @@ function getSubTabsByMainTab(mainTabValue: MainTabValue, allSubTabs?: SubTabItem
   return TEMPLATE_SUB_TAB_MAP[currentParent] || [];
 }
 
+function normalizeThirdTabs(list: any, subTabs: SubTabItem[]): SubTabItem[] {
+  const subValues = new Set(subTabs.map((item) => item.value));
+  return (Array.isArray(list) ? list : [])
+    .map((item) => ({
+      label: String(item?.label || '').trim(),
+      value: String(item?.value || '').trim(),
+      parent: String(item?.parent || '').trim(),
+    }))
+    .filter((item) => item.label && item.value && item.parent && subValues.has(item.parent));
+}
+
+function getThirdTabsBySubTab(subTabValue: string, allThirdTabs?: SubTabItem[]): SubTabItem[] {
+  const currentParent = String(subTabValue || '').trim();
+  if (!currentParent || !Array.isArray(allThirdTabs) || allThirdTabs.length === 0) {
+    return [];
+  }
+  const matched = allThirdTabs.filter((item) => String(item.parent || '').trim() === currentParent);
+  if (!matched.length) {
+    return [];
+  }
+  return [{ label: '全部', value: '', parent: currentParent }, ...matched];
+}
+
 function getTemplateFilterText(item: TemplateApiListItem): string {
   return [
     String(item?.name || ''),
     String(item?.category || ''),
     String(item?.sub_tab || ''),
+    String(item?.third_tab || ''),
     String(item?.main_tab || ''),
     cleanDescription(String(item?.description || '')),
   ].join(' ').toLowerCase();
@@ -292,6 +317,13 @@ function matchesSubTabKeywords(text: string, subTab?: SubTabItem): boolean {
   }
   const keywords = (Array.isArray(subTab.keywords) ? subTab.keywords : []).concat([subTab.label, subTab.value]);
   return keywords.some((keyword) => String(keyword || '').trim() && text.includes(String(keyword).toLowerCase()));
+}
+
+function matchesThirdTab(item: TemplateApiListItem, thirdTab?: SubTabItem): boolean {
+  if (!thirdTab || !String(thirdTab.value || '').trim()) {
+    return true;
+  }
+  return String(item?.third_tab || '').trim() === String(thirdTab.value || '').trim();
 }
 
 function isInspirationMainTab(mainTab: MainTabItem | undefined): boolean {
@@ -397,7 +429,7 @@ function paginateTemplateItems(items: TemplateApiListItem[], page: number, pageS
   return items.slice(start, start + pageSize);
 }
 
-async function requestTemplateListByMainTab(mainTab: MainTabItem, subTab: SubTabItem | undefined, keyword: string, page: number, pageSize: number): Promise<{ list: TemplateApiListItem[]; hasMore: boolean } | null> {
+async function requestTemplateListByMainTab(mainTab: MainTabItem, subTab: SubTabItem | undefined, thirdTab: SubTabItem | undefined, keyword: string, page: number, pageSize: number): Promise<{ list: TemplateApiListItem[]; hasMore: boolean } | null> {
   if (keyword) {
     const result = await requestListApi<TemplateApiListItem>('/api/v1/miniprogram/templates/search', {
       keyword,
@@ -409,7 +441,7 @@ async function requestTemplateListByMainTab(mainTab: MainTabItem, subTab: SubTab
     }
     const list = (Array.isArray(result.list) ? result.list : []).filter((item: TemplateApiListItem) => {
       const text = getTemplateFilterText(item);
-      return matchesMainTabKeywords(text, mainTab) && matchesSubTabKeywords(text, subTab);
+      return matchesMainTabKeywords(text, mainTab) && matchesSubTabKeywords(text, subTab) && matchesThirdTab(item, thirdTab);
     });
     return {
       list,
@@ -420,6 +452,7 @@ async function requestTemplateListByMainTab(mainTab: MainTabItem, subTab: SubTab
   const preciseResult = await requestListApi<TemplateApiListItem>('/api/v1/miniprogram/templates', {
     main_tab: mainTab.value,
     sub_tab: subTab?.value || undefined,
+    third_tab: thirdTab?.value || undefined,
     page,
     page_size: pageSize,
   });
@@ -441,7 +474,7 @@ async function requestTemplateListByMainTab(mainTab: MainTabItem, subTab: SubTab
   }
   const filteredList = (Array.isArray(fallbackResult.list) ? fallbackResult.list : []).filter((item: TemplateApiListItem) => {
     const text = getTemplateFilterText(item);
-    return matchesMainTabKeywords(text, mainTab) && matchesSubTabKeywords(text, subTab);
+    return matchesMainTabKeywords(text, mainTab) && matchesSubTabKeywords(text, subTab) && matchesThirdTab(item, thirdTab);
   });
   const pagedList = paginateTemplateItems(filteredList, page, pageSize);
   return {
@@ -521,8 +554,8 @@ function getNavLayout() {
   }
 }
 
-function buildTemplateCacheKey(mainTabValue: string, subTabValue: string, keyword: string) {
-  return [String(mainTabValue || '').trim(), String(subTabValue || '').trim(), String(keyword || '').trim().toLowerCase()].join('::');
+function buildTemplateCacheKey(mainTabValue: string, subTabValue: string, thirdTabValue: string, keyword: string) {
+  return [String(mainTabValue || '').trim(), String(subTabValue || '').trim(), String(thirdTabValue || '').trim(), String(keyword || '').trim().toLowerCase()].join('::');
 }
 
 function buildDetailCacheKey(targetType: 'template' | 'inspiration', id: number) {
@@ -590,8 +623,11 @@ Page({
     mainTabs: TEMPLATE_MAIN_TABS,
     allSubTabs: Object.values(TEMPLATE_SUB_TAB_MAP).flat() as SubTabItem[],
     subTabs: getSubTabsByMainTab('scene', Object.values(TEMPLATE_SUB_TAB_MAP).flat()),
+    allThirdTabs: [] as SubTabItem[],
+    thirdTabs: [] as SubTabItem[],
     currentMainTabIndex: 0,
     currentSubTabIndex: 0,
+    currentThirdTabIndex: -1,
     searchInputValue: '',
     searchKeyword: '',
     resultSummaryText: buildSummaryText('场景', '乡墅外观', ''),
@@ -641,6 +677,10 @@ Page({
 
   getCurrentSubTab(): SubTabItem | undefined {
     return this.data.subTabs[this.data.currentSubTabIndex] || this.data.subTabs[0];
+  },
+
+  getCurrentThirdTab(): SubTabItem | undefined {
+    return this.data.thirdTabs[this.data.currentThirdTabIndex];
   },
 
   syncWaterfallCards(cards: TemplateListItem[]) {
@@ -701,15 +741,20 @@ Page({
     const tabConfig = await requestTabConfig();
     const mainTabs = normalizeMainTabs(tabConfig?.main_tabs);
     const allSubTabs = normalizeSubTabs(tabConfig?.sub_tabs, mainTabs);
+    const allThirdTabs = normalizeThirdTabs(tabConfig?.third_tabs, allSubTabs);
     const firstMain = mainTabs[0] || TEMPLATE_MAIN_TABS[0];
     const subTabs = getSubTabsByMainTab(firstMain?.value || 'scene', allSubTabs);
     const firstSub = subTabs[0];
+    const thirdTabs = getThirdTabsBySubTab(firstSub?.value || '', allThirdTabs);
     this.setData({
       mainTabs,
       allSubTabs,
+      allThirdTabs,
       subTabs,
+      thirdTabs,
       currentMainTabIndex: 0,
       currentSubTabIndex: 0,
+      currentThirdTabIndex: thirdTabs.length ? 0 : -1,
       resultSummaryText: buildSummaryText(firstMain?.label || '模板广场', firstSub?.label || firstMain?.label || '模板广场', ''),
       emptyTipText: buildEmptyTip(firstMain?.label || '模板广场', firstSub?.label || ''),
     });
@@ -738,11 +783,14 @@ Page({
 
     const nextSubTabs = getSubTabsByMainTab(tab.value, this.data.allSubTabs || []);
     const nextSubTab = nextSubTabs[0];
+    const nextThirdTabs = getThirdTabsBySubTab(nextSubTab?.value || '', this.data.allThirdTabs || []);
 
     this.setData({
       currentMainTabIndex: index,
       subTabs: nextSubTabs,
+      thirdTabs: nextThirdTabs,
       currentSubTabIndex: 0,
+      currentThirdTabIndex: nextThirdTabs.length ? 0 : -1,
       page: 1,
       hasMore: true,
       resultSummaryText: buildSummaryText(tab.label, nextSubTab?.label || tab.label, this.data.searchKeyword),
@@ -760,12 +808,32 @@ Page({
       return;
     }
 
+    const nextThirdTabs = getThirdTabsBySubTab(subTab.value, this.data.allThirdTabs || []);
+
     this.setData({
       currentSubTabIndex: index,
+      thirdTabs: nextThirdTabs,
+      currentThirdTabIndex: nextThirdTabs.length ? 0 : -1,
       page: 1,
       hasMore: true,
       resultSummaryText: buildSummaryText(currentMainTab.label, subTab.label, this.data.searchKeyword),
       emptyTipText: buildEmptyTip(currentMainTab.label, subTab.label),
+    });
+
+    this.loadTemplates(true);
+  },
+
+  async onThirdTabTap(e: IndexTapEvent) {
+    const index = Number(e.currentTarget.dataset.index);
+    const thirdTab = this.data.thirdTabs[index];
+    if (Number.isNaN(index) || index === this.data.currentThirdTabIndex || !thirdTab) {
+      return;
+    }
+
+    this.setData({
+      currentThirdTabIndex: index,
+      page: 1,
+      hasMore: true,
     });
 
     this.loadTemplates(true);
@@ -781,12 +849,13 @@ Page({
     const keyword = String(this.data.searchInputValue || '').trim();
     const currentMainTab = this.getCurrentMainTab();
     const currentSubTab = this.getCurrentSubTab();
+    const currentThirdTab = this.getCurrentThirdTab();
 
     this.setData({
       searchKeyword: keyword,
       page: 1,
       hasMore: true,
-      resultSummaryText: buildSummaryText(currentMainTab.label, currentSubTab?.label || currentMainTab.label, keyword),
+      resultSummaryText: buildSummaryText(currentMainTab.label, (currentThirdTab && currentThirdTab.value ? currentThirdTab.label : '') || currentSubTab?.label || currentMainTab.label, keyword),
       emptyTipText: keyword ? buildSearchEmptyTip(currentMainTab.label, keyword) : buildEmptyTip(currentMainTab.label, currentSubTab?.label || ''),
     });
 
@@ -796,6 +865,7 @@ Page({
   onSearchClear() {
     const currentMainTab = this.getCurrentMainTab();
     const currentSubTab = this.getCurrentSubTab();
+    const currentThirdTab = this.getCurrentThirdTab();
     if (!this.data.searchKeyword && !this.data.searchInputValue) {
       return;
     }
@@ -805,7 +875,7 @@ Page({
       searchKeyword: '',
       page: 1,
       hasMore: true,
-      resultSummaryText: buildSummaryText(currentMainTab.label, currentSubTab?.label || currentMainTab.label, ''),
+      resultSummaryText: buildSummaryText(currentMainTab.label, (currentThirdTab && currentThirdTab.value ? currentThirdTab.label : '') || currentSubTab?.label || currentMainTab.label, ''),
       emptyTipText: buildEmptyTip(currentMainTab.label, currentSubTab?.label || ''),
     });
 
@@ -819,11 +889,13 @@ Page({
 
     const currentMainTab = this.getCurrentMainTab();
     const currentSubTab = this.getCurrentSubTab();
+    const currentThirdTab = this.getCurrentThirdTab();
     const currentMainLabel = currentMainTab.label;
     const currentSubLabel = currentSubTab?.label || currentMainLabel;
+    const currentThirdLabel = currentThirdTab && String(currentThirdTab.value || '').trim() ? currentThirdTab.label : '';
     const keyword = String(this.data.searchKeyword || '').trim();
     const requestPage = reset ? 1 : this.data.page;
-    const currentCacheKey = buildTemplateCacheKey(currentMainTab?.value || '', currentSubTab?.value || '', keyword);
+    const currentCacheKey = buildTemplateCacheKey(currentMainTab?.value || '', currentSubTab?.value || '', currentThirdTab?.value || '', keyword);
     const requestSerial = ++this.requestSerial;
 
     if (reset) {
@@ -835,7 +907,7 @@ Page({
           loading: false,
           page: cachedEntry.nextPage,
           hasMore: cachedEntry.hasMore,
-          resultSummaryText: buildSummaryText(currentMainLabel, currentSubLabel, keyword),
+          resultSummaryText: buildSummaryText(currentMainLabel, currentThirdLabel || currentSubLabel, keyword),
           emptyTipText: keyword ? buildSearchEmptyTip(currentMainLabel, keyword) : buildEmptyTip(currentMainLabel, currentSubLabel),
         });
         return;
@@ -844,7 +916,7 @@ Page({
 
     this.setData({
       loading: true,
-      resultSummaryText: buildSummaryText(currentMainLabel, currentSubLabel, keyword),
+      resultSummaryText: buildSummaryText(currentMainLabel, currentThirdLabel || currentSubLabel, keyword),
       emptyTipText: keyword ? buildSearchEmptyTip(currentMainLabel, keyword) : buildEmptyTip(currentMainLabel, currentSubLabel),
     });
 
@@ -852,7 +924,7 @@ Page({
     let nextHasMore = false;
 
     if (isInspirationMainTab(currentMainTab)) {
-      const templateResult = await requestTemplateListByMainTab(currentMainTab, currentSubTab, keyword, requestPage, this.data.pageSize);
+      const templateResult = await requestTemplateListByMainTab(currentMainTab, currentSubTab, currentThirdTab, keyword, requestPage, this.data.pageSize);
 
       if (templateResult && templateResult.list.length > 0) {
         const filteredList = templateResult.list.filter((item: TemplateApiListItem) => matchesSubTabKeywords(getTemplateFilterText(item), currentSubTab));
@@ -880,7 +952,7 @@ Page({
         }
       }
     } else {
-      const result = await requestTemplateListByMainTab(currentMainTab, currentSubTab, keyword, requestPage, this.data.pageSize);
+      const result = await requestTemplateListByMainTab(currentMainTab, currentSubTab, currentThirdTab, keyword, requestPage, this.data.pageSize);
       if (!result) {
         const localFallbackCards = buildLocalFallbackCards(currentMainLabel, currentSubLabel, 'template');
         this.syncWaterfallCards(reset ? localFallbackCards : [...this.data.displayCards, ...localFallbackCards]);
@@ -917,7 +989,7 @@ Page({
       loading: false,
       page: requestPage + 1,
       hasMore: nextHasMore,
-      resultSummaryText: buildSummaryText(currentMainLabel, currentSubLabel, keyword),
+      resultSummaryText: buildSummaryText(currentMainLabel, currentThirdLabel || currentSubLabel, keyword),
       emptyTipText: keyword ? buildSearchEmptyTip(currentMainLabel, keyword) : buildEmptyTip(currentMainLabel, currentSubLabel),
     });
   },

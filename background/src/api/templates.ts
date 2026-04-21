@@ -18,6 +18,7 @@ export interface TabConfigItem {
 export interface TemplateTabConfig {
     main_tabs: TabConfigItem[];
     sub_tabs: TabConfigItem[];
+    third_tabs: TabConfigItem[];
 }
 
 // 模板接口类型（适配后端）
@@ -28,6 +29,7 @@ export interface TemplateItem {
     // 后台用于双重 Tab 归类的字段
     main_tab?: string;
     sub_tab?: string;
+    third_tab?: string;
     description: string;
     thumbnail?: string;
     preview_url?: string;
@@ -70,6 +72,7 @@ export interface TemplateUpdateRequest {
     // 双重 Tab 字段（可选）
     main_tab?: string;
     sub_tab?: string;
+    third_tab?: string;
     thumbnail?: string;
     preview_url?: string;
     images?: string;
@@ -143,7 +146,7 @@ export const createTemplate = async (data: TemplateUpdateRequest & { name: strin
 
 // ---------- 双重 Tab 配置 ----------
 export const getTemplateTabConfig = async (): Promise<TemplateTabConfig> => {
-    const res = await get<{ main_tabs: TabConfigItem[]; sub_tabs: TabConfigItem[] }>(API_ENDPOINTS.TEMPLATES.TAB_CONFIG);
+    const res = await get<{ main_tabs: TabConfigItem[]; sub_tabs: TabConfigItem[]; third_tabs: TabConfigItem[] }>(API_ENDPOINTS.TEMPLATES.TAB_CONFIG);
     return res.data!;
 };
 

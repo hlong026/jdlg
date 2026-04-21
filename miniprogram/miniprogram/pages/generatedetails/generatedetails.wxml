@@ -460,6 +460,24 @@
             </view>
             <text class="form-hint">二级分类用于更精确地进入对应细分类目。</text>
           </view>
+          <view class="form-group" wx:if="{{thirdTabs.length > 0}}">
+            <text class="form-label">三级分类 *</text>
+            <view class="tab-row">
+              <picker
+                mode="selector"
+                range="{{thirdTabs}}"
+                range-key="label"
+                value="{{thirdTabIndex}}"
+                bindchange="onThirdTabChange"
+              >
+                <view class="picker-value">
+                  <text>{{thirdTabIndex >= 0 ? thirdTabs[thirdTabIndex].label : '选择三级分类'}}</text>
+                  <t-icon name="chevron-down" size="32rpx" />
+                </view>
+              </picker>
+            </view>
+            <text class="form-hint">三级分类用于在二级分类下进一步细分展示。</text>
+          </view>
           <view class="form-group">
             <text class="form-label">收费方式</text>
             <view class="publish-charge-row">

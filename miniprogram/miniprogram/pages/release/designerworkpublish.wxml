@@ -30,6 +30,12 @@
           <view class="picker-field">{{subTabIndex >= 0 ? subTabs[subTabIndex].label : '请选择二级分类'}}</view>
         </picker>
       </view>
+      <view class="form-item" wx:if="{{thirdTabs.length}}">
+        <text class="form-label">三级分类</text>
+        <picker mode="selector" range="{{thirdTabs}}" range-key="label" value="{{thirdTabIndex}}" bindchange="onThirdTabChange">
+          <view class="picker-field">{{thirdTabIndex >= 0 ? thirdTabs[thirdTabIndex].label : '请选择三级分类'}}</view>
+        </picker>
+      </view>
     </view>
 
     <view class="panel-card">

@@ -48,6 +48,20 @@
             </view>
           </view>
         </scroll-view>
+
+        <scroll-view wx:if="{{thirdTabs.length > 0}}" class="template-third-tabs" scroll-x="true" enhanced="true" show-scrollbar="false">
+          <view class="template-sub-tabs-inner">
+            <view
+              class="template-third-tab-item {{currentThirdTabIndex === index ? 'active' : ''}}"
+              wx:for="{{thirdTabs}}"
+              wx:key="value"
+              bindtap="onThirdTabTap"
+              data-index="{{index}}"
+            >
+              <text class="template-third-tab-text">{{item.label}}</text>
+            </view>
+          </view>
+        </scroll-view>
       </view>
     </view>
 

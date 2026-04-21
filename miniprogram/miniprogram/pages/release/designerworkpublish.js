@@ -56,6 +56,16 @@ function getSubTabsByParent(subTabs, parent) {
     }
     return subTabs.filter((item) => item.parent === currentParent);
 }
+function normalizeThirdTabs(raw, subTabs) {
+    const subValues = new Set(subTabs.map((item) => item.value));
+    return (Array.isArray(raw) ? raw : [])
+        .map((item) => ({
+        label: String(item?.label || '').trim(),
+        value: String(item?.value || '').trim(),
+        parent: String(item?.parent || '').trim(),
+    }))
+        .filter((item) => item.label && item.value && item.parent && subValues.has(item.parent));
+}
 Page({
     data: {
         token: '',
@@ -65,8 +75,11 @@ Page({
         mainTabs: [],
         subTabs: [],
         allSubTabs: [],
+        thirdTabs: [],
+        allThirdTabs: [],
         mainTabIndex: -1,
         subTabIndex: -1,
+        thirdTabIndex: -1,
         imageUrls: [],
         coverIndex: 0,
         form: {
@@ -74,6 +87,7 @@ Page({
             description: '',
             mainTab: '',
             subTab: '',
+            thirdTab: '',
             publishScope: 'homepage_only',
             isFree: true,
             price: 0,
@@ -139,34 +153,46 @@ Page({
             });
             const mainTabs = normalizeMainTabs(result?.main_tabs);
             const allSubTabs = normalizeSubTabs(result?.sub_tabs);
+            const allThirdTabs = normalizeThirdTabs(result?.third_tabs, allSubTabs);
             const firstMain = mainTabs[0];
             const subTabs = getSubTabsByParent(allSubTabs, firstMain?.value || '');
             const firstSub = subTabs[0];
+            const thirdTabs = getSubTabsByParent(allThirdTabs, firstSub?.value || '');
+            const firstThird = thirdTabs[0];
             this.setData({
                 mainTabs,
                 allSubTabs,
+                allThirdTabs,
                 subTabs,
+                thirdTabs,
                 mainTabIndex: firstMain ? 0 : -1,
                 subTabIndex: firstSub ? 0 : -1,
+                thirdTabIndex: firstThird ? 0 : -1,
                 'form.mainTab': firstMain?.value || '',
                 'form.subTab': firstSub?.value || '',
+                'form.thirdTab': firstThird?.value || '',
             });
         }
         catch (error) {
             console.error('加载分类失败:', error);
             const mainTabs = DEFAULT_MAIN_TABS;
             const allSubTabs = DEFAULT_SUB_TABS;
+            const allThirdTabs = [];
             const firstMain = mainTabs[0];
             const subTabs = getSubTabsByParent(allSubTabs, firstMain?.value || '');
             const firstSub = subTabs[0];
             this.setData({
                 mainTabs,
                 allSubTabs,
+                allThirdTabs,
                 subTabs,
+                thirdTabs: [],
                 mainTabIndex: firstMain ? 0 : -1,
                 subTabIndex: firstSub ? 0 : -1,
+                thirdTabIndex: -1,
                 'form.mainTab': firstMain?.value || '',
                 'form.subTab': firstSub?.value || '',
+                'form.thirdTab': '',
             });
             wx.showToast({
                 title: '已切换本地分类',
@@ -193,12 +219,17 @@ Page({
         }
         const subTabs = getSubTabsByParent(this.data.allSubTabs || [], nextMainTab.value);
         const firstSub = subTabs[0];
+        const thirdTabs = getSubTabsByParent(this.data.allThirdTabs || [], firstSub?.value || '');
+        const firstThird = thirdTabs[0];
         this.setData({
             mainTabIndex: index,
             subTabs,
+            thirdTabs,
             subTabIndex: firstSub ? 0 : -1,
+            thirdTabIndex: firstThird ? 0 : -1,
             'form.mainTab': nextMainTab.value,
             'form.subTab': firstSub?.value || '',
+            'form.thirdTab': firstThird?.value || '',
         });
     },
     onSubTabChange(e) {
@@ -208,9 +239,26 @@ Page({
         if (!nextSubTab) {
             return;
         }
+        const thirdTabs = getSubTabsByParent(this.data.allThirdTabs || [], nextSubTab.value);
+        const firstThird = thirdTabs[0];
         this.setData({
             subTabIndex: index,
+            thirdTabs,
+            thirdTabIndex: firstThird ? 0 : -1,
             'form.subTab': nextSubTab.value,
+            'form.thirdTab': firstThird?.value || '',
+        });
+    },
+    onThirdTabChange(e) {
+        const index = Number(e.detail.value);
+        const thirdTabs = this.data.thirdTabs || [];
+        const nextThirdTab = thirdTabs[index];
+        if (!nextThirdTab) {
+            return;
+        }
+        this.setData({
+            thirdTabIndex: index,
+            'form.thirdTab': nextThirdTab.value,
         });
     },
     onScopeTap(e) {
@@ -400,9 +448,16 @@ Page({
             });
             return;
         }
+        if ((this.data.thirdTabs || []).length > 0 && !String(form.thirdTab || '').trim()) {
+            wx.showToast({
+                title: '请选择三级分类',
+                icon: 'none',
+            });
+            return;
+        }
         const coverUrl = imageUrls[Number(this.data.coverIndex || 0)] || imageUrls[0] || '';
         const price = form.isFree ? 0 : Math.max(1, Number(form.price || 0));
-        const mappedCategory = String(form.subTab || form.mainTab || 'designer_portfolio').trim() || 'designer_portfolio';
+        const mappedCategory = String(form.thirdTab || form.subTab || form.mainTab || 'designer_portfolio').trim() || 'designer_portfolio';
         const apiPath = '/api/v1/miniprogram/user/designer-works';
         const body = {
             name,
@@ -410,6 +465,7 @@ Page({
             category: mappedCategory,
             main_tab: String(form.mainTab || '').trim(),
             sub_tab: String(form.subTab || '').trim(),
+            third_tab: String(form.thirdTab || '').trim(),
             image_urls: imageUrls,
             cover_url: coverUrl,
             publish_scope: String(form.publishScope || 'homepage_only'),

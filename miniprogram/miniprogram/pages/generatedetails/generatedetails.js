@@ -140,6 +140,20 @@ function getPublishSubTabsByParent(allSubTabs, parentValue) {
     const currentParent = String(parentValue || '').trim();
     return allSubTabs.filter((item) => String(item.parent || '').trim() === currentParent);
 }
+function normalizePublishThirdTabs(list, subTabs) {
+    const subValues = new Set(subTabs.map((item) => item.value));
+    return (Array.isArray(list) ? list : [])
+        .map((item) => ({
+        label: String(item?.label || '').trim(),
+        value: String(item?.value || '').trim(),
+        parent: String(item?.parent || '').trim(),
+    }))
+        .filter((item) => item.label && item.value && item.parent && subValues.has(item.parent));
+}
+function getPublishThirdTabsByParent(allThirdTabs, parentValue) {
+    const currentParent = String(parentValue || '').trim();
+    return allThirdTabs.filter((item) => String(item.parent || '').trim() === currentParent);
+}
 const LOCAL_ENTERPRISE_WECHAT_QRCODE = (0, asset_1.resolveAssetPath)('/assets/企业微信二维码.png');
 const GENERATED_TASK_PROGRESS_STORAGE_PREFIX = 'generated_task_progress_';
 Page({
@@ -195,13 +209,17 @@ Page({
             price: 0,
             mainTab: '',
             subTab: '',
+            thirdTab: '',
         },
         // 模板广场一级/二级话题配置（用于发布时选择所属板块）
         mainTabs: PUBLISH_TEMPLATE_TOPICS,
         allSubTabs: PUBLISH_TEMPLATE_SUB_TOPICS,
         subTabs: [],
+        allThirdTabs: [],
+        thirdTabs: [],
         mainTabIndex: -1,
         subTabIndex: -1,
+        thirdTabIndex: -1,
     },
     pollingTimer: null,
     pollingAttempt: 0,
@@ -308,34 +326,46 @@ Page({
             });
             const mainTabs = normalizePublishMainTabs(res?.main_tabs);
             const allSubTabs = normalizePublishSubTabs(res?.sub_tabs, mainTabs);
+            const allThirdTabs = normalizePublishThirdTabs(res?.third_tabs, allSubTabs);
             const firstMain = mainTabs[0];
             const subTabs = getPublishSubTabsByParent(allSubTabs, firstMain?.value || '');
             const firstSub = subTabs[0];
+            const thirdTabs = getPublishThirdTabsByParent(allThirdTabs, firstSub?.value || '');
+            const firstThird = thirdTabs[0];
             this.setData({
                 mainTabs,
                 allSubTabs,
+                allThirdTabs,
                 subTabs,
+                thirdTabs,
                 mainTabIndex: firstMain ? 0 : -1,
                 subTabIndex: firstSub ? 0 : -1,
+                thirdTabIndex: firstThird ? 0 : -1,
                 'publishForm.mainTab': firstMain?.value || '',
                 'publishForm.subTab': firstSub?.value || '',
+                'publishForm.thirdTab': firstThird?.value || '',
             });
         }
         catch (e) {
             console.error('加载模板广场分类配置失败:', e);
             const mainTabs = PUBLISH_TEMPLATE_TOPICS;
             const allSubTabs = PUBLISH_TEMPLATE_SUB_TOPICS;
+            const allThirdTabs = [];
             const firstMain = mainTabs[0];
             const subTabs = getPublishSubTabsByParent(allSubTabs, firstMain?.value || '');
             const firstSub = subTabs[0];
             this.setData({
                 mainTabs,
                 allSubTabs,
+                allThirdTabs,
                 subTabs,
+                thirdTabs: [],
                 mainTabIndex: firstMain ? 0 : -1,
                 subTabIndex: firstSub ? 0 : -1,
+                thirdTabIndex: -1,
                 'publishForm.mainTab': firstMain?.value || '',
                 'publishForm.subTab': firstSub?.value || '',
+                'publishForm.thirdTab': '',
             });
         }
     },
@@ -1742,17 +1772,24 @@ Page({
     publishToSquare() {
         const mainTabs = this.data.mainTabs || [];
         const allSubTabs = this.data.allSubTabs || [];
+        const allThirdTabs = this.data.allThirdTabs || [];
         const mainTabValue = this.data.publishForm.mainTab || mainTabs[0]?.value || '';
         const subTabs = getPublishSubTabsByParent(allSubTabs, mainTabValue);
         const currentSubIndex = subTabs.findIndex((item) => item.value === this.data.publishForm.subTab);
         const nextSubIndex = currentSubIndex >= 0 ? currentSubIndex : (subTabs[0] ? 0 : -1);
         const nextSub = nextSubIndex >= 0 ? subTabs[nextSubIndex] : undefined;
+        const thirdTabs = getPublishThirdTabsByParent(allThirdTabs, nextSub?.value || '');
+        const currentThirdIndex = thirdTabs.findIndex((item) => item.value === this.data.publishForm.thirdTab);
+        const nextThirdIndex = currentThirdIndex >= 0 ? currentThirdIndex : (thirdTabs[0] ? 0 : -1);
+        const nextThird = nextThirdIndex >= 0 ? thirdTabs[nextThirdIndex] : undefined;
         // 预填充表单
         this.setData({
             showPublishModal: true,
             subTabs,
+            thirdTabs,
             mainTabIndex: Math.max(mainTabs.findIndex((item) => item.value === mainTabValue), 0),
             subTabIndex: nextSubIndex,
+            thirdTabIndex: nextThirdIndex,
             publishForm: {
                 name: '',
                 description: '',
@@ -1760,6 +1797,7 @@ Page({
                 price: 0,
                 mainTab: mainTabValue,
                 subTab: nextSub?.value || '',
+                thirdTab: nextThird?.value || '',
             }
         });
     },
@@ -1816,21 +1854,40 @@ Page({
         const main = mainTabs[index];
         const subTabs = getPublishSubTabsByParent(this.data.allSubTabs || [], main?.value || '');
         const firstSub = subTabs[0];
+        const thirdTabs = getPublishThirdTabsByParent(this.data.allThirdTabs || [], firstSub?.value || '');
+        const firstThird = thirdTabs[0];
         this.setData({
             mainTabIndex: index,
             'publishForm.mainTab': main ? main.value : '',
             subTabs,
+            thirdTabs,
             subTabIndex: firstSub ? 0 : -1,
+            thirdTabIndex: firstThird ? 0 : -1,
             'publishForm.subTab': firstSub?.value || '',
+            'publishForm.thirdTab': firstThird?.value || '',
         });
     },
     onSubTabChange(e) {
         const index = parseInt(e.detail.value, 10);
         const subTabs = this.data.subTabs || [];
         const sub = subTabs[index];
+        const thirdTabs = getPublishThirdTabsByParent(this.data.allThirdTabs || [], sub?.value || '');
+        const firstThird = thirdTabs[0];
         this.setData({
             subTabIndex: index,
+            thirdTabs,
+            thirdTabIndex: firstThird ? 0 : -1,
             'publishForm.subTab': sub ? sub.value : '',
+            'publishForm.thirdTab': firstThird?.value || '',
+        });
+    },
+    onThirdTabChange(e) {
+        const index = parseInt(e.detail.value, 10);
+        const thirdTabs = this.data.thirdTabs || [];
+        const third = thirdTabs[index];
+        this.setData({
+            thirdTabIndex: index,
+            'publishForm.thirdTab': third ? third.value : '',
         });
     },
     onChargeTypeChange(e) {
@@ -1861,11 +1918,15 @@ Page({
             wx.showToast({ title: '请选择二级分类', icon: 'none' });
             return;
         }
+        if ((this.data.thirdTabs || []).length > 0 && !publishForm.thirdTab) {
+            wx.showToast({ title: '请选择三级分类', icon: 'none' });
+            return;
+        }
         wx.showLoading({ title: '发布中...' });
         try {
             const isFree = !!publishForm.isFree;
             const price = isFree ? 0 : (publishForm.price > 0 ? publishForm.price : 1);
-            const mappedCategory = publishForm.mainTab || 'scene';
+            const mappedCategory = publishForm.thirdTab || publishForm.subTab || publishForm.mainTab || 'scene';
             const hiddenPrompt = String(taskData.user_prompt || taskData.prompt || '').trim();
             const body = JSON.stringify({
                 name: publishForm.name,
@@ -1873,6 +1934,7 @@ Page({
                 category: mappedCategory,
                 main_tab: publishForm.mainTab || undefined,
                 sub_tab: publishForm.subTab || undefined,
+                third_tab: publishForm.thirdTab || undefined,
                 image_url: taskData.imageUrl,
                 prompt: hiddenPrompt,
                 is_free: isFree,
@@ -1893,6 +1955,7 @@ Page({
                     category: mappedCategory,
                     main_tab: publishForm.mainTab || undefined,
                     sub_tab: publishForm.subTab || undefined,
+                    third_tab: publishForm.thirdTab || undefined,
                     image_url: taskData.imageUrl,
                     prompt: hiddenPrompt,
                     is_free: isFree,

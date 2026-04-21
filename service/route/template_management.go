@@ -2,25 +2,26 @@ package route
 
 import (
 	"encoding/json"
-	"net/http"
-	"strconv"
 	"github.com/gin-gonic/gin"
+	"net/http"
 	"service/model"
+	"strconv"
 )
 
 // TemplateRequest 模板请求结构
 type TemplateRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Category    string `json:"category" binding:"required"`
-	MainTab     string `json:"main_tab"`     // 一级tab value，可为空
-	SubTab      string `json:"sub_tab"`      // 二级tab value，可为空（如果设置了main_tab但sub_tab为空，表示属于父tab）
-	Description string `json:"description"`
-	Thumbnail   string `json:"thumbnail"`
-	PreviewURL  string `json:"preview_url"`
-	Images      string `json:"images"` // JSON数组格式
-	Price       int64  `json:"price"`
-	IsFree      bool   `json:"is_free"`
-	Status      string `json:"status"`
+	Name         string `json:"name" binding:"required"`
+	Category     string `json:"category" binding:"required"`
+	MainTab      string `json:"main_tab"`  // 一级tab value，可为空
+	SubTab       string `json:"sub_tab"`   // 二级tab value，可为空（如果设置了main_tab但sub_tab为空，表示属于父tab）
+	ThirdTab     string `json:"third_tab"` // 三级tab value，可为空
+	Description  string `json:"description"`
+	Thumbnail    string `json:"thumbnail"`
+	PreviewURL   string `json:"preview_url"`
+	Images       string `json:"images"` // JSON数组格式
+	Price        int64  `json:"price"`
+	IsFree       bool   `json:"is_free"`
+	Status       string `json:"status"`
 	PublishScope string `json:"publish_scope"`
 	RejectReason string `json:"reject_reason"`
 	SourceType   string `json:"source_type"`
@@ -39,6 +40,7 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 
 			mainTabs := make([]gin.H, 0)
 			subTabs := make([]gin.H, 0)
+			thirdTabs := make([]gin.H, 0)
 			cfg, err := templateSquareConfigModel.Get()
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "读取 Tab 配置失败: " + err.Error()})
@@ -62,11 +64,20 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 				for _, t := range subList {
 					subTabs = append(subTabs, gin.H{"label": t.Label, "value": t.Value, "parent": t.Parent})
 				}
+
+				thirdList, err := templateSquareConfigModel.ParseThirdTabs(cfg.ThirdTabs)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "解析三级 Tab 配置失败: " + err.Error()})
+					return
+				}
+				for _, t := range thirdList {
+					thirdTabs = append(thirdTabs, gin.H{"label": t.Label, "value": t.Value, "parent": t.Parent})
+				}
 			}
 			c.JSON(http.StatusOK, gin.H{
 				"code": 0,
 				"msg":  "success",
-				"data": gin.H{"main_tabs": mainTabs, "sub_tabs": subTabs},
+				"data": gin.H{"main_tabs": mainTabs, "sub_tabs": subTabs, "third_tabs": thirdTabs},
 			})
 		})
 		templates.PUT("/tab-config", func(c *gin.Context) {
@@ -80,6 +91,11 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 					Value  string `json:"value"`
 					Parent string `json:"parent"` // 二级tab的父tab value
 				} `json:"sub_tabs" binding:"required"`
+				ThirdTabs []struct {
+					Label  string `json:"label"`
+					Value  string `json:"value"`
+					Parent string `json:"parent"` // 三级tab的父tab value（二级）
+				} `json:"third_tabs"`
 			}
 			if err := c.ShouldBindJSON(&req); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": FormatValidationError("参数错误: " + err.Error())})
@@ -104,6 +120,20 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 					return
 				}
 			}
+			subTabValues := make(map[string]bool)
+			for _, t := range req.SubTabs {
+				subTabValues[t.Value] = true
+			}
+			for _, t := range req.ThirdTabs {
+				if t.Parent == "" {
+					c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "三级tab必须指定父tab"})
+					return
+				}
+				if !subTabValues[t.Parent] {
+					c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "三级tab的父tab不存在: " + t.Parent})
+					return
+				}
+			}
 			mainList := make([]model.TabItem, 0, len(req.MainTabs))
 			for _, t := range req.MainTabs {
 				mainList = append(mainList, model.TabItem{Label: t.Label, Value: t.Value})
@@ -112,9 +142,14 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 			for _, t := range req.SubTabs {
 				subList = append(subList, model.TabItem{Label: t.Label, Value: t.Value, Parent: t.Parent})
 			}
+			thirdList := make([]model.TabItem, 0, len(req.ThirdTabs))
+			for _, t := range req.ThirdTabs {
+				thirdList = append(thirdList, model.TabItem{Label: t.Label, Value: t.Value, Parent: t.Parent})
+			}
 			mainBytes, _ := json.Marshal(mainList)
 			subBytes, _ := json.Marshal(subList)
-			if err := templateSquareConfigModel.Set(string(mainBytes), string(subBytes)); err != nil {
+			thirdBytes, _ := json.Marshal(thirdList)
+			if err := templateSquareConfigModel.Set(string(mainBytes), string(subBytes), string(thirdBytes)); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "保存失败: " + err.Error()})
 				return
 			}
@@ -232,9 +267,9 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 				"code": 0,
 				"msg":  "success",
 				"data": gin.H{
-					"list":  templateList,
-					"total": total,
-					"page":  page,
+					"list":      templateList,
+					"total":     total,
+					"page":      page,
 					"page_size": pageSize,
 				},
 			})
@@ -273,7 +308,7 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 			if err := c.ShouldBindJSON(&req); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{
 					"code": 400,
-					"msg":  FormatValidationError("参数错误: "+err.Error()),
+					"msg":  FormatValidationError("参数错误: " + err.Error()),
 				})
 				return
 			}
@@ -289,21 +324,22 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 			}
 
 			template := &model.Template{
-				Name:        req.Name,
-				Category:    req.Category,
-				MainTab:     req.MainTab,
-				SubTab:      req.SubTab,
-				Description: req.Description,
-				Thumbnail:   req.Thumbnail,
-				PreviewURL:  req.PreviewURL,
-				Images:      req.Images,
-				Price:       req.Price,
-				IsFree:      req.IsFree,
-				Status:      req.Status,
+				Name:         req.Name,
+				Category:     req.Category,
+				MainTab:      req.MainTab,
+				SubTab:       req.SubTab,
+				ThirdTab:     req.ThirdTab,
+				Description:  req.Description,
+				Thumbnail:    req.Thumbnail,
+				PreviewURL:   req.PreviewURL,
+				Images:       req.Images,
+				Price:        req.Price,
+				IsFree:       req.IsFree,
+				Status:       req.Status,
 				PublishScope: req.PublishScope,
 				RejectReason: req.RejectReason,
 				SourceType:   req.SourceType,
-				Creator:     username,
+				Creator:      username,
 			}
 
 			if err := templateModel.Create(template); err != nil {
@@ -336,7 +372,7 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 			if err := c.ShouldBindJSON(&req); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{
 					"code": 400,
-					"msg":  FormatValidationError("参数错误: "+err.Error()),
+					"msg":  FormatValidationError("参数错误: " + err.Error()),
 				})
 				return
 			}
@@ -354,6 +390,7 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 			template.Category = req.Category
 			template.MainTab = req.MainTab
 			template.SubTab = req.SubTab
+			template.ThirdTab = req.ThirdTab
 			template.Description = req.Description
 			template.Thumbnail = req.Thumbnail
 			template.PreviewURL = req.PreviewURL
@@ -396,7 +433,7 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 			if err := c.ShouldBindJSON(&req); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{
 					"code": 400,
-					"msg":  FormatValidationError("参数错误: "+err.Error()),
+					"msg":  FormatValidationError("参数错误: " + err.Error()),
 				})
 				return
 			}
@@ -443,13 +480,13 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 			}
 
 			var req struct {
-				Status string `json:"status" binding:"required,oneof=published draft archived rejected"`
+				Status       string `json:"status" binding:"required,oneof=published draft archived rejected"`
 				RejectReason string `json:"reject_reason"`
 			}
 			if err := c.ShouldBindJSON(&req); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{
 					"code": 400,
-					"msg":  FormatValidationError("参数错误: "+err.Error()),
+					"msg":  FormatValidationError("参数错误: " + err.Error()),
 				})
 				return
 			}
@@ -526,7 +563,7 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 			if err := c.ShouldBindJSON(&req); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{
 					"code": 400,
-					"msg":  FormatValidationError("参数错误: "+err.Error()),
+					"msg":  FormatValidationError("参数错误: " + err.Error()),
 				})
 				return
 			}
@@ -730,7 +767,7 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 				if err := c.ShouldBindJSON(&req); err != nil {
 					c.JSON(http.StatusBadRequest, gin.H{
 						"code": 400,
-						"msg":  FormatValidationError("参数错误: "+err.Error()),
+						"msg":  FormatValidationError("参数错误: " + err.Error()),
 					})
 					return
 				}
@@ -812,7 +849,7 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 				if err := c.ShouldBindJSON(&req); err != nil {
 					c.JSON(http.StatusBadRequest, gin.H{
 						"code": 400,
-						"msg":  FormatValidationError("参数错误: "+err.Error()),
+						"msg":  FormatValidationError("参数错误: " + err.Error()),
 					})
 					return
 				}
