@@ -14,10 +14,14 @@ Page({
    * 页面的初始数据
    */
   data: {
-    loginType: 'wechat', // 'wechat' 或 'password'
+    loginType: 'wechat', // 'wechat' / 'phone' / 'password'
     username: '',
     password: '',
+    phone: '',
+    phoneCode: '',
     loading: false,
+    phoneCodeSending: false,
+    phoneCodeCountdown: 0,
     inviteCode: '', // 邀请码（从分享链接或上一页传入，注册时填写可得双方奖励）
     agreedPrivacy: false,
   },
@@ -73,7 +77,53 @@ Page({
       loginType: type,
       username: '',
       password: '',
+      phone: '',
+      phoneCode: '',
     });
+  },
+
+  onPhoneInput(e: any) {
+    this.setData({
+      phone: String(e.detail.value || '').replace(/[^\d]/g, '').slice(0, 11),
+    });
+  },
+
+  onPhoneCodeInput(e: any) {
+    this.setData({
+      phoneCode: String(e.detail.value || '').replace(/[^\d]/g, '').slice(0, 6),
+    });
+  },
+
+  async persistLoginResult(loginResult: any) {
+    const token = loginResult?.token;
+    if (!token) {
+      throw new Error('登录结果缺少 token');
+    }
+    wx.setStorageSync('token', token);
+    wx.setStorageSync('userInfo', {
+      id: loginResult.id,
+      username: loginResult.username,
+      token: loginResult.token,
+      ...loginResult,
+    });
+
+    wx.showToast({
+      title: '登录成功',
+      icon: 'success',
+      duration: 1000,
+    });
+
+    this.setData({ loading: false });
+    setTimeout(() => {
+      wx.switchTab({
+        url: '/pages/index/index',
+        fail: () => {
+          wx.reLaunch({
+            url: '/pages/index/index',
+          })
+        }
+      });
+    }, 1000);
   },
 
   /**
@@ -220,37 +270,7 @@ Page({
         });
       });
 
-      // 4. 保存 token 和用户信息（兼容后端只返回 id/username/token）
-      const token = loginResult.token;
-      if (!token) {
-        throw new Error('登录结果缺少 token');
-      }
-      wx.setStorageSync('token', token);
-      wx.setStorageSync('userInfo', {
-        id: loginResult.id,
-        username: loginResult.username,
-        token: loginResult.token,
-        ...loginResult,
-      });
-
-      wx.showToast({
-        title: '登录成功',
-        icon: 'success',
-        duration: 1000,
-      });
-
-      // 5. 先关 loading，再延迟跳转（保证toast显示后再跳转）
-      this.setData({ loading: false });
-      setTimeout(() => {
-        wx.switchTab({
-          url: '/pages/index/index',
-          fail: () => {
-            wx.reLaunch({
-              url: '/pages/index/index',
-            })
-          }
-        });
-      }, 1000);
+      await this.persistLoginResult(loginResult);
     } catch (error: any) {
       console.error('登录失败:', error);
 
@@ -316,29 +336,7 @@ Page({
         });
       });
 
-      // 保存token和用户信息
-      const token = loginResult.token;
-      wx.setStorageSync('token', token);
-      wx.setStorageSync('userInfo', loginResult);
-
-      wx.showToast({
-        title: '登录成功',
-        icon: 'success',
-        duration: 1000,
-      });
-
-      // 延迟跳转（保证toast显示后再跳转）
-      this.setData({ loading: false });
-      setTimeout(() => {
-        wx.switchTab({
-          url: '/pages/index/index',
-          fail: () => {
-            wx.reLaunch({
-              url: '/pages/index/index',
-            })
-          }
-        });
-      }, 1000);
+      await this.persistLoginResult(loginResult);
     } catch (error: any) {
       console.error('登录失败:', error);
       wx.showToast({
@@ -348,6 +346,130 @@ Page({
       });
       this.setData({ loading: false });
     }
+  },
+
+  async handlePhoneLogin(e: any) {
+    if (this.data.loading) {
+      return;
+    }
+    if (!this.ensureAgreementAccepted()) {
+      return;
+    }
+
+    const phone = String(this.data.phone || '').trim();
+    const phoneCode = String(this.data.phoneCode || '').trim();
+    if (phone.length !== 11) {
+      wx.showToast({ title: '请输入正确手机号', icon: 'none' });
+      return;
+    }
+    if (phoneCode.length !== 6) {
+      wx.showToast({ title: '请输入6位验证码', icon: 'none' });
+      return;
+    }
+
+    this.setData({ loading: true });
+    try {
+      let deviceID = await this.ensureDeviceId();
+      if (!deviceID) {
+        deviceID = 'temp_' + Date.now();
+      }
+      const loginResult = await new Promise<any>((resolve, reject) => {
+        wx.request({
+          url: `${API_BASE_URL}/api/v1/miniprogram/login/phone`,
+          method: 'POST',
+          data: {
+            phone,
+            code: phoneCode,
+            device_id: deviceID,
+            invite_code: this.data.inviteCode || undefined,
+          },
+          header: {
+            'Content-Type': 'application/json',
+          },
+          success: (res) => {
+            const data = res.data as any;
+            if (res.statusCode === 200 && data.code === 0) {
+              resolve(data.data || {});
+              return;
+            }
+            reject(new Error(data.msg || '手机号登录失败'));
+          },
+          fail: reject,
+        });
+      });
+
+      await this.persistLoginResult(loginResult);
+    } catch (error: any) {
+      wx.showToast({
+        title: error?.message || '手机号登录失败',
+        icon: 'none',
+        duration: 2200,
+      });
+      this.setData({ loading: false });
+    }
+  },
+
+  async sendPhoneCode() {
+    if (this.data.phoneCodeSending || this.data.loading || this.data.phoneCodeCountdown > 0) {
+      return;
+    }
+    if (!this.ensureAgreementAccepted()) {
+      return;
+    }
+    const phone = String(this.data.phone || '').trim();
+    if (phone.length !== 11) {
+      wx.showToast({ title: '请输入正确手机号', icon: 'none' });
+      return;
+    }
+
+    this.setData({ phoneCodeSending: true });
+    try {
+      await new Promise<any>((resolve, reject) => {
+        wx.request({
+          url: `${API_BASE_URL}/api/v1/miniprogram/login/phone/send-code`,
+          method: 'POST',
+          data: { phone },
+          header: {
+            'Content-Type': 'application/json',
+          },
+          success: (res) => {
+            const data = res.data as any;
+            if (res.statusCode === 200 && data.code === 0) {
+              resolve(data);
+              return;
+            }
+            reject(new Error(data.msg || '发送验证码失败'));
+          },
+          fail: reject,
+        });
+      });
+
+      wx.showToast({
+        title: '验证码已发送',
+        icon: 'success',
+      });
+      this.startPhoneCodeCountdown(60);
+    } catch (error: any) {
+      wx.showToast({
+        title: error?.message || '发送验证码失败',
+        icon: 'none',
+      });
+    } finally {
+      this.setData({ phoneCodeSending: false });
+    }
+  },
+
+  startPhoneCodeCountdown(seconds: number) {
+    this.setData({ phoneCodeCountdown: seconds });
+    const timer = setInterval(() => {
+      const nextValue = Number(this.data.phoneCodeCountdown || 0) - 1;
+      if (nextValue <= 0) {
+        clearInterval(timer);
+        this.setData({ phoneCodeCountdown: 0 });
+        return;
+      }
+      this.setData({ phoneCodeCountdown: nextValue });
+    }, 1000);
   },
 
 

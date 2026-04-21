@@ -124,6 +124,10 @@
   padding-right: 24rpx;
 }
 
+.info-main.full {
+  padding-right: 0;
+}
+
 .info-help-text {
   font-size: 22rpx;
   line-height: 1.6;
@@ -174,6 +178,48 @@
 
 .designer-save-btn::after {
   border: none;
+}
+
+.phone-bind-item {
+  align-items: stretch;
+}
+
+.phone-bind-panel {
+  margin-top: 12rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.phone-code-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.phone-code-input {
+  flex: 1;
+}
+
+.phone-code-btn {
+  min-width: 180rpx;
+  height: 84rpx;
+  line-height: 84rpx;
+  border-radius: 18rpx;
+  border: 1px solid rgba(191, 160, 120, 0.45);
+  background: #f8efe0;
+  color: #9b6d2a;
+  font-size: 24rpx;
+  padding: 0 20rpx;
+  margin: 0;
+
+  &[disabled] {
+    opacity: 0.58;
+  }
+}
+
+.bind-phone-btn {
+  margin-top: 0;
 }
 
 /* 编辑区域 */

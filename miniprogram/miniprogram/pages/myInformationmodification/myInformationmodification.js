@@ -62,6 +62,7 @@ Page({
         userInfo: {
             id: 0,
             username: '',
+            phone: '',
             nickname: '',
             avatar: '',
             designerBio: '',
@@ -75,6 +76,13 @@ Page({
             hasPassword: false,
         },
         currentDeviceId: '',
+        bindingPhone: false,
+        phoneBindForm: {
+            phone: '',
+            code: '',
+        },
+        phoneCodeSending: false,
+        phoneCodeCountdown: 0,
         // 加载状态
         loading: true,
         saving: false,
@@ -193,6 +201,7 @@ Page({
                     userInfo: {
                         id: data.id,
                         username: data.username || '',
+                        phone: data.enterprise_wechat_contact || '',
                         nickname: data.nickname || '',
                         avatar: data.avatar || '',
                         designerBio: data.designer_bio || '',
@@ -554,6 +563,114 @@ Page({
         }
         finally {
             this.setData({ savingNickname: false });
+        }
+    },
+    onBindPhoneInput(e) {
+        const field = String(e.currentTarget.dataset.field || '');
+        this.setData({
+            [`phoneBindForm.${field}`]: String(e.detail.value || '').replace(/[^\d]/g, '').slice(0, field === 'phone' ? 11 : 6),
+        });
+    },
+    async sendBindPhoneCode() {
+        if (this.data.phoneCodeSending || this.data.phoneCodeCountdown > 0) {
+            return;
+        }
+        const phone = String(this.data.phoneBindForm.phone || '').trim();
+        if (phone.length !== 11) {
+            wx.showToast({ title: '请输入正确手机号', icon: 'none' });
+            return;
+        }
+        this.setData({ phoneCodeSending: true });
+        try {
+            const apiPath = '/api/v1/miniprogram/profile/bind/phone/send-code';
+            const body = { phone };
+            const headers = this.getAuthHeaders(apiPath, body);
+            if (!headers) {
+                throw new Error('生成请求头失败');
+            }
+            const res = await new Promise((resolve, reject) => {
+                wx.request({
+                    url: `${API_BASE_URL}${apiPath}`,
+                    method: 'POST',
+                    header: headers,
+                    data: body,
+                    success: resolve,
+                    fail: reject,
+                });
+            });
+            if (res.statusCode !== 200 || res.data.code !== 0) {
+                throw new Error(res.data?.msg || '发送验证码失败');
+            }
+            wx.showToast({ title: '验证码已发送', icon: 'success' });
+            this.startBindPhoneCountdown(60);
+        }
+        catch (error) {
+            wx.showToast({ title: error.message || '发送验证码失败', icon: 'none' });
+        }
+        finally {
+            this.setData({ phoneCodeSending: false });
+        }
+    },
+    startBindPhoneCountdown(seconds) {
+        this.setData({ phoneCodeCountdown: seconds });
+        const timer = setInterval(() => {
+            const nextValue = Number(this.data.phoneCodeCountdown || 0) - 1;
+            if (nextValue <= 0) {
+                clearInterval(timer);
+                this.setData({ phoneCodeCountdown: 0 });
+                return;
+            }
+            this.setData({ phoneCodeCountdown: nextValue });
+        }, 1000);
+    },
+    async submitBindPhone() {
+        const phone = String(this.data.phoneBindForm.phone || '').trim();
+        const code = String(this.data.phoneBindForm.code || '').trim();
+        if (phone.length !== 11) {
+            wx.showToast({ title: '请输入正确手机号', icon: 'none' });
+            return;
+        }
+        if (code.length !== 6) {
+            wx.showToast({ title: '请输入6位验证码', icon: 'none' });
+            return;
+        }
+        this.setData({ bindingPhone: true });
+        try {
+            const apiPath = '/api/v1/miniprogram/profile/bind/phone';
+            const body = { phone, code };
+            const headers = this.getAuthHeaders(apiPath, body);
+            if (!headers) {
+                throw new Error('生成请求头失败');
+            }
+            const res = await new Promise((resolve, reject) => {
+                wx.request({
+                    url: `${API_BASE_URL}${apiPath}`,
+                    method: 'POST',
+                    header: headers,
+                    data: body,
+                    success: resolve,
+                    fail: reject,
+                });
+            });
+            if (res.statusCode !== 200 || res.data.code !== 0) {
+                throw new Error(res.data?.msg || '绑定手机号失败');
+            }
+            const phoneDisplay = String(res.data?.data?.phone || phone);
+            wx.showModal({
+                title: '绑定成功',
+                content: `手机号 ${phoneDisplay} 已绑定到当前账号`,
+                showCancel: false,
+            });
+            this.setData({
+                'userInfo.phone': phone,
+                phoneBindForm: { phone: '', code: '' },
+            });
+        }
+        catch (error) {
+            wx.showToast({ title: error.message || '绑定手机号失败', icon: 'none' });
+        }
+        finally {
+            this.setData({ bindingPhone: false });
         }
     },
     // 打开密码设置弹窗

@@ -6,13 +6,15 @@ import (
 	"fmt"
 	"service/function"
 	"service/model"
+	"strings"
 )
 
 // PasswordAuthStrategy 账号密码登录策略
 type PasswordAuthStrategy struct {
-	userModel        *model.UserModel
-	userType         string // 用户类型：'management' 或 'miniprogram'
-	userProfileModel *model.UserProfileModel
+	userModel         *model.UserModel
+	userIdentityModel *model.UserIdentityModel
+	userType          string // 用户类型：'management' 或 'miniprogram'
+	userProfileModel  *model.UserProfileModel
 }
 
 // NewPasswordAuthStrategy 创建账号密码登录策略
@@ -21,9 +23,10 @@ func NewPasswordAuthStrategy(userModel *model.UserModel, userType string, userPr
 		userType = "management" // 默认管理后台
 	}
 	return &PasswordAuthStrategy{
-		userModel:        userModel,
-		userType:         userType,
-		userProfileModel: userProfileModel,
+		userModel:         userModel,
+		userIdentityModel: model.NewUserIdentityModel(userModel.DB),
+		userType:          userType,
+		userProfileModel:  userProfileModel,
 	}
 }
 
@@ -46,14 +49,26 @@ func (s *PasswordAuthStrategy) Login(ctx context.Context, req interface{}) (*Aut
 		return nil, fmt.Errorf("invalid request type")
 	}
 
+	username := strings.TrimSpace(loginReq.Username)
+	if username == "" {
+		return nil, errors.New("用户名或密码错误")
+	}
+
 	// 1. 根据用户名和用户类型查询用户
-	user, err := s.userModel.GetByUsernameAndType(loginReq.Username, s.userType)
+	user, err := s.userModel.GetByUsernameAndType(username, s.userType)
 	if err != nil {
 		return nil, errors.New("用户名或密码错误")
 	}
 
+	hashedPassword := strings.TrimSpace(user.Password)
+	if s.userType == "miniprogram" && s.userIdentityModel != nil {
+		if identity, identityErr := s.userIdentityModel.GetByIdentity(model.UserIdentityTypeUsername, username); identityErr == nil && identity != nil && strings.TrimSpace(identity.CredentialHash) != "" {
+			hashedPassword = identity.CredentialHash
+		}
+	}
+
 	// 2. 验证密码
-	if !function.VerifyPassword(loginReq.Password, user.Password) {
+	if !function.VerifyPassword(loginReq.Password, hashedPassword) {
 		return nil, errors.New("用户名或密码错误")
 	}
 

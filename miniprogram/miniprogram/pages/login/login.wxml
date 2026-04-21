@@ -24,6 +24,13 @@
         <text>微信登录/注册</text>
       </view>
       <view
+        class="tab-item {{loginType === 'phone' ? 'active' : ''}}"
+        bindtap="switchLoginType"
+        data-type="phone"
+      >
+        <text>手机号登录</text>
+      </view>
+      <view
         class="tab-item {{loginType === 'password' ? 'active' : ''}}"
         bindtap="switchLoginType"
         data-type="password"
@@ -44,6 +51,61 @@
           disabled="{{loading || !agreedPrivacy}}"
         >
           <text>{{loading ? '登录中...' : '微信一键登录/注册'}}</text>
+        </button>
+      </view>
+    </view>
+
+    <!-- 手机号登录 -->
+    <view class="login-content" wx:if="{{loginType === 'phone'}}">
+      <view class="form-card">
+        <view class="login-tip">
+          <text>使用手机号验证码注册/登录，首次登录自动创建账号，已绑定账号会自动归并</text>
+        </view>
+        <view class="form-group">
+          <view class="input-wrapper">
+            <t-icon name="call" size="40rpx" color="#b79066" />
+            <input
+              class="form-input"
+              type="number"
+              maxlength="11"
+              placeholder="请输入手机号"
+              placeholder-class="input-placeholder"
+              value="{{phone}}"
+              bindinput="onPhoneInput"
+              disabled="{{loading}}"
+            />
+          </view>
+        </view>
+        <view class="form-group">
+          <view class="input-wrapper code-input-wrapper">
+            <view class="code-input-main">
+              <t-icon name="secured" size="40rpx" color="#b79066" />
+              <input
+                class="form-input"
+                type="number"
+                maxlength="6"
+                placeholder="请输入验证码"
+                placeholder-class="input-placeholder"
+                value="{{phoneCode}}"
+                bindinput="onPhoneCodeInput"
+                disabled="{{loading}}"
+              />
+            </view>
+            <button
+              class="code-send-btn"
+              bindtap="sendPhoneCode"
+              disabled="{{loading || phoneCodeSending || phoneCodeCountdown > 0 || phone.length !== 11 || !agreedPrivacy}}"
+            >
+              {{phoneCodeSending ? '发送中...' : (phoneCodeCountdown > 0 ? phoneCodeCountdown + 's后重发' : '获取验证码')}}
+            </button>
+          </view>
+        </view>
+        <button
+          class="login-button phone-button"
+          bindtap="handlePhoneLogin"
+          disabled="{{loading || !agreedPrivacy || phone.length !== 11 || phoneCode.length !== 6}}"
+        >
+          <text>{{loading ? '登录中...' : '手机号注册/登录'}}</text>
         </button>
       </view>
     </view>

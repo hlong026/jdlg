@@ -83,6 +83,51 @@
             <t-icon name="chevron-right" size="36rpx" color="#8c7553" />
           </view>
         </view>
+
+        <view class="info-item">
+          <view class="info-main">
+            <text class="info-label">手机号</text>
+            <text class="info-help-text">用于验证码登录、找回密码和账号安全校验</text>
+          </view>
+          <view class="info-value">
+            <text class="value-text {{userInfo.phone ? 'set' : 'not-set'}}">{{userInfo.phone || '未绑定'}}</text>
+          </view>
+        </view>
+
+        <view class="info-item phone-bind-item">
+          <view class="info-main full">
+            <text class="info-label">绑定手机</text>
+            <text class="info-help-text">输入手机号并通过短信验证码校验，后续可直接用手机号登录</text>
+            <view class="phone-bind-panel">
+              <input
+                class="edit-input"
+                value="{{phoneBindForm.phone}}"
+                bindinput="onBindPhoneInput"
+                data-field="phone"
+                type="number"
+                maxlength="11"
+                placeholder="请输入手机号"
+                placeholder-class="edit-input-placeholder"
+              />
+              <view class="phone-code-row">
+                <input
+                  class="edit-input phone-code-input"
+                  value="{{phoneBindForm.code}}"
+                  bindinput="onBindPhoneInput"
+                  data-field="code"
+                  type="number"
+                  maxlength="6"
+                  placeholder="请输入验证码"
+                  placeholder-class="edit-input-placeholder"
+                />
+                <button class="phone-code-btn" bindtap="sendBindPhoneCode" disabled="{{phoneCodeSending || phoneCodeCountdown > 0 || phoneBindForm.phone.length !== 11}}">
+                  {{phoneCodeSending ? '发送中...' : (phoneCodeCountdown > 0 ? phoneCodeCountdown + 's' : '获取验证码')}}
+                </button>
+              </view>
+              <button class="designer-save-btn bind-phone-btn" bindtap="submitBindPhone" loading="{{bindingPhone}}" disabled="{{bindingPhone || phoneBindForm.phone.length !== 11 || phoneBindForm.code.length !== 6}}">绑定手机号</button>
+            </view>
+          </view>
+        </view>
       </block>
     </view>
 
@@ -159,6 +204,10 @@
       <view class="tip-item">
         <t-icon name="info-circle" size="28rpx" color="#8c7553" />
         <text class="tip-text">建议设置账号密码，方便后续通过密码方式补充登录</text>
+      </view>
+      <view class="tip-item">
+        <t-icon name="info-circle" size="28rpx" color="#8c7553" />
+        <text class="tip-text">建议同步绑定手机号，后续可用短信验证码直接注册/登录，不再只依赖微信授权</text>
       </view>
       <view class="tip-item">
         <t-icon name="info-circle" size="28rpx" color="#8c7553" />

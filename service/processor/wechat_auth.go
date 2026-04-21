@@ -11,38 +11,41 @@ import (
 
 // WechatAuthStrategy 微信code登录策略
 type WechatAuthStrategy struct {
-	userModel        *model.UserModel
-	codeSessionModel *model.CodeSessionRedisModel
-	userProfileModel *model.UserProfileModel
-	appID            string
-	appSecret        string
+	userModel         *model.UserModel
+	userIdentityModel *model.UserIdentityModel
+	codeSessionModel  *model.CodeSessionRedisModel
+	userProfileModel  *model.UserProfileModel
+	appID             string
+	appSecret         string
 }
 
 // NewWechatAuthStrategy 创建微信登录策略
 func NewWechatAuthStrategy(userModel *model.UserModel, codeSessionModel *model.CodeSessionRedisModel, appID, appSecret string) *WechatAuthStrategy {
 	return &WechatAuthStrategy{
-		userModel:        userModel,
-		codeSessionModel: codeSessionModel,
-		appID:            appID,
-		appSecret:        appSecret,
+		userModel:         userModel,
+		userIdentityModel: model.NewUserIdentityModel(userModel.DB),
+		codeSessionModel:  codeSessionModel,
+		appID:             appID,
+		appSecret:         appSecret,
 	}
 }
 
 // NewWechatAuthStrategyWithProfile 创建微信登录策略（带用户profile验证）
 func NewWechatAuthStrategyWithProfile(userModel *model.UserModel, codeSessionModel *model.CodeSessionRedisModel, userProfileModel *model.UserProfileModel, appID, appSecret string) *WechatAuthStrategy {
 	return &WechatAuthStrategy{
-		userModel:        userModel,
-		codeSessionModel: codeSessionModel,
-		userProfileModel: userProfileModel,
-		appID:            appID,
-		appSecret:        appSecret,
+		userModel:         userModel,
+		userIdentityModel: model.NewUserIdentityModel(userModel.DB),
+		codeSessionModel:  codeSessionModel,
+		userProfileModel:  userProfileModel,
+		appID:             appID,
+		appSecret:         appSecret,
 	}
 }
 
 // WechatLoginRequest 微信登录请求
 type WechatLoginRequest struct {
-	Code      string `json:"code" binding:"required"`
-	DeviceID  string `json:"device_id"`  // 设备指纹（可选，优先使用）
+	Code       string `json:"code" binding:"required"`
+	DeviceID   string `json:"device_id"`   // 设备指纹（可选，优先使用）
 	InviteCode string `json:"invite_code"` // 邀请码（可选，新用户注册时填写可得奖励）
 }
 

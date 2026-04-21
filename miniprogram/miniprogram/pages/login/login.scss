@@ -123,6 +123,36 @@
   }
 }
 
+.code-input-wrapper {
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.code-input-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.code-send-btn {
+  min-width: 184rpx;
+  height: 68rpx;
+  line-height: 68rpx;
+  border-radius: 18rpx;
+  border: 1px solid rgba(169, 133, 91, 0.32);
+  background: rgba(255, 248, 239, 0.86);
+  color: #9b6d2a;
+  font-size: 24rpx;
+  padding: 0 20rpx;
+  margin: 0;
+
+  &[disabled] {
+    opacity: 0.58;
+  }
+}
+
 /* 登录按钮 */
 .login-button {
   width: 100%;
@@ -148,6 +178,11 @@
   &.password-button {
     background: linear-gradient(135deg, #3b82f6, #2563eb);
     box-shadow: 0 8rpx 20rpx rgba(59, 130, 246, 0.4);
+  }
+
+  &.phone-button {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    box-shadow: 0 10rpx 22rpx rgba(217, 119, 6, 0.28);
   }
 
   &:active {
@@ -300,6 +335,12 @@
   }
 }
 
+.code-send-btn {
+  background: linear-gradient(135deg, rgba(248, 237, 220, 0.98) 0%, rgba(238, 225, 207, 0.92) 100%);
+  border: 1px solid rgba(188, 168, 145, 0.45);
+  color: #9d7443;
+}
+
 .login-button {
   &.wechat-button {
     box-shadow: 0 8rpx 20rpx rgba(6, 173, 86, 0.2);
@@ -308,6 +349,11 @@
   &.password-button {
     background: linear-gradient(135deg, #c8a679 0%, #a9855b 100%);
     box-shadow: 0 12rpx 24rpx rgba(113, 80, 63, 0.18);
+  }
+
+  &.phone-button {
+    background: linear-gradient(135deg, #d4a75e 0%, #b77b2d 100%);
+    box-shadow: 0 12rpx 24rpx rgba(183, 123, 45, 0.18);
   }
 }
 

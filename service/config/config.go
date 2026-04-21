@@ -58,7 +58,7 @@ func initWechatPayConfig() WechatPayConfig {
 	transferSceneId := strings.TrimSpace(getEnv("WECHAT_PAY_TRANSFER_SCENE_ID", "1000"))
 	transferNotifyURL := strings.TrimSpace(getEnv("WECHAT_PAY_TRANSFER_NOTIFY_URL", ""))
 	withdrawEnabled := getEnvBool("WECHAT_PAY_WITHDRAW_ENABLED", false)
-	withdrawMinFen := getEnvInt64("WECHAT_PAY_WITHDRAW_MIN_FEN", 100)        // 默认 1 元
+	withdrawMinFen := getEnvInt64("WECHAT_PAY_WITHDRAW_MIN_FEN", 100)         // 默认 1 元
 	withdrawStoneToFen := getEnvInt64("WECHAT_PAY_WITHDRAW_STONE_TO_FEN", 10) // 默认 1 灵石=10 分
 
 	return WechatPayConfig{
@@ -77,15 +77,16 @@ func initWechatPayConfig() WechatPayConfig {
 
 // Config 应用配置
 type Config struct {
-	MySQL     MySQLConfig
-	Redis     RedisConfig
-	Wechat    WechatConfig
-	WechatPay WechatPayConfig
+	MySQL            MySQLConfig
+	Redis            RedisConfig
+	Wechat           WechatConfig
+	WechatPay        WechatPayConfig
 	EnterpriseWechat EnterpriseWechatConfig
-	Server    ServerConfig
-	COS       COSConfig
-	AI        AIConfig
-	AliyunSMS AliyunSMSConfig
+	Server           ServerConfig
+	COS              COSConfig
+	AI               AIConfig
+	AliyunSMS        AliyunSMSConfig
+	TencentSMS       TencentSMSConfig
 }
 
 // AIConfig AI服务配置
@@ -118,13 +119,13 @@ type WechatConfig struct {
 }
 
 type EnterpriseWechatConfig struct {
-	Download4KQRCodeURL string
-	Download4KTip       string
-	ServicePhone        string
+	Download4KQRCodeURL   string
+	Download4KTip         string
+	ServicePhone          string
 	CustomerServiceCorpID string
-	CustomerServiceURL  string
-	CallbackSecret      string
-	CallbackMaxSkewSec  int64
+	CustomerServiceURL    string
+	CallbackSecret        string
+	CallbackMaxSkewSec    int64
 }
 
 // WechatPayConfig 微信支付 APIv3 配置（商户号、证书、APIv3 密钥）
@@ -178,6 +179,20 @@ type AliyunSMSConfig struct {
 	EnterpriseAuthCode string // 企业认证授权码
 }
 
+type TencentSMSConfig struct {
+	SecretID             string
+	SecretKey            string
+	Region               string
+	SdkAppID             string
+	SignName             string
+	LoginTemplateID      string
+	BindPhoneTemplateID  string
+	CodeTTLSeconds       int64
+	SendCooldownSeconds  int64
+	MaxVerifyAttempts    int64
+	MaxDailySendPerPhone int64
+}
+
 var globalConfig *Config
 
 // Init 初始化配置
@@ -200,13 +215,13 @@ func Init() *Config {
 		},
 		WechatPay: initWechatPayConfig(),
 		EnterpriseWechat: EnterpriseWechatConfig{
-			Download4KQRCodeURL: strings.TrimSpace(getEnv("ENTERPRISE_WECHAT_DOWNLOAD_4K_QRCODE_URL", "")),
-			Download4KTip: strings.TrimSpace(getEnv("ENTERPRISE_WECHAT_DOWNLOAD_4K_TIP", "完成手机号授权验证后，可下载保存高清原图。")),
-			ServicePhone: strings.TrimSpace(getEnv("ENTERPRISE_WECHAT_SERVICE_PHONE", "13959877676")),
+			Download4KQRCodeURL:   strings.TrimSpace(getEnv("ENTERPRISE_WECHAT_DOWNLOAD_4K_QRCODE_URL", "")),
+			Download4KTip:         strings.TrimSpace(getEnv("ENTERPRISE_WECHAT_DOWNLOAD_4K_TIP", "完成手机号授权验证后，可下载保存高清原图。")),
+			ServicePhone:          strings.TrimSpace(getEnv("ENTERPRISE_WECHAT_SERVICE_PHONE", "13959877676")),
 			CustomerServiceCorpID: strings.TrimSpace(getEnv("ENTERPRISE_WECHAT_CUSTOMER_SERVICE_CORP_ID", "")),
-			CustomerServiceURL: strings.TrimSpace(getEnv("ENTERPRISE_WECHAT_CUSTOMER_SERVICE_URL", "")),
-			CallbackSecret: strings.TrimSpace(getEnv("ENTERPRISE_WECHAT_CALLBACK_SECRET", "")),
-			CallbackMaxSkewSec: getEnvInt64("ENTERPRISE_WECHAT_CALLBACK_MAX_SKEW_SEC", 300),
+			CustomerServiceURL:    strings.TrimSpace(getEnv("ENTERPRISE_WECHAT_CUSTOMER_SERVICE_URL", "")),
+			CallbackSecret:        strings.TrimSpace(getEnv("ENTERPRISE_WECHAT_CALLBACK_SECRET", "")),
+			CallbackMaxSkewSec:    getEnvInt64("ENTERPRISE_WECHAT_CALLBACK_MAX_SKEW_SEC", 300),
 		},
 		Server: ServerConfig{
 			Addr:          getEnv("HTTP_ADDR", ":8080"),
@@ -238,6 +253,19 @@ func Init() *Config {
 			AccessKeySecret:    getEnv("ALIYUN_SMS_ACCESS_KEY_SECRET", ""),
 			PersonalAuthCode:   getEnv("ALIYUN_SMS_PERSONAL_AUTH_CODE", ""),
 			EnterpriseAuthCode: getEnv("ALIYUN_SMS_ENTERPRISE_AUTH_CODE", ""),
+		},
+		TencentSMS: TencentSMSConfig{
+			SecretID:             getEnv("TENCENT_SMS_SECRET_ID", ""),
+			SecretKey:            getEnv("TENCENT_SMS_SECRET_KEY", ""),
+			Region:               getEnv("TENCENT_SMS_REGION", "ap-guangzhou"),
+			SdkAppID:             getEnv("TENCENT_SMS_APP_ID", ""),
+			SignName:             getEnv("TENCENT_SMS_SIGN_NAME", ""),
+			LoginTemplateID:      getEnv("TENCENT_SMS_LOGIN_TEMPLATE_ID", ""),
+			BindPhoneTemplateID:  getEnv("TENCENT_SMS_BIND_TEMPLATE_ID", ""),
+			CodeTTLSeconds:       getEnvInt64("TENCENT_SMS_CODE_TTL_SECONDS", 300),
+			SendCooldownSeconds:  getEnvInt64("TENCENT_SMS_SEND_COOLDOWN_SECONDS", 60),
+			MaxVerifyAttempts:    getEnvInt64("TENCENT_SMS_MAX_VERIFY_ATTEMPTS", 6),
+			MaxDailySendPerPhone: getEnvInt64("TENCENT_SMS_MAX_DAILY_SEND_PER_PHONE", 20),
 		},
 	}
 	return globalConfig

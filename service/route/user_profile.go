@@ -8,6 +8,7 @@ import (
 	"service/function"
 	"service/model"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -70,6 +71,7 @@ func maskRecoveryPhone(raw string) string {
 
 // RegisterUserProfileRoutes 注册用户信息修改路由
 func RegisterUserProfileRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSessionRedisModel, userDBModel *model.UserModel, userProfileModel *model.UserProfileModel) {
+	userIdentityModel := model.NewUserIdentityModel(userDBModel.DB)
 	r.POST("/profile/password/recover", func(c *gin.Context) {
 		if userDBModel == nil || userProfileModel == nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -170,7 +172,7 @@ func RegisterUserProfileRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeS
 			"code": 0,
 			"msg":  "密码重置成功",
 			"data": gin.H{
-				"username":      user.Username,
+				"username":       user.Username,
 				"verified_phone": maskRecoveryPhone(verifiedPhone),
 			},
 		})
@@ -223,30 +225,30 @@ func RegisterUserProfileRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeS
 				response["avatar"] = sanitizePublicImageURL(profileData.Avatar)
 				response["designer_bio"] = profileData.DesignerBio
 				response["specialty_styles"] = profileData.SpecialtyStyles
-  				response["designer_experience_years"] = profileData.DesignerExperienceYears
-  				response["service_title"] = profileData.ServiceTitle
-  				response["service_quote"] = profileData.ServiceQuote
-  				response["service_intro"] = profileData.ServiceIntro
-  				response["service_enabled"] = profileData.ServiceEnabled
+				response["designer_experience_years"] = profileData.DesignerExperienceYears
+				response["service_title"] = profileData.ServiceTitle
+				response["service_quote"] = profileData.ServiceQuote
+				response["service_intro"] = profileData.ServiceIntro
+				response["service_enabled"] = profileData.ServiceEnabled
 				response["designer_visible"] = profileData.DesignerVisible
-  				response["enterprise_wechat_verified"] = profileData.EnterpriseWechatVerified
-  				response["enterprise_wechat_contact"] = profileData.EnterpriseWechatContact
-  				response["enterprise_wechat_verified_at"] = profileData.EnterpriseWechatVerifiedAt
+				response["enterprise_wechat_verified"] = profileData.EnterpriseWechatVerified
+				response["enterprise_wechat_contact"] = profileData.EnterpriseWechatContact
+				response["enterprise_wechat_verified_at"] = profileData.EnterpriseWechatVerifiedAt
 				response["has_password"] = profileData.HasPassword
 			} else {
 				response["nickname"] = ""
 				response["avatar"] = ""
 				response["designer_bio"] = ""
 				response["specialty_styles"] = ""
-  				response["designer_experience_years"] = 0
-  				response["service_title"] = ""
-  				response["service_quote"] = 0
-  				response["service_intro"] = ""
-  				response["service_enabled"] = false
+				response["designer_experience_years"] = 0
+				response["service_title"] = ""
+				response["service_quote"] = 0
+				response["service_intro"] = ""
+				response["service_enabled"] = false
 				response["designer_visible"] = true
-  				response["enterprise_wechat_verified"] = false
-  				response["enterprise_wechat_contact"] = ""
-  				response["enterprise_wechat_verified_at"] = nil
+				response["enterprise_wechat_verified"] = false
+				response["enterprise_wechat_contact"] = ""
+				response["enterprise_wechat_verified_at"] = nil
 				response["has_password"] = false
 			}
 
@@ -372,16 +374,16 @@ func RegisterUserProfileRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeS
 				"code": 0,
 				"msg":  "success",
 				"data": gin.H{
-					"designer_bio":     profileData.DesignerBio,
-					"specialty_styles": profileData.SpecialtyStyles,
-	  				"designer_experience_years": profileData.DesignerExperienceYears,
-  				"service_title":    profileData.ServiceTitle,
-  				"service_quote":    profileData.ServiceQuote,
-  				"service_intro":    profileData.ServiceIntro,
-  				"service_enabled":  profileData.ServiceEnabled,
-				"designer_visible": profileData.DesignerVisible,
-  			},
-  		})
+					"designer_bio":              profileData.DesignerBio,
+					"specialty_styles":          profileData.SpecialtyStyles,
+					"designer_experience_years": profileData.DesignerExperienceYears,
+					"service_title":             profileData.ServiceTitle,
+					"service_quote":             profileData.ServiceQuote,
+					"service_intro":             profileData.ServiceIntro,
+					"service_enabled":           profileData.ServiceEnabled,
+					"designer_visible":          profileData.DesignerVisible,
+				},
+			})
 		})
 
 		profile.PUT("/designer", func(c *gin.Context) {
@@ -395,18 +397,18 @@ func RegisterUserProfileRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeS
 			}
 
 			var req struct {
-				DesignerBio     string `json:"designer_bio" binding:"max=1024"`
-				SpecialtyStyles string `json:"specialty_styles" binding:"max=512"`
-	  			DesignerExperienceYears int64 `json:"designer_experience_years" binding:"min=0,max=100"`
-  			ServiceTitle    string `json:"service_title" binding:"max=128"`
-  			ServiceQuote    int64  `json:"service_quote" binding:"min=0"`
-  			ServiceIntro    string `json:"service_intro" binding:"max=1024"`
-  			ServiceEnabled  bool   `json:"service_enabled"`
-			DesignerVisible bool   `json:"designer_visible"`
-  		}
-  		if err := c.ShouldBindJSON(&req); err != nil {
-  			c.JSON(http.StatusBadRequest, gin.H{
-  				"code": 400,
+				DesignerBio             string `json:"designer_bio" binding:"max=1024"`
+				SpecialtyStyles         string `json:"specialty_styles" binding:"max=512"`
+				DesignerExperienceYears int64  `json:"designer_experience_years" binding:"min=0,max=100"`
+				ServiceTitle            string `json:"service_title" binding:"max=128"`
+				ServiceQuote            int64  `json:"service_quote" binding:"min=0"`
+				ServiceIntro            string `json:"service_intro" binding:"max=1024"`
+				ServiceEnabled          bool   `json:"service_enabled"`
+				DesignerVisible         bool   `json:"designer_visible"`
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 400,
 					"msg":  FormatValidationError("参数错误: " + err.Error()),
 				})
 				return
@@ -418,16 +420,16 @@ func RegisterUserProfileRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeS
 					"code": 500,
 					"msg":  "获取用户信息失败",
 				})
-  				return
-  			}
+				return
+			}
 
-  			if err := userProfileModel.UpdateDesignerProfile(codeSession.UserID, req.DesignerBio, req.SpecialtyStyles, req.DesignerExperienceYears, req.ServiceTitle, req.ServiceQuote, req.ServiceIntro, req.ServiceEnabled); err != nil {
-  				c.JSON(http.StatusInternalServerError, gin.H{
+			if err := userProfileModel.UpdateDesignerProfile(codeSession.UserID, req.DesignerBio, req.SpecialtyStyles, req.DesignerExperienceYears, req.ServiceTitle, req.ServiceQuote, req.ServiceIntro, req.ServiceEnabled); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
 					"code": 500,
 					"msg":  "保存设计师资料失败: " + err.Error(),
-  				})
-  				return
-  			}
+				})
+				return
+			}
 
 			if err := userProfileModel.SetDesignerVisible(codeSession.UserID, req.DesignerVisible); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
@@ -437,10 +439,10 @@ func RegisterUserProfileRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeS
 				return
 			}
 
-  			c.JSON(http.StatusOK, gin.H{
-  				"code": 0,
-  				"msg":  "保存成功",
-  			})
+			c.JSON(http.StatusOK, gin.H{
+				"code": 0,
+				"msg":  "保存成功",
+			})
 		})
 
 		profile.PUT("/designer/service-config", func(c *gin.Context) {
@@ -572,6 +574,20 @@ func RegisterUserProfileRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeS
 			// 确保profile存在并更新has_password
 			userProfileModel.GetOrCreate(codeSession.UserID, "")
 			userProfileModel.SetHasPassword(codeSession.UserID, true)
+			now := time.Now()
+			if _, err := userIdentityModel.Upsert(&model.UserIdentity{
+				UserID:         codeSession.UserID,
+				IdentityType:   model.UserIdentityTypeUsername,
+				IdentityKey:    req.Username,
+				CredentialHash: hashedPassword,
+				VerifiedAt:     &now,
+			}); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"code": 500,
+					"msg":  "更新登录身份失败: " + err.Error(),
+				})
+				return
+			}
 
 			c.JSON(http.StatusOK, gin.H{
 				"code": 0,
@@ -636,9 +652,165 @@ func RegisterUserProfileRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeS
 				return
 			}
 
+			if err := userIdentityModel.UpdateCredentialHash(codeSession.UserID, model.UserIdentityTypeUsername, user.Username, hashedPassword); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"code": 500,
+					"msg":  "更新登录凭证失败: " + err.Error(),
+				})
+				return
+			}
+
 			c.JSON(http.StatusOK, gin.H{
 				"code": 0,
 				"msg":  "修改成功",
+			})
+		})
+
+		profile.POST("/bind/phone", func(c *gin.Context) {
+			codeSession := GetTokenCodeSession(c)
+			if codeSession == nil {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"code": 401,
+					"msg":  "未登录",
+				})
+				return
+			}
+
+			var req struct {
+				Phone string `json:"phone" binding:"required"`
+				Code  string `json:"code" binding:"required"`
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 400,
+					"msg":  FormatValidationError("参数错误: " + err.Error()),
+				})
+				return
+			}
+
+			phone := model.NormalizePhoneForClient(req.Phone)
+			if phone == "" {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 400,
+					"msg":  "手机号格式不正确",
+				})
+				return
+			}
+			if err := verifyPhoneVerificationCode(model.PhoneVerificationSceneBind, phone, req.Code); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 400,
+					"msg":  err.Error(),
+				})
+				return
+			}
+
+			existing, err := userIdentityModel.GetByIdentity(model.UserIdentityTypePhone, phone)
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"code": 500,
+					"msg":  "查询手机号身份失败: " + err.Error(),
+				})
+				return
+			}
+
+			if existing != nil && existing.UserID != codeSession.UserID {
+				targetUser, targetErr := userDBModel.GetEffectiveUserByID(existing.UserID)
+				if targetErr != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"code": 500,
+						"msg":  "读取已绑定账号失败: " + targetErr.Error(),
+					})
+					return
+				}
+				mergeService := model.NewAccountMergeService(userDBModel.DB)
+				if err := mergeService.MergeUsers(targetUser.ID, codeSession.UserID, "phone_bind_auto_merge"); err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"code": 500,
+						"msg":  "合并账号资产失败: " + err.Error(),
+					})
+					return
+				}
+				if userProfileModel != nil {
+					_, _ = userProfileModel.GetOrCreate(targetUser.ID, "")
+					_ = userProfileModel.SetEnterpriseWechatVerification(targetUser.ID, true, phone)
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"code": 0,
+					"msg":  "手机号已绑定到已有账号，当前账号已自动归并",
+					"data": gin.H{
+						"merged_to_user_id": targetUser.ID,
+						"phone":             maskRecoveryPhone(phone),
+					},
+				})
+				return
+			}
+
+			now := time.Now()
+			if _, err := userIdentityModel.Upsert(&model.UserIdentity{
+				UserID:       codeSession.UserID,
+				IdentityType: model.UserIdentityTypePhone,
+				IdentityKey:  phone,
+				VerifiedAt:   &now,
+			}); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"code": 500,
+					"msg":  "绑定手机号失败: " + err.Error(),
+				})
+				return
+			}
+
+			if userProfileModel != nil {
+				_, _ = userProfileModel.GetOrCreate(codeSession.UserID, "")
+				_ = userProfileModel.SetEnterpriseWechatVerification(codeSession.UserID, true, phone)
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"code": 0,
+				"msg":  "手机号绑定成功",
+				"data": gin.H{
+					"phone": maskRecoveryPhone(phone),
+				},
+			})
+		})
+
+		profile.POST("/bind/phone/send-code", func(c *gin.Context) {
+			codeSession := GetTokenCodeSession(c)
+			if codeSession == nil {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"code": 401,
+					"msg":  "未登录",
+				})
+				return
+			}
+
+			var req struct {
+				Phone string `json:"phone" binding:"required"`
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 400,
+					"msg":  FormatValidationError("参数错误: " + err.Error()),
+				})
+				return
+			}
+			phone := model.NormalizePhoneForClient(req.Phone)
+			if phone == "" {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 400,
+					"msg":  "手机号格式不正确",
+				})
+				return
+			}
+			if err := sendPhoneVerificationCode(model.PhoneVerificationSceneBind, phone); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 400,
+					"msg":  "发送验证码失败: " + err.Error(),
+				})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"code": 0,
+				"msg":  "验证码已发送",
 			})
 		})
 	}

@@ -6,37 +6,72 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"path"
-	"sort"
-	"strconv"
-	"strings"
-	"time"
 	"service/component"
 	"service/config"
 	"service/function"
 	"service/model"
 	"service/processor"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
+func buildTokenLoginResponse(c *gin.Context, user *model.User, codeSessionModel *model.CodeSessionRedisModel, deviceID string) (gin.H, error) {
+	if user == nil {
+		return nil, errors.New("user is nil")
+	}
+
+	if err := SetUserSession(c, user.ID, user.Username, user.UserType); err != nil {
+		return nil, err
+	}
+
+	session := sessions.Default(c)
+	sessionID := session.ID()
+	cs := &model.CodeSession{
+		Code:      "auth_" + sessionID,
+		DeviceID:  strings.TrimSpace(deviceID),
+		SessionID: sessionID,
+		UserID:    user.ID,
+		IsBanned:  false,
+	}
+	if err := codeSessionModel.Create(cs); err != nil {
+		return nil, err
+	}
+
+	token, err := function.GenerateToken(sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	return gin.H{
+		"id":       user.ID,
+		"username": user.Username,
+		"token":    token,
+	}, nil
+}
+
 // RegisterMiniprogramRoutes 注册小程序路由
 func RegisterMiniprogramRoutes(r *gin.RouterGroup, authProcessor *processor.AuthProcessor, codeSessionModel *model.CodeSessionRedisModel, userModel *model.UserRedisModel, stoneRecordModel *model.StoneRecordModel, inviteRelationModel *model.InviteRelationModel, userDBModel *model.UserModel, userInviteCodeModel *model.UserInviteCodeModel, userProfileModel *model.UserProfileModel, aiToolModel *model.AIToolModel) {
+	userIdentityModel := model.NewUserIdentityModel(component.GetDB())
 	// 登录接口
 	r.POST("/login", func(c *gin.Context) {
 		var req processor.WechatLoginRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"code": 400,
-				"msg":  FormatValidationError("参数错误: "+err.Error()),
+				"msg":  FormatValidationError("参数错误: " + err.Error()),
 			})
 			return
 		}
@@ -87,30 +122,11 @@ func RegisterMiniprogramRoutes(r *gin.RouterGroup, authProcessor *processor.Auth
 			}
 		}
 
-		codeSession := result.CodeSession
-		if codeSession == nil || codeSession.SessionID == "" {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"code": 500,
-				"msg":  "登录会话创建失败",
-			})
-			return
-		}
-
-		// 设置session
-		if err := SetUserSession(c, result.User.ID, result.User.Username, result.User.UserType); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"code": 500,
-				"msg":  "保存会话失败",
-			})
-			return
-		}
-
-		// 生成token（加密session_id）
-		token, err := function.GenerateToken(codeSession.SessionID)
+		loginPayload, err := buildTokenLoginResponse(c, result.User, codeSessionModel, req.DeviceID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"code": 500,
-				"msg":  "生成token失败: " + err.Error(),
+				"msg":  "创建登录会话失败: " + err.Error(),
 			})
 			return
 		}
@@ -118,11 +134,7 @@ func RegisterMiniprogramRoutes(r *gin.RouterGroup, authProcessor *processor.Auth
 		c.JSON(http.StatusOK, gin.H{
 			"code": 0,
 			"msg":  "登录成功",
-			"data": gin.H{
-				"id":       result.User.ID,
-				"username": result.User.Username,
-				"token":    token,
-			},
+			"data": loginPayload,
 		})
 	})
 
@@ -132,7 +144,7 @@ func RegisterMiniprogramRoutes(r *gin.RouterGroup, authProcessor *processor.Auth
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"code": 400,
-				"msg":  FormatValidationError("参数错误: "+err.Error()),
+				"msg":  FormatValidationError("参数错误: " + err.Error()),
 			})
 			return
 		}
@@ -159,42 +171,11 @@ func RegisterMiniprogramRoutes(r *gin.RouterGroup, authProcessor *processor.Auth
 			return
 		}
 
-		// 设置session（基于 gin-contrib/sessions）
-		if err := SetUserSession(c, result.User.ID, result.User.Username, result.User.UserType); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"code": 500,
-				"msg":  "保存会话失败",
-			})
-			return
-		}
-
-		// 获取当前会话ID（用于生成 token）
-		session := sessions.Default(c)
-		sessionID := session.ID()
-
-		// 为账号密码登录创建 / 确保一条 code_session 记录，
-		// 这样基于 token 的 simpleTokenAuth 才能通过 session_id 找到用户。
-		cs := &model.CodeSession{
-			Code:      "pwd_" + sessionID, // 人为构造一个唯一 code
-			DeviceID:  strings.TrimSpace(req.DeviceID),
-			SessionID: sessionID,
-			UserID:    result.User.ID,
-			IsBanned:  false,
-		}
-		if err := codeSessionModel.Create(cs); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"code": 500,
-				"msg":  "创建会话映射失败: " + err.Error(),
-			})
-			return
-		}
-
-		// 生成token（加密session_id）
-		token, err := function.GenerateToken(sessionID)
+		loginPayload, err := buildTokenLoginResponse(c, result.User, codeSessionModel, req.DeviceID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"code": 500,
-				"msg":  "生成token失败: " + err.Error(),
+				"msg":  "创建登录会话失败: " + err.Error(),
 			})
 			return
 		}
@@ -202,11 +183,154 @@ func RegisterMiniprogramRoutes(r *gin.RouterGroup, authProcessor *processor.Auth
 		c.JSON(http.StatusOK, gin.H{
 			"code": 0,
 			"msg":  "登录成功",
-			"data": gin.H{
-				"id":       result.User.ID,
-				"username": result.User.Username,
-				"token":    token,
-			},
+			"data": loginPayload,
+		})
+	})
+
+	r.POST("/login/phone", func(c *gin.Context) {
+		var req struct {
+			Phone      string `json:"phone" binding:"required"`
+			Code       string `json:"code" binding:"required"`
+			DeviceID   string `json:"device_id"`
+			InviteCode string `json:"invite_code"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code": 400,
+				"msg":  FormatValidationError("参数错误: " + err.Error()),
+			})
+			return
+		}
+
+		phone := model.NormalizePhoneForClient(req.Phone)
+		if phone == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code": 400,
+				"msg":  "手机号格式不正确",
+			})
+			return
+		}
+		if err := verifyPhoneVerificationCode(model.PhoneVerificationSceneLogin, phone, req.Code); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code": 400,
+				"msg":  err.Error(),
+			})
+			return
+		}
+
+		var user *model.User
+		identity, err := userIdentityModel.GetByIdentity(model.UserIdentityTypePhone, phone)
+		if err == nil && identity != nil {
+			user, err = userDBModel.GetEffectiveUserByID(identity.UserID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"code": 500,
+					"msg":  "读取用户失败: " + err.Error(),
+				})
+				return
+			}
+		} else if err != nil && err != sql.ErrNoRows {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code": 500,
+				"msg":  "读取手机号身份失败: " + err.Error(),
+			})
+			return
+		}
+
+		if user == nil {
+			user = &model.User{
+				UserType: "miniprogram",
+				Username: "p_" + phone,
+			}
+			if err := userDBModel.Create(user); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"code": 500,
+					"msg":  "创建用户失败: " + err.Error(),
+				})
+				return
+			}
+			now := time.Now()
+			if _, err := userIdentityModel.Upsert(&model.UserIdentity{
+				UserID:       user.ID,
+				IdentityType: model.UserIdentityTypePhone,
+				IdentityKey:  phone,
+				VerifiedAt:   &now,
+			}); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"code": 500,
+					"msg":  "绑定手机号失败: " + err.Error(),
+				})
+				return
+			}
+			if userProfileModel != nil {
+				_, _ = userProfileModel.GetOrCreate(user.ID, "")
+				_ = userProfileModel.SetEnterpriseWechatVerification(user.ID, true, phone)
+			}
+			if userInviteCodeModel != nil {
+				_, _ = userInviteCodeModel.GetOrCreateForUser(user.ID)
+			}
+			if strings.TrimSpace(req.InviteCode) != "" && inviteRelationModel != nil && userModel != nil && stoneRecordModel != nil {
+				hasInviter, _ := inviteRelationModel.HasInviter(user.ID)
+				if !hasInviter {
+					if inviterID, ok := userInviteCodeModel.ResolveInviteCodeToUserID(strings.TrimSpace(req.InviteCode)); ok && inviterID > 0 && inviterID != user.ID {
+						if inviter, inviteErr := userDBModel.GetByID(inviterID); inviteErr == nil && inviter != nil {
+							if createErr := inviteRelationModel.Create(inviterID, user.ID); createErr == nil {
+								_ = userModel.AddStones(inviterID, 50)
+								_ = userModel.AddStones(user.ID, 50)
+								_ = stoneRecordModel.Create(inviterID, "invite", 50, "邀请好友奖励", "")
+								_ = stoneRecordModel.Create(user.ID, "invite", 50, "被邀请注册奖励", "")
+							}
+						}
+					}
+				}
+			}
+		}
+
+		loginPayload, err := buildTokenLoginResponse(c, user, codeSessionModel, req.DeviceID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code": 500,
+				"msg":  "创建登录会话失败: " + err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"code": 0,
+			"msg":  "登录成功",
+			"data": loginPayload,
+		})
+	})
+
+	r.POST("/login/phone/send-code", func(c *gin.Context) {
+		var req struct {
+			Phone string `json:"phone" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code": 400,
+				"msg":  FormatValidationError("参数错误: " + err.Error()),
+			})
+			return
+		}
+		phone := model.NormalizePhoneForClient(req.Phone)
+		if phone == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code": 400,
+				"msg":  "手机号格式不正确",
+			})
+			return
+		}
+		if err := sendPhoneVerificationCode(model.PhoneVerificationSceneLogin, phone); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code": 400,
+				"msg":  "发送验证码失败: " + err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"code": 0,
+			"msg":  "验证码已发送",
 		})
 	})
 
@@ -438,12 +562,12 @@ func buildAITaskResponseData(task *model.AITask, aiToolModel *model.AIToolModel)
 	}
 	toolName := resolveAIToolName(toolID, task.RequestPayload, aiToolModel)
 	responseData := gin.H{
-		"id":                    task.ID,
-		"task_no":               task.TaskNo,
-		"tool_id":               toolID,
-		"tool_name":             toolName,
-		"scene":                 task.Scene,
-		"status":                task.Status,
+		"id":                   task.ID,
+		"task_no":              task.TaskNo,
+		"tool_id":              toolID,
+		"tool_name":            toolName,
+		"scene":                task.Scene,
+		"status":               task.Status,
 		"model":                task.GetResolvedModel(),
 		"api_endpoint":         task.GetResolvedAPIEndpoint(),
 		"stones_used":          task.StonesUsed,
@@ -913,15 +1037,15 @@ func buildDesignerCenterPayload(targetUserID int64, userDBModel *model.UserModel
 			}
 		}
 		reviewsOut = append(reviewsOut, gin.H{
-			"id":            item.ID,
-			"name":          item.ReviewerName,
-			"avatar":        sanitizePublicImageURL(item.ReviewerAvatar),
-			"score":         item.Rating,
-			"content":       item.Content,
-			"sentiment":     item.Sentiment,
-			"created_at":    item.CreatedAt,
-			"related_label": relatedLabel,
-			"related_title": relatedTitle,
+			"id":                  item.ID,
+			"name":                item.ReviewerName,
+			"avatar":              sanitizePublicImageURL(item.ReviewerAvatar),
+			"score":               item.Rating,
+			"content":             item.Content,
+			"sentiment":           item.Sentiment,
+			"created_at":          item.CreatedAt,
+			"related_label":       relatedLabel,
+			"related_title":       relatedTitle,
 			"related_template_id": relatedTemplateID,
 		})
 	}
@@ -945,22 +1069,22 @@ func buildDesignerCenterPayload(targetUserID int64, userDBModel *model.UserModel
 			"cert_status":      certStatus,
 			"designer_visible": designerVisible,
 		},
-  		"stats": gin.H{
-  			"total_works":    totalWorks,
-  			"total_orders":   totalOrders,
-  			"month_orders":   monthOrders,
-  			"total_earnings": totalEarnings,
-  			"month_earnings": monthEarnings,
-  		},
+		"stats": gin.H{
+			"total_works":    totalWorks,
+			"total_orders":   totalOrders,
+			"month_orders":   monthOrders,
+			"total_earnings": totalEarnings,
+			"month_earnings": monthEarnings,
+		},
 		"service_config": gin.H{
-			"service_type":     designerTitle,
-			"created_at_text":  createdAtText,
-			"total_earnings":   totalEarnings,
-			"month_earnings":   monthEarnings,
-			"total_orders":     totalOrders,
-			"fee":              serviceFee,
-			"service_intro":    serviceIntro,
-			"service_enabled":  serviceEnabled,
+			"service_type":    designerTitle,
+			"created_at_text": createdAtText,
+			"total_earnings":  totalEarnings,
+			"month_earnings":  monthEarnings,
+			"total_orders":    totalOrders,
+			"fee":             serviceFee,
+			"service_intro":   serviceIntro,
+			"service_enabled": serviceEnabled,
 		},
 		"review_summary": gin.H{
 			"positive_count": positiveCount,
@@ -969,9 +1093,9 @@ func buildDesignerCenterPayload(targetUserID int64, userDBModel *model.UserModel
 		"works":   worksOut,
 		"reviews": reviewsOut,
 	}, nil
- }
+}
 
- func buildEnterpriseWechatQRCodeURL(baseURL, ticket string) string {
+func buildEnterpriseWechatQRCodeURL(baseURL, ticket string) string {
 	trimmedBaseURL := strings.TrimSpace(baseURL)
 	trimmedTicket := strings.TrimSpace(ticket)
 	if trimmedBaseURL == "" || trimmedTicket == "" {
@@ -1071,9 +1195,9 @@ func getOrCreateEnterpriseWechatBindTicket(ticketModel *model.EnterpriseWechatBi
 		return nil, err
 	}
 	return item, nil
- }
+}
 
- func generateEnterpriseWechatCallbackSignature(secret, timestamp string, body []byte) string {
+func generateEnterpriseWechatCallbackSignature(secret, timestamp string, body []byte) string {
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write([]byte(strings.TrimSpace(timestamp)))
 	mac.Write([]byte("\n"))
@@ -1225,7 +1349,7 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			"code": 0,
 			"msg":  "success",
 			"data": gin.H{
-				"ticket":                      item.Ticket,
+				"ticket":                     item.Ticket,
 				"enterprise_wechat_verified": true,
 				"enterprise_wechat_contact":  contact,
 			},
@@ -1496,10 +1620,10 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 				"code": 0,
 				"msg":  "success",
 				"data": gin.H{
-					"list":       []interface{}{},
-					"total":      0,
-					"page":       page,
-					"page_size":  pageSize,
+					"list":      []interface{}{},
+					"total":     0,
+					"page":      page,
+					"page_size": pageSize,
 				},
 			})
 			return
@@ -1528,10 +1652,10 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			"code": 0,
 			"msg":  "success",
 			"data": gin.H{
-				"list":       out,
-				"total":      total,
-				"page":       page,
-				"page_size":  pageSize,
+				"list":      out,
+				"total":     total,
+				"page":      page,
+				"page_size": pageSize,
 			},
 		})
 	})
@@ -1571,12 +1695,12 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			"msg":  "success",
 			"data": gin.H{
 				"total_plans":    totalPlans,
-				"total_views":   totalViews,
+				"total_views":    totalViews,
 				"total_earnings": totalEarnings,
 				"month_earnings": monthEarnings,
-				"total_works":   totalPlans,
-				"total_income":  totalEarnings,
-				"month_income":  monthEarnings,
+				"total_works":    totalPlans,
+				"total_income":   totalEarnings,
+				"month_income":   monthEarnings,
 			},
 		})
 	})
@@ -1616,10 +1740,10 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 				"code": 0,
 				"msg":  "success",
 				"data": gin.H{
-					"list":       []interface{}{},
-					"total":      int64(0),
-					"page":       page,
-					"page_size":  pageSize,
+					"list":      []interface{}{},
+					"total":     int64(0),
+					"page":      page,
+					"page_size": pageSize,
 				},
 			})
 			return
@@ -1670,10 +1794,10 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			"code": 0,
 			"msg":  "success",
 			"data": gin.H{
-				"list":       out,
-				"total":      total,
-				"page":       page,
-				"page_size":  pageSize,
+				"list":      out,
+				"total":     total,
+				"page":      page,
+				"page_size": pageSize,
 			},
 		})
 	})
@@ -1792,21 +1916,21 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			}
 		}
 		template := &model.Template{
-			Name:         strings.TrimSpace(req.Name),
-			Description:  strings.TrimSpace(req.Description),
-			Category:     category,
-			MainTab:      strings.TrimSpace(req.MainTab),
-			SubTab:       strings.TrimSpace(req.SubTab),
-			Thumbnail:    coverURL,
-			PreviewURL:   coverURL,
-			Images:       string(imagesJSON),
-			Price:        price,
-			IsFree:       isFree,
-			Status:       "pending",
-			PublishScope: strings.TrimSpace(req.PublishScope),
-			RejectReason: "",
-			SourceType:   "album_upload",
-			Creator:      "设计师上传",
+			Name:          strings.TrimSpace(req.Name),
+			Description:   strings.TrimSpace(req.Description),
+			Category:      category,
+			MainTab:       strings.TrimSpace(req.MainTab),
+			SubTab:        strings.TrimSpace(req.SubTab),
+			Thumbnail:     coverURL,
+			PreviewURL:    coverURL,
+			Images:        string(imagesJSON),
+			Price:         price,
+			IsFree:        isFree,
+			Status:        "pending",
+			PublishScope:  strings.TrimSpace(req.PublishScope),
+			RejectReason:  "",
+			SourceType:    "album_upload",
+			Creator:       "设计师上传",
 			CreatorUserID: codeSession.UserID,
 		}
 		if err := templateModel.Create(template); err != nil {
@@ -2039,10 +2163,10 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			"code": 0,
 			"msg":  "success",
 			"data": gin.H{
-				"total_orders":  totalOrders,
-				"total_amount":  totalAmount,
-				"month_orders":  monthOrders,
-				"month_amount":  monthAmount,
+				"total_orders": totalOrders,
+				"total_amount": totalAmount,
+				"month_orders": monthOrders,
+				"month_amount": monthAmount,
 			},
 		})
 	})
@@ -2112,22 +2236,22 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			canContinuePay := o.OrderCategory == "certification" && (o.Status == "pending" || o.Status == "failed")
 			canDelete := o.Status != "pending" && !canContinuePay
 			out = append(out, gin.H{
-				"id":          o.ID,
-				"order_no":    o.OrderNo,
+				"id":               o.ID,
+				"order_no":         o.OrderNo,
 				"designer_user_id": o.DesignerUserID,
-				"template_id": templateID,
-				"type":        o.Type,
-				"order_category": o.OrderCategory,
-				"title":       o.Title,
-				"description": o.Description,
-				"amount":      o.Amount,
-				"status":      o.Status,
-				"review_status": o.ReviewStatus,
-				"can_cancel": canCancel,
+				"template_id":      templateID,
+				"type":             o.Type,
+				"order_category":   o.OrderCategory,
+				"title":            o.Title,
+				"description":      o.Description,
+				"amount":           o.Amount,
+				"status":           o.Status,
+				"review_status":    o.ReviewStatus,
+				"can_cancel":       canCancel,
 				"can_continue_pay": canContinuePay,
-				"can_delete": canDelete,
-				"completed_at": o.CompletedAt,
-				"created_at":  o.CreatedAt,
+				"can_delete":       canDelete,
+				"completed_at":     o.CompletedAt,
+				"created_at":       o.CreatedAt,
 			})
 		}
 		c.JSON(http.StatusOK, gin.H{
@@ -2362,15 +2486,15 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 		}
 
 		review := &model.DesignerReview{
-			OrderID:         order.ID,
-			OrderNo:         order.OrderNo,
-			DesignerUserID:  order.DesignerUserID,
-			ReviewerUserID:  codeSession.UserID,
-			ReviewerName:    reviewerName,
-			ReviewerAvatar:  reviewerAvatar,
-			Rating:          req.Rating,
-			Content:         strings.TrimSpace(req.Content),
-			Sentiment:       reviewSentimentFromRating(req.Rating),
+			OrderID:        order.ID,
+			OrderNo:        order.OrderNo,
+			DesignerUserID: order.DesignerUserID,
+			ReviewerUserID: codeSession.UserID,
+			ReviewerName:   reviewerName,
+			ReviewerAvatar: reviewerAvatar,
+			Rating:         req.Rating,
+			Content:        strings.TrimSpace(req.Content),
+			Sentiment:      reviewSentimentFromRating(req.Rating),
 		}
 		if err := designerReviewModel.Create(review); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "写入评价失败: " + err.Error()})
@@ -2385,7 +2509,7 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			"code": 0,
 			"msg":  "评价成功",
 			"data": gin.H{
-				"order_id": order.ID,
+				"order_id":      order.ID,
 				"review_status": "reviewed",
 			},
 		})
@@ -2418,10 +2542,10 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			"code": 0,
 			"msg":  "success",
 			"data": gin.H{
-				"invite_code":   inviteCode,
-				"invite_count":  inviteCount,
-				"total_reward":  totalReward,
-				"month_reward":  monthReward,
+				"invite_code":  inviteCode,
+				"invite_count": inviteCount,
+				"total_reward": totalReward,
+				"month_reward": monthReward,
 			},
 		})
 	})
@@ -2536,7 +2660,7 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			"code": 0,
 			"msg":  "success",
 			"data": gin.H{
-				"qrcode_url": qrcodeURL,
+				"qrcode_url":  qrcodeURL,
 				"invite_code": inviteCode,
 			},
 		})
@@ -2764,9 +2888,9 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			"code": 0,
 			"msg":  "success",
 			"data": gin.H{
-				"tasks": taskList,
-				"total": total,
-				"page":  page,
+				"tasks":     taskList,
+				"total":     total,
+				"page":      page,
 				"page_size": pageSize,
 			},
 		})
@@ -2862,18 +2986,18 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			"code": 0,
 			"msg":  "success",
 			"data": gin.H{
-				"download_2k_mode":            "watermarked",
-				"download_4k_mode":            "enterprise_wechat",
-				"enterprise_wechat_qrcode_url": qrcodeURL,
-				"enterprise_wechat_tip":        tip,
-				"enterprise_wechat_service_phone": servicePhone,
+				"download_2k_mode":                           "watermarked",
+				"download_4k_mode":                           "enterprise_wechat",
+				"enterprise_wechat_qrcode_url":               qrcodeURL,
+				"enterprise_wechat_tip":                      tip,
+				"enterprise_wechat_service_phone":            servicePhone,
 				"enterprise_wechat_customer_service_corp_id": customerServiceCorpID,
-				"enterprise_wechat_customer_service_url": customerServiceURL,
-				"enterprise_wechat_verified":   verified,
-				"enterprise_wechat_verified_at": verifiedAt,
-				"enterprise_wechat_contact":     contact,
-				"enterprise_wechat_bind_ticket": bindTicket,
-				"enterprise_wechat_bind_status": bindStatus,
+				"enterprise_wechat_customer_service_url":     customerServiceURL,
+				"enterprise_wechat_verified":                 verified,
+				"enterprise_wechat_verified_at":              verifiedAt,
+				"enterprise_wechat_contact":                  contact,
+				"enterprise_wechat_bind_ticket":              bindTicket,
+				"enterprise_wechat_bind_status":              bindStatus,
 			},
 		})
 	})
@@ -3424,7 +3548,7 @@ func RegisterCheckinRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSessi
 	// 获取签到状态
 	r.GET("/checkin/status", simpleTokenAuth, func(c *gin.Context) {
 		userID := c.GetInt64("userID")
-		
+
 		// 检查今天是否已签到
 		todayCheckin, err := checkinModel.GetTodayCheckin(userID)
 		if err != nil {

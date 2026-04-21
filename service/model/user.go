@@ -31,6 +31,10 @@ func NewUserModel(db *sql.DB) *UserModel {
 	return &UserModel{DB: db}
 }
 
+func (m *UserModel) identityModel() *UserIdentityModel {
+	return NewUserIdentityModel(m.DB)
+}
+
 // Create 创建用户
 func (m *UserModel) Create(user *User) error {
 	query := `INSERT INTO users (username, password, openid, unionid, user_type, can_withdraw, created_at, updated_at) 
@@ -136,6 +140,16 @@ func (m *UserModel) GetByUsername(username string) (*User, error) {
 
 // GetByUsernameAndType 根据用户名和用户类型获取用户
 func (m *UserModel) GetByUsernameAndType(username, userType string) (*User, error) {
+	if userType == "miniprogram" {
+		identityModel := m.identityModel()
+		identity, err := identityModel.GetByIdentity(UserIdentityTypeUsername, username)
+		if err == nil && identity != nil {
+			return m.GetEffectiveUserByID(identity.UserID)
+		}
+		if err != nil && err != sql.ErrNoRows {
+			return nil, err
+		}
+	}
 	user := &User{}
 	query := `SELECT id, username, password, openid, unionid, user_type, COALESCE(can_withdraw,0), created_at, updated_at 
 	          FROM users WHERE username = ? AND user_type = ?`
@@ -153,6 +167,12 @@ func (m *UserModel) GetByUsernameAndType(username, userType string) (*User, erro
 
 // GetByOpenID 根据OpenID获取用户
 func (m *UserModel) GetByOpenID(openid string) (*User, error) {
+	identityModel := m.identityModel()
+	if identity, err := identityModel.GetByIdentity(UserIdentityTypeWechatOpenID, openid); err == nil && identity != nil {
+		return m.GetEffectiveUserByID(identity.UserID)
+	} else if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
 	user := &User{}
 	query := `SELECT id, username, password, openid, unionid, user_type, COALESCE(can_withdraw,0), created_at, updated_at 
 	          FROM users WHERE openid = ? AND user_type = 'miniprogram'`
@@ -170,6 +190,12 @@ func (m *UserModel) GetByOpenID(openid string) (*User, error) {
 
 // GetByUnionID 根据UnionID获取用户
 func (m *UserModel) GetByUnionID(unionid string) (*User, error) {
+	identityModel := m.identityModel()
+	if identity, err := identityModel.GetByIdentity(UserIdentityTypeWechatUnionID, unionid); err == nil && identity != nil {
+		return m.GetEffectiveUserByID(identity.UserID)
+	} else if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
 	user := &User{}
 	query := `SELECT id, username, password, openid, unionid, user_type, COALESCE(can_withdraw,0), created_at, updated_at 
 	          FROM users WHERE unionid = ? AND user_type = 'miniprogram'`
@@ -187,6 +213,29 @@ func (m *UserModel) GetByUnionID(unionid string) (*User, error) {
 
 // BindWechatIdentity 将真实微信身份绑定到现有小程序用户
 func (m *UserModel) BindWechatIdentity(userID int64, openid, unionid string) error {
+	identityModel := m.identityModel()
+	if strings.TrimSpace(openid) != "" {
+		now := time.Now()
+		if _, err := identityModel.Upsert(&UserIdentity{
+			UserID:       userID,
+			IdentityType: UserIdentityTypeWechatOpenID,
+			IdentityKey:  openid,
+			VerifiedAt:   &now,
+		}); err != nil {
+			return err
+		}
+	}
+	if strings.TrimSpace(unionid) != "" {
+		now := time.Now()
+		if _, err := identityModel.Upsert(&UserIdentity{
+			UserID:       userID,
+			IdentityType: UserIdentityTypeWechatUnionID,
+			IdentityKey:  unionid,
+			VerifiedAt:   &now,
+		}); err != nil {
+			return err
+		}
+	}
 	query := `UPDATE users
 	          SET openid = CASE WHEN ? <> '' THEN ? ELSE openid END,
 	              unionid = CASE WHEN ? <> '' THEN ? ELSE unionid END,
@@ -223,6 +272,28 @@ func (m *UserModel) CreateOrUpdateByOpenID(openid, unionid string) (*User, error
 			Username: username,
 		}
 		if err := m.Create(user); err == nil {
+			now := time.Now()
+			identityModel := m.identityModel()
+			_, _ = identityModel.Upsert(&UserIdentity{
+				UserID:       user.ID,
+				IdentityType: UserIdentityTypeUsername,
+				IdentityKey:  username,
+				VerifiedAt:   &now,
+			})
+			_, _ = identityModel.Upsert(&UserIdentity{
+				UserID:       user.ID,
+				IdentityType: UserIdentityTypeWechatOpenID,
+				IdentityKey:  openid,
+				VerifiedAt:   &now,
+			})
+			if unionid != "" {
+				_, _ = identityModel.Upsert(&UserIdentity{
+					UserID:       user.ID,
+					IdentityType: UserIdentityTypeWechatUnionID,
+					IdentityKey:  unionid,
+					VerifiedAt:   &now,
+				})
+			}
 			return user, nil
 		} else if isDuplicateKey(err) {
 			existingUser, lookupErr := m.GetByOpenID(openid)
@@ -269,10 +340,70 @@ CREATE TABLE IF NOT EXISTS users (
 	if err != nil {
 		return err
 	}
+	if err := m.identityModel().InitTable(); err != nil {
+		return err
+	}
 	if err := m.InitCanWithdrawColumn(); err != nil {
 		return err
 	}
-	return m.InitMergeColumns()
+	if err := m.InitMergeColumns(); err != nil {
+		return err
+	}
+	return m.BackfillLegacyIdentities()
+}
+
+func (m *UserModel) BackfillLegacyIdentities() error {
+	rows, err := m.DB.Query(`SELECT id, username, openid, unionid, user_type, COALESCE(NULLIF(password, ''), '') AS password_hash FROM users WHERE user_type = 'miniprogram'`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	identityModel := m.identityModel()
+	for rows.Next() {
+		var userID int64
+		var username string
+		var openid string
+		var unionid string
+		var userType string
+		var passwordHash string
+		if err := rows.Scan(&userID, &username, &openid, &unionid, &userType, &passwordHash); err != nil {
+			return err
+		}
+		now := time.Now()
+		if strings.TrimSpace(username) != "" {
+			if _, err := identityModel.Upsert(&UserIdentity{
+				UserID:         userID,
+				IdentityType:   UserIdentityTypeUsername,
+				IdentityKey:    username,
+				CredentialHash: passwordHash,
+				VerifiedAt:     &now,
+			}); err != nil {
+				return err
+			}
+		}
+		if strings.TrimSpace(openid) != "" {
+			if _, err := identityModel.Upsert(&UserIdentity{
+				UserID:       userID,
+				IdentityType: UserIdentityTypeWechatOpenID,
+				IdentityKey:  openid,
+				VerifiedAt:   &now,
+			}); err != nil {
+				return err
+			}
+		}
+		if strings.TrimSpace(unionid) != "" {
+			if _, err := identityModel.Upsert(&UserIdentity{
+				UserID:       userID,
+				IdentityType: UserIdentityTypeWechatUnionID,
+				IdentityKey:  unionid,
+				VerifiedAt:   &now,
+			}); err != nil {
+				return err
+			}
+		}
+	}
+	return rows.Err()
 }
 
 // UpdateCanWithdraw 更新用户是否可提现（认证通过后由管理后台调用）
