@@ -12,6 +12,8 @@ type InspirationAsset struct {
 	Description   string    `json:"description"`
 	CoverImage    string    `json:"cover_image"`
 	Images        string    `json:"images"`
+	ImageWidth    int       `json:"image_width"`
+	ImageHeight   int       `json:"image_height"`
 	Tags          string    `json:"tags"`
 	Scene         string    `json:"scene"`
 	Style         string    `json:"style"`
@@ -76,6 +78,8 @@ CREATE TABLE IF NOT EXISTS inspiration_assets (
 	_, _ = m.DB.Exec(`ALTER TABLE inspiration_assets ADD COLUMN creator_user_id BIGINT NULL DEFAULT NULL COMMENT '投稿用户ID'`)
 	_, _ = m.DB.Exec(`ALTER TABLE inspiration_assets ADD COLUMN view_count BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '浏览次数'`)
 	_, _ = m.DB.Exec(`ALTER TABLE inspiration_assets ADD COLUMN like_count BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '点赞次数'`)
+	_, _ = m.DB.Exec(`ALTER TABLE inspiration_assets ADD COLUMN image_width INT NOT NULL DEFAULT 0 COMMENT 'image width'`)
+	_, _ = m.DB.Exec(`ALTER TABLE inspiration_assets ADD COLUMN image_height INT NOT NULL DEFAULT 0 COMMENT 'image height'`)
 	_, _ = m.DB.Exec(`ALTER TABLE inspiration_assets ADD INDEX idx_topic (topic)`)
 	_, _ = m.DB.Exec(`ALTER TABLE inspiration_assets ADD INDEX idx_status (status)`)
 	_, _ = m.DB.Exec(`ALTER TABLE inspiration_assets ADD INDEX idx_scene (scene)`)
@@ -86,14 +90,17 @@ CREATE TABLE IF NOT EXISTS inspiration_assets (
 }
 
 func (m *InspirationAssetModel) Create(asset *InspirationAsset) error {
-	query := `INSERT INTO inspiration_assets (title, description, cover_image, images, tags, scene, style, topic, sort_order, status, creator, creator_user_id)
-	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	populateInspirationImageMetadata(asset)
+	query := `INSERT INTO inspiration_assets (title, description, cover_image, images, image_width, image_height, tags, scene, style, topic, sort_order, status, creator, creator_user_id)
+	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	result, err := m.DB.Exec(
 		query,
 		asset.Title,
 		asset.Description,
 		asset.CoverImage,
 		asset.Images,
+		asset.ImageWidth,
+		asset.ImageHeight,
 		asset.Tags,
 		asset.Scene,
 		asset.Style,
@@ -115,7 +122,7 @@ func (m *InspirationAssetModel) Create(asset *InspirationAsset) error {
 }
 
 func (m *InspirationAssetModel) GetByID(id int64) (*InspirationAsset, error) {
-	query := `SELECT id, title, description, cover_image, images, tags, scene, style, topic, sort_order, status, creator, creator_user_id, view_count, like_count, created_at, updated_at
+	query := `SELECT id, title, description, cover_image, images, image_width, image_height, tags, scene, style, topic, sort_order, status, creator, creator_user_id, view_count, like_count, created_at, updated_at
 	          FROM inspiration_assets WHERE id = ?`
 	asset := &InspirationAsset{}
 	var creatorUserID sql.NullInt64
@@ -125,6 +132,8 @@ func (m *InspirationAssetModel) GetByID(id int64) (*InspirationAsset, error) {
 		&asset.Description,
 		&asset.CoverImage,
 		&asset.Images,
+		&asset.ImageWidth,
+		&asset.ImageHeight,
 		&asset.Tags,
 		&asset.Scene,
 		&asset.Style,
@@ -148,7 +157,7 @@ func (m *InspirationAssetModel) GetByID(id int64) (*InspirationAsset, error) {
 }
 
 func (m *InspirationAssetModel) List(topic, scene, style, status, keyword string, creatorUserID int64, limit, offset int) ([]*InspirationAsset, error) {
-	query := `SELECT id, title, description, cover_image, images, tags, scene, style, topic, sort_order, status, creator, creator_user_id, view_count, like_count, created_at, updated_at
+	query := `SELECT id, title, description, cover_image, images, image_width, image_height, tags, scene, style, topic, sort_order, status, creator, creator_user_id, view_count, like_count, created_at, updated_at
 	          FROM inspiration_assets WHERE 1=1`
 	args := []interface{}{}
 	query, args = buildInspirationFilters(query, args, topic, scene, style, status, keyword, creatorUserID)
@@ -171,6 +180,8 @@ func (m *InspirationAssetModel) List(topic, scene, style, status, keyword string
 			&asset.Description,
 			&asset.CoverImage,
 			&asset.Images,
+			&asset.ImageWidth,
+			&asset.ImageHeight,
 			&asset.Tags,
 			&asset.Scene,
 			&asset.Style,
@@ -204,13 +215,16 @@ func (m *InspirationAssetModel) Count(topic, scene, style, status, keyword strin
 }
 
 func (m *InspirationAssetModel) Update(asset *InspirationAsset) error {
-	query := `UPDATE inspiration_assets SET title = ?, description = ?, cover_image = ?, images = ?, tags = ?, scene = ?, style = ?, topic = ?, sort_order = ?, status = ? WHERE id = ?`
+	populateInspirationImageMetadata(asset)
+	query := `UPDATE inspiration_assets SET title = ?, description = ?, cover_image = ?, images = ?, image_width = ?, image_height = ?, tags = ?, scene = ?, style = ?, topic = ?, sort_order = ?, status = ? WHERE id = ?`
 	_, err := m.DB.Exec(
 		query,
 		asset.Title,
 		asset.Description,
 		asset.CoverImage,
 		asset.Images,
+		asset.ImageWidth,
+		asset.ImageHeight,
 		asset.Tags,
 		asset.Scene,
 		asset.Style,

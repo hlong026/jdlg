@@ -6,12 +6,17 @@ import { getPageCache, prefetchImages, setPageCache } from '../../utils/perf';
 export {};
 
 const API_BASE_URL = 'https://api.jiadilingguang.com';
+const TEMPLATE_CARD_COLUMN_WIDTH_RPX = 347;
+const DEFAULT_CARD_MEDIA_HEIGHT_RPX = 320;
 
 type MainTabValue = string;
 
 type TemplateListItem = {
   id: number;
   image: string;
+  imageWidth?: number;
+  imageHeight?: number;
+  mediaHeightRpx?: number;
   displayTitle: string;
   displaySubtitle: string;
   tags: string[];
@@ -42,6 +47,8 @@ type TemplateApiListItem = {
   description?: string;
   thumbnail?: string;
   preview_url?: string;
+  image_width?: number | string;
+  image_height?: number | string;
 };
 
 type InspirationApiListItem = {
@@ -50,6 +57,8 @@ type InspirationApiListItem = {
   description?: string;
   cover_image?: string;
   images?: string[];
+  image_width?: number | string;
+  image_height?: number | string;
   tags?: string[];
   scene?: string;
   style?: string;
@@ -198,6 +207,34 @@ function normalizeImageUrl(url: string): string {
     return `${API_BASE_URL}${cleanUrl}`;
   }
   return `${API_BASE_URL}/${cleanUrl}`;
+}
+
+function normalizePositiveNumber(value: unknown): number {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) {
+    return 0;
+  }
+  return Math.round(num);
+}
+
+function computeCardMediaHeightRpx(width?: number, height?: number): number {
+  const normalizedWidth = normalizePositiveNumber(width);
+  const normalizedHeight = normalizePositiveNumber(height);
+  if (!normalizedWidth || !normalizedHeight) {
+    return DEFAULT_CARD_MEDIA_HEIGHT_RPX;
+  }
+  return Math.max(1, Math.round(TEMPLATE_CARD_COLUMN_WIDTH_RPX * normalizedHeight / normalizedWidth));
+}
+
+function withCardImageSize(card: TemplateListItem, width?: number, height?: number): TemplateListItem {
+  const imageWidth = normalizePositiveNumber(width || card.imageWidth);
+  const imageHeight = normalizePositiveNumber(height || card.imageHeight);
+  return {
+    ...card,
+    imageWidth: imageWidth || undefined,
+    imageHeight: imageHeight || undefined,
+    mediaHeightRpx: computeCardMediaHeightRpx(imageWidth, imageHeight),
+  };
 }
 
 function requestListApi<T>(path: string, data?: Record<string, unknown>): Promise<ApiListResponseData<T> | null> {
@@ -387,7 +424,7 @@ function buildSummaryText(mainLabel: string, subLabel: string, keyword: string):
 function buildTemplateCard(item: TemplateApiListItem, currentMainLabel: string, currentSubLabel: string, index: number): TemplateListItem {
   const title = String(item?.name || `模板方案 ${index + 1}`);
   const id = Number(item?.id) || index + 1;
-  return {
+  return withCardImageSize({
     id,
     image: normalizeImageUrl(String(item?.thumbnail || item?.preview_url || '')),
     displayTitle: truncate(title, 14),
@@ -395,12 +432,13 @@ function buildTemplateCard(item: TemplateApiListItem, currentMainLabel: string, 
     tags: buildTags(item, currentMainLabel, currentSubLabel),
     targetType: 'template',
     cardKey: `template-${id}-${index}`,
-  };
+    mediaHeightRpx: DEFAULT_CARD_MEDIA_HEIGHT_RPX,
+  }, Number(item?.image_width || 0), Number(item?.image_height || 0));
 }
 
 function buildInspirationCard(item: InspirationApiListItem, currentSubLabel: string, index: number): TemplateListItem {
   const id = Number(item?.id) || index + 1;
-  return {
+  return withCardImageSize({
     id,
     image: normalizeImageUrl(String(item?.cover_image || item?.images?.[0] || '')),
     displayTitle: truncate(String(item?.title || `灵感内容 ${index + 1}`), 14),
@@ -408,7 +446,8 @@ function buildInspirationCard(item: InspirationApiListItem, currentSubLabel: str
     tags: buildInspirationTags(item, currentSubLabel),
     targetType: 'inspiration',
     cardKey: `inspiration-${id}-${index}`,
-  };
+    mediaHeightRpx: DEFAULT_CARD_MEDIA_HEIGHT_RPX,
+  }, Number(item?.image_width || 0), Number(item?.image_height || 0));
 }
 
 function buildLocalFallbackCards(mainLabel: string, subLabel: string, targetType: 'template' | 'inspiration'): TemplateListItem[] {
@@ -506,7 +545,7 @@ function splitWaterfallColumns(cards: TemplateListItem[]) {
   let rightWeight = 0;
 
   cards.forEach((item, index) => {
-    const weight = 18 + item.displayTitle.length * 1.6 + item.displaySubtitle.length * 0.8 + item.tags.length * 4 + (index % 3) * 8;
+    const weight = Number(item.mediaHeightRpx || DEFAULT_CARD_MEDIA_HEIGHT_RPX) + 18 + item.displayTitle.length * 1.6 + item.displaySubtitle.length * 0.8 + item.tags.length * 4 + (index % 3) * 8;
     if (leftWeight <= rightWeight) {
       leftColumnCards.push(item);
       leftWeight += weight;
@@ -614,6 +653,8 @@ function getInspirationPrefetchImageCandidates(payload: any, fallbackImage = '')
 Page({
   templateFirstPageCache: {} as Record<string, { cards: TemplateListItem[]; hasMore: boolean; nextPage: number }>,
   requestSerial: 0,
+  imageSizeCache: {} as Record<string, { width: number; height: number }>,
+  imageSizeLoadingKeys: new Set<string>(),
 
   data: {
     navSafeTop: 0,
@@ -684,11 +725,61 @@ Page({
   },
 
   syncWaterfallCards(cards: TemplateListItem[]) {
-    const { leftColumnCards, rightColumnCards } = splitWaterfallColumns(cards);
+    const nextCards = this.applyKnownImageSizes(cards);
+    const { leftColumnCards, rightColumnCards } = splitWaterfallColumns(nextCards);
     this.setData({
-      displayCards: cards,
+      displayCards: nextCards,
       leftColumnCards,
       rightColumnCards,
+    });
+    this.scheduleImageSizeProbe(nextCards);
+  },
+
+  applyKnownImageSizes(cards: TemplateListItem[]): TemplateListItem[] {
+    return (Array.isArray(cards) ? cards : []).map((card) => {
+      const cacheEntry = this.imageSizeCache[String(card?.image || '').trim()];
+      if (cacheEntry) {
+        return withCardImageSize(card, cacheEntry.width, cacheEntry.height);
+      }
+      return withCardImageSize(card);
+    });
+  },
+
+  scheduleImageSizeProbe(cards: TemplateListItem[]) {
+    (Array.isArray(cards) ? cards : []).forEach((card) => {
+      this.probeCardImageSize(card);
+    });
+  },
+
+  probeCardImageSize(card: TemplateListItem) {
+    const imageUrl = String(card?.image || '').trim();
+    if (!imageUrl || this.imageSizeCache[imageUrl] || this.imageSizeLoadingKeys.has(imageUrl)) {
+      return;
+    }
+    this.imageSizeLoadingKeys.add(imageUrl);
+    wx.getImageInfo({
+      src: imageUrl,
+      success: (res) => {
+        const width = normalizePositiveNumber(res?.width);
+        const height = normalizePositiveNumber(res?.height);
+        if (!width || !height) {
+          return;
+        }
+        this.imageSizeCache[imageUrl] = { width, height };
+        const nextCards = this.applyKnownImageSizes(this.data.displayCards || []);
+        const changed = nextCards.some((item, index) => Number(item.mediaHeightRpx || 0) !== Number(this.data.displayCards?.[index]?.mediaHeightRpx || 0));
+        if (changed) {
+          const { leftColumnCards, rightColumnCards } = splitWaterfallColumns(nextCards);
+          this.setData({
+            displayCards: nextCards,
+            leftColumnCards,
+            rightColumnCards,
+          });
+        }
+      },
+      complete: () => {
+        this.imageSizeLoadingKeys.delete(imageUrl);
+      },
     });
   },
 

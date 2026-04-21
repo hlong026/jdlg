@@ -16,6 +16,8 @@ type Template struct {
 	ThirdTab       string    `json:"third_tab"` // 三级tab value，可为空（如果设置了sub_tab但third_tab为空，表示属于二级tab）
 	Description    string    `json:"description"`
 	InternalPrompt string    `json:"-"`
+	ImageWidth     int       `json:"image_width"`
+	ImageHeight    int       `json:"image_height"`
 	Thumbnail      string    `json:"thumbnail"`      // 缩略图URL
 	PreviewURL     string    `json:"preview_url"`    // 预览图URL
 	Images         string    `json:"images"`         // 多张图片，JSON数组格式
@@ -126,6 +128,8 @@ CREATE TABLE IF NOT EXISTS templates (
 	_, _ = m.DB.Exec(`ALTER TABLE templates ADD COLUMN sub_tab VARCHAR(64) DEFAULT '' COMMENT '二级tab value，可为空'`)
 	_, _ = m.DB.Exec(`ALTER TABLE templates ADD COLUMN third_tab VARCHAR(64) DEFAULT '' COMMENT '三级tab value，可为空'`)
 	_, _ = m.DB.Exec(`ALTER TABLE templates ADD COLUMN internal_prompt LONGTEXT COMMENT '模板内部提示词（不对前端公开）'`)
+	_, _ = m.DB.Exec(`ALTER TABLE templates ADD COLUMN image_width INT NOT NULL DEFAULT 0 COMMENT 'image width'`)
+	_, _ = m.DB.Exec(`ALTER TABLE templates ADD COLUMN image_height INT NOT NULL DEFAULT 0 COMMENT 'image height'`)
 	_, _ = m.DB.Exec(`ALTER TABLE templates ADD INDEX idx_main_tab (main_tab)`)
 	_, _ = m.DB.Exec(`ALTER TABLE templates ADD INDEX idx_sub_tab (sub_tab)`)
 	_, _ = m.DB.Exec(`ALTER TABLE templates ADD INDEX idx_third_tab (third_tab)`)
@@ -155,8 +159,9 @@ func (m *TemplateModel) Create(template *Template) error {
 		}
 	}
 	rejectReason := strings.TrimSpace(template.RejectReason)
-	query := `INSERT INTO templates (name, category, main_tab, sub_tab, third_tab, description, internal_prompt, thumbnail, preview_url, images, price, is_free, is_featured, status, publish_scope, reject_reason, source_type, creator, creator_user_id, original_task_id)
-	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	populateTemplateImageMetadata(template)
+	query := `INSERT INTO templates (name, category, main_tab, sub_tab, third_tab, description, internal_prompt, thumbnail, preview_url, images, image_width, image_height, price, is_free, is_featured, status, publish_scope, reject_reason, source_type, creator, creator_user_id, original_task_id)
+	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	isFreeInt := 0
 	if template.IsFree {
 		isFreeInt = 1
@@ -166,7 +171,7 @@ func (m *TemplateModel) Create(template *Template) error {
 		isFeaturedInt = 1
 	}
 	result, err := m.DB.Exec(query, template.Name, template.Category, template.MainTab, template.SubTab, template.ThirdTab, strings.TrimSpace(template.Description), strings.TrimSpace(template.InternalPrompt),
-		template.Thumbnail, template.PreviewURL, template.Images, template.Price,
+		template.Thumbnail, template.PreviewURL, template.Images, template.ImageWidth, template.ImageHeight, template.Price,
 		isFreeInt, isFeaturedInt, template.Status, publishScope, rejectReason, sourceType, template.Creator, nullableInt64(template.CreatorUserID), nullableInt64(template.OriginalTaskID))
 	if err != nil {
 		return err
@@ -191,7 +196,7 @@ func nullableInt64(v int64) interface{} {
 
 // GetByID 根据ID获取模板
 func (m *TemplateModel) GetByID(id int64) (*Template, error) {
-	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, internal_prompt, thumbnail, preview_url, images, price, is_free, is_featured,
+	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, internal_prompt, thumbnail, preview_url, images, image_width, image_height, price, is_free, is_featured,
 	          download_count, like_count, status, publish_scope, reject_reason, source_type, creator, creator_user_id, original_task_id, created_at, updated_at
 	          FROM templates WHERE id = ?`
 	template := &Template{}
@@ -199,7 +204,7 @@ func (m *TemplateModel) GetByID(id int64) (*Template, error) {
 	var creatorUserID, originalTaskID sql.NullInt64
 	err := m.DB.QueryRow(query, id).Scan(
 		&template.ID, &template.Name, &template.Category, &template.MainTab, &template.SubTab, &template.ThirdTab, &template.Description, &template.InternalPrompt,
-		&template.Thumbnail, &template.PreviewURL, &template.Images,
+		&template.Thumbnail, &template.PreviewURL, &template.Images, &template.ImageWidth, &template.ImageHeight,
 		&template.Price, &isFreeInt, &isFeaturedInt, &template.DownloadCount, &template.LikeCount,
 		&template.Status, &template.PublishScope, &template.RejectReason, &template.SourceType, &template.Creator, &creatorUserID, &originalTaskID, &template.CreatedAt, &template.UpdatedAt)
 	if err != nil {
@@ -219,7 +224,7 @@ func (m *TemplateModel) GetByID(id int64) (*Template, error) {
 
 // List 获取模板列表
 func (m *TemplateModel) List(category string, status string, limit int, offset int) ([]*Template, error) {
-	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, thumbnail, preview_url, images, price, is_free, is_featured,
+	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, thumbnail, preview_url, images, image_width, image_height, price, is_free, is_featured,
 	          download_count, like_count, status, publish_scope, reject_reason, source_type, creator, creator_user_id, created_at, updated_at
 	          FROM templates WHERE 1=1`
 	args := []interface{}{}
@@ -249,7 +254,7 @@ func (m *TemplateModel) List(category string, status string, limit int, offset i
 		var creatorUserID sql.NullInt64
 		err := rows.Scan(
 			&template.ID, &template.Name, &template.Category, &template.MainTab, &template.SubTab, &template.ThirdTab, &template.Description,
-			&template.Thumbnail, &template.PreviewURL, &template.Images,
+			&template.Thumbnail, &template.PreviewURL, &template.Images, &template.ImageWidth, &template.ImageHeight,
 			&template.Price, &isFreeInt, &isFeaturedInt, &template.DownloadCount, &template.LikeCount,
 			&template.Status, &template.PublishScope, &template.RejectReason, &template.SourceType, &template.Creator, &creatorUserID, &template.CreatedAt, &template.UpdatedAt)
 		if err != nil {
@@ -267,7 +272,7 @@ func (m *TemplateModel) List(category string, status string, limit int, offset i
 }
 
 func (m *TemplateModel) ListPublicByCategory(category string, limit int, offset int) ([]*Template, error) {
-	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, thumbnail, preview_url, images, price, is_free, is_featured,
+	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, thumbnail, preview_url, images, image_width, image_height, price, is_free, is_featured,
 	          download_count, like_count, status, publish_scope, reject_reason, source_type, creator, creator_user_id, created_at, updated_at
 	          FROM templates WHERE status = 'published' AND publish_scope = 'square'`
 	args := []interface{}{}
@@ -289,7 +294,7 @@ func (m *TemplateModel) ListPublicByCategory(category string, limit int, offset 
 		var creatorUserID sql.NullInt64
 		err := rows.Scan(
 			&template.ID, &template.Name, &template.Category, &template.MainTab, &template.SubTab, &template.ThirdTab, &template.Description,
-			&template.Thumbnail, &template.PreviewURL, &template.Images,
+			&template.Thumbnail, &template.PreviewURL, &template.Images, &template.ImageWidth, &template.ImageHeight,
 			&template.Price, &isFreeInt, &isFeaturedInt, &template.DownloadCount, &template.LikeCount,
 			&template.Status, &template.PublishScope, &template.RejectReason, &template.SourceType, &template.Creator, &creatorUserID, &template.CreatedAt, &template.UpdatedAt)
 		if err != nil {
@@ -339,7 +344,7 @@ func (m *TemplateModel) Count(category string, status string) (int64, error) {
 
 // ListByCreatorUserID 获取某用户发布的模板列表（我的方案）
 func (m *TemplateModel) ListByCreatorUserID(creatorUserID int64, category string, limit int, offset int) ([]*Template, error) {
-	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, thumbnail, preview_url, images, price, is_free, is_featured,
+	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, thumbnail, preview_url, images, image_width, image_height, price, is_free, is_featured,
 	          download_count, like_count, status, publish_scope, reject_reason, source_type, creator, creator_user_id, created_at, updated_at
 	          FROM templates WHERE creator_user_id = ?`
 	args := []interface{}{creatorUserID}
@@ -363,7 +368,7 @@ func (m *TemplateModel) ListByCreatorUserID(creatorUserID int64, category string
 		var cuid sql.NullInt64
 		err := rows.Scan(
 			&template.ID, &template.Name, &template.Category, &template.MainTab, &template.SubTab, &template.ThirdTab, &template.Description,
-			&template.Thumbnail, &template.PreviewURL, &template.Images,
+			&template.Thumbnail, &template.PreviewURL, &template.Images, &template.ImageWidth, &template.ImageHeight,
 			&template.Price, &isFreeInt, &isFeaturedInt, &template.DownloadCount, &template.LikeCount,
 			&template.Status, &template.PublishScope, &template.RejectReason, &template.SourceType, &template.Creator, &cuid, &template.CreatedAt, &template.UpdatedAt)
 		if err != nil {
@@ -407,7 +412,7 @@ func (m *TemplateModel) SummaryByCreatorUserID(creatorUserID int64) (int64, int6
 }
 
 func (m *TemplateModel) ListPublishedByCreatorUserID(creatorUserID int64, category string, limit int, offset int) ([]*Template, error) {
-	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, thumbnail, preview_url, images, price, is_free, is_featured,
+	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, thumbnail, preview_url, images, image_width, image_height, price, is_free, is_featured,
 	          download_count, like_count, status, publish_scope, reject_reason, source_type, creator, creator_user_id, created_at, updated_at
 	          FROM templates WHERE creator_user_id = ? AND status = 'published'`
 	args := []interface{}{creatorUserID}
@@ -431,7 +436,7 @@ func (m *TemplateModel) ListPublishedByCreatorUserID(creatorUserID int64, catego
 		var cuid sql.NullInt64
 		err := rows.Scan(
 			&template.ID, &template.Name, &template.Category, &template.MainTab, &template.SubTab, &template.ThirdTab, &template.Description,
-			&template.Thumbnail, &template.PreviewURL, &template.Images,
+			&template.Thumbnail, &template.PreviewURL, &template.Images, &template.ImageWidth, &template.ImageHeight,
 			&template.Price, &isFreeInt, &isFeaturedInt, &template.DownloadCount, &template.LikeCount,
 			&template.Status, &template.PublishScope, &template.RejectReason, &template.SourceType, &template.Creator, &cuid, &template.CreatedAt, &template.UpdatedAt)
 		if err != nil {
@@ -482,8 +487,9 @@ func (m *TemplateModel) Update(template *Template) error {
 	if template.IsFeatured {
 		isFeaturedInt = 1
 	}
+	populateTemplateImageMetadata(template)
 	query := `UPDATE templates
-		SET name = ?, category = ?, main_tab = ?, sub_tab = ?, third_tab = ?, description = ?, internal_prompt = ?, thumbnail = ?, preview_url = ?, images = ?,
+		SET name = ?, category = ?, main_tab = ?, sub_tab = ?, third_tab = ?, description = ?, internal_prompt = ?, thumbnail = ?, preview_url = ?, images = ?, image_width = ?, image_height = ?,
 		    price = ?, is_free = ?, is_featured = ?, status = ?, publish_scope = ?, reject_reason = ?, source_type = ?,
 		    creator = ?, creator_user_id = ?, original_task_id = ?
 		WHERE id = ?`
@@ -499,6 +505,8 @@ func (m *TemplateModel) Update(template *Template) error {
 		template.Thumbnail,
 		template.PreviewURL,
 		template.Images,
+		template.ImageWidth,
+		template.ImageHeight,
 		template.Price,
 		isFreeInt,
 		isFeaturedInt,
@@ -549,7 +557,7 @@ func (m *TemplateModel) SearchPublishedTemplates(keyword string, limit int, offs
 
 	like := "%" + kw + "%"
 
-	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, thumbnail, preview_url, images, price, is_free, is_featured,
+	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, thumbnail, preview_url, images, image_width, image_height, price, is_free, is_featured,
 	          download_count, like_count, status, publish_scope, reject_reason, source_type, creator, creator_user_id, created_at, updated_at
 	          FROM templates
 	          WHERE status = 'published' AND publish_scope = 'square' AND (name LIKE ? OR description LIKE ?)
@@ -568,7 +576,7 @@ func (m *TemplateModel) SearchPublishedTemplates(keyword string, limit int, offs
 		var creatorUserID sql.NullInt64
 		if err := rows.Scan(
 			&template.ID, &template.Name, &template.Category, &template.MainTab, &template.SubTab, &template.ThirdTab, &template.Description,
-			&template.Thumbnail, &template.PreviewURL, &template.Images,
+			&template.Thumbnail, &template.PreviewURL, &template.Images, &template.ImageWidth, &template.ImageHeight,
 			&template.Price, &isFreeInt, &isFeaturedInt, &template.DownloadCount, &template.LikeCount,
 			&template.Status, &template.PublishScope, &template.RejectReason, &template.SourceType, &template.Creator, &creatorUserID, &template.CreatedAt, &template.UpdatedAt,
 		); err != nil {
@@ -594,7 +602,7 @@ func (m *TemplateModel) SearchPublishedTemplates(keyword string, limit int, offs
 
 // GetHotTemplates 获取热门模板（按下载量或点赞数）
 func (m *TemplateModel) GetHotTemplates(limit int) ([]*Template, error) {
-	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, thumbnail, preview_url, images, price, is_free, is_featured,
+	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, thumbnail, preview_url, images, image_width, image_height, price, is_free, is_featured,
 	          download_count, like_count, status, publish_scope, reject_reason, source_type, creator, creator_user_id, created_at, updated_at
 	          FROM templates WHERE status = 'published' AND publish_scope = 'square'
 	          ORDER BY (download_count + like_count * 2) DESC, created_at DESC
@@ -612,7 +620,7 @@ func (m *TemplateModel) GetHotTemplates(limit int) ([]*Template, error) {
 		var creatorUserID sql.NullInt64
 		err := rows.Scan(
 			&template.ID, &template.Name, &template.Category, &template.MainTab, &template.SubTab, &template.ThirdTab, &template.Description,
-			&template.Thumbnail, &template.PreviewURL, &template.Images,
+			&template.Thumbnail, &template.PreviewURL, &template.Images, &template.ImageWidth, &template.ImageHeight,
 			&template.Price, &isFreeInt, &isFeaturedInt, &template.DownloadCount, &template.LikeCount,
 			&template.Status, &template.PublishScope, &template.RejectReason, &template.SourceType, &template.Creator, &creatorUserID, &template.CreatedAt, &template.UpdatedAt)
 		if err != nil {
@@ -631,7 +639,7 @@ func (m *TemplateModel) GetHotTemplates(limit int) ([]*Template, error) {
 
 // ListByMainTabAndSubTab 根据 main_tab / sub_tab / third_tab 获取模板列表，按点赞数排序
 func (m *TemplateModel) ListByMainTabAndSubTab(mainTab string, subTab string, thirdTab string, status string, limit int, offset int) ([]*Template, error) {
-	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, thumbnail, preview_url, images, price, is_free, is_featured,
+	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, thumbnail, preview_url, images, image_width, image_height, price, is_free, is_featured,
 	          download_count, like_count, status, publish_scope, reject_reason, source_type, creator, creator_user_id, created_at, updated_at
 	          FROM templates WHERE 1=1`
 	args := []interface{}{}
@@ -670,7 +678,7 @@ func (m *TemplateModel) ListByMainTabAndSubTab(mainTab string, subTab string, th
 		var creatorUserID sql.NullInt64
 		err := rows.Scan(
 			&template.ID, &template.Name, &template.Category, &template.MainTab, &template.SubTab, &template.ThirdTab, &template.Description,
-			&template.Thumbnail, &template.PreviewURL, &template.Images,
+			&template.Thumbnail, &template.PreviewURL, &template.Images, &template.ImageWidth, &template.ImageHeight,
 			&template.Price, &isFreeInt, &isFeaturedInt, &template.DownloadCount, &template.LikeCount,
 			&template.Status, &template.PublishScope, &template.RejectReason, &template.SourceType, &template.Creator, &creatorUserID, &template.CreatedAt, &template.UpdatedAt)
 		if err != nil {
@@ -717,7 +725,7 @@ func (m *TemplateModel) CountByMainTabAndSubTab(mainTab string, subTab string, t
 
 // GetLatestTemplates 获取最新模板
 func (m *TemplateModel) GetLatestTemplates(limit int) ([]*Template, error) {
-	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, thumbnail, preview_url, images, price, is_free, is_featured,
+	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, thumbnail, preview_url, images, image_width, image_height, price, is_free, is_featured,
 	          download_count, like_count, status, publish_scope, reject_reason, source_type, creator, creator_user_id, created_at, updated_at
 	          FROM templates WHERE status = 'published' AND publish_scope = 'square'
 	          ORDER BY created_at DESC
@@ -735,7 +743,7 @@ func (m *TemplateModel) GetLatestTemplates(limit int) ([]*Template, error) {
 		var creatorUserID sql.NullInt64
 		err := rows.Scan(
 			&template.ID, &template.Name, &template.Category, &template.MainTab, &template.SubTab, &template.ThirdTab, &template.Description,
-			&template.Thumbnail, &template.PreviewURL, &template.Images,
+			&template.Thumbnail, &template.PreviewURL, &template.Images, &template.ImageWidth, &template.ImageHeight,
 			&template.Price, &isFreeInt, &isFeaturedInt, &template.DownloadCount, &template.LikeCount,
 			&template.Status, &template.PublishScope, &template.RejectReason, &template.SourceType, &template.Creator, &creatorUserID, &template.CreatedAt, &template.UpdatedAt)
 		if err != nil {
@@ -754,7 +762,7 @@ func (m *TemplateModel) GetLatestTemplates(limit int) ([]*Template, error) {
 
 // GetFeaturedTemplates 获取精选案例列表
 func (m *TemplateModel) GetFeaturedTemplates(limit int) ([]*Template, error) {
-	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, thumbnail, preview_url, images, price, is_free, is_featured,
+	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, thumbnail, preview_url, images, image_width, image_height, price, is_free, is_featured,
 	          download_count, like_count, status, publish_scope, reject_reason, source_type, creator, creator_user_id, created_at, updated_at
 	          FROM templates WHERE status = 'published' AND publish_scope = 'square' AND is_featured = 1
 	          ORDER BY created_at DESC
@@ -772,7 +780,7 @@ func (m *TemplateModel) GetFeaturedTemplates(limit int) ([]*Template, error) {
 		var creatorUserID sql.NullInt64
 		err := rows.Scan(
 			&template.ID, &template.Name, &template.Category, &template.MainTab, &template.SubTab, &template.ThirdTab, &template.Description,
-			&template.Thumbnail, &template.PreviewURL, &template.Images,
+			&template.Thumbnail, &template.PreviewURL, &template.Images, &template.ImageWidth, &template.ImageHeight,
 			&template.Price, &isFreeInt, &isFeaturedInt, &template.DownloadCount, &template.LikeCount,
 			&template.Status, &template.PublishScope, &template.RejectReason, &template.SourceType, &template.Creator, &creatorUserID, &template.CreatedAt, &template.UpdatedAt)
 		if err != nil {

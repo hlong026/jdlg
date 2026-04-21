@@ -7,6 +7,8 @@ export interface InspirationItem {
   description: string;
   cover_image?: string;
   images?: string[];
+  image_width?: number;
+  image_height?: number;
   tags?: string[];
   scene?: string;
   style?: string;
@@ -42,6 +44,8 @@ export interface InspirationUpsertRequest {
   title: string;
   description?: string;
   images?: string[];
+  image_width?: number;
+  image_height?: number;
   tags?: string[];
   scene?: string;
   style?: string;

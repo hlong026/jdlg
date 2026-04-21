@@ -4,6 +4,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const asset_1 = require("../../utils/asset");
 const perf_1 = require("../../utils/perf");
 const API_BASE_URL = 'https://api.jiadilingguang.com';
+const TEMPLATE_CARD_COLUMN_WIDTH_RPX = 347;
+const DEFAULT_CARD_MEDIA_HEIGHT_RPX = 320;
 const TEMPLATE_DETAIL_CACHE_TTL = 2 * 60 * 1000;
 const detailPrefetchingKeys = new Set();
 const AI_TOOLS_MAIN_TAB = { label: '工具', value: 'ai_tools' };
@@ -111,6 +113,31 @@ function normalizeImageUrl(url) {
         return `${API_BASE_URL}${cleanUrl}`;
     }
     return `${API_BASE_URL}/${cleanUrl}`;
+}
+function normalizePositiveNumber(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num) || num <= 0) {
+        return 0;
+    }
+    return Math.round(num);
+}
+function computeCardMediaHeightRpx(width, height) {
+    const normalizedWidth = normalizePositiveNumber(width);
+    const normalizedHeight = normalizePositiveNumber(height);
+    if (!normalizedWidth || !normalizedHeight) {
+        return DEFAULT_CARD_MEDIA_HEIGHT_RPX;
+    }
+    return Math.max(1, Math.round(TEMPLATE_CARD_COLUMN_WIDTH_RPX * normalizedHeight / normalizedWidth));
+}
+function withCardImageSize(card, width, height) {
+    const imageWidth = normalizePositiveNumber(width || card.imageWidth);
+    const imageHeight = normalizePositiveNumber(height || card.imageHeight);
+    return {
+        ...card,
+        imageWidth: imageWidth || undefined,
+        imageHeight: imageHeight || undefined,
+        mediaHeightRpx: computeCardMediaHeightRpx(imageWidth, imageHeight),
+    };
 }
 function requestListApi(path, data) {
     return new Promise((resolve) => {
@@ -280,7 +307,7 @@ function buildSummaryText(mainLabel, subLabel, keyword) {
 function buildTemplateCard(item, currentMainLabel, currentSubLabel, index) {
     const title = String(item?.name || `模板方案 ${index + 1}`);
     const id = Number(item?.id) || index + 1;
-    return {
+    return withCardImageSize({
         id,
         image: normalizeImageUrl(String(item?.thumbnail || item?.preview_url || '')),
         displayTitle: truncate(title, 14),
@@ -288,11 +315,12 @@ function buildTemplateCard(item, currentMainLabel, currentSubLabel, index) {
         tags: buildTags(item, currentMainLabel, currentSubLabel),
         targetType: 'template',
         cardKey: `template-${id}-${index}`,
-    };
+        mediaHeightRpx: DEFAULT_CARD_MEDIA_HEIGHT_RPX,
+    }, Number(item?.image_width || 0), Number(item?.image_height || 0));
 }
 function buildInspirationCard(item, currentSubLabel, index) {
     const id = Number(item?.id) || index + 1;
-    return {
+    return withCardImageSize({
         id,
         image: normalizeImageUrl(String(item?.cover_image || item?.images?.[0] || '')),
         displayTitle: truncate(String(item?.title || `灵感内容 ${index + 1}`), 14),
@@ -300,7 +328,8 @@ function buildInspirationCard(item, currentSubLabel, index) {
         tags: buildInspirationTags(item, currentSubLabel),
         targetType: 'inspiration',
         cardKey: `inspiration-${id}-${index}`,
-    };
+        mediaHeightRpx: DEFAULT_CARD_MEDIA_HEIGHT_RPX,
+    }, Number(item?.image_width || 0), Number(item?.image_height || 0));
 }
 function buildLocalFallbackCards(mainLabel, subLabel, targetType) {
     return [`${subLabel}参考一`, `${subLabel}参考二`, `${subLabel}精选一`, `${subLabel}精选二`].map((title, index) => ({
@@ -389,7 +418,7 @@ function splitWaterfallColumns(cards) {
     let leftWeight = 0;
     let rightWeight = 0;
     cards.forEach((item, index) => {
-        const weight = 18 + item.displayTitle.length * 1.6 + item.displaySubtitle.length * 0.8 + item.tags.length * 4 + (index % 3) * 8;
+        const weight = Number(item.mediaHeightRpx || DEFAULT_CARD_MEDIA_HEIGHT_RPX) + 18 + item.displayTitle.length * 1.6 + item.displaySubtitle.length * 0.8 + item.tags.length * 4 + (index % 3) * 8;
         if (leftWeight <= rightWeight) {
             leftColumnCards.push(item);
             leftWeight += weight;
@@ -486,6 +515,8 @@ function getInspirationPrefetchImageCandidates(payload, fallbackImage = '') {
 Page({
     templateFirstPageCache: {},
     requestSerial: 0,
+    imageSizeCache: {},
+    imageSizeLoadingKeys: new Set(),
     data: {
         navSafeTop: 0,
         navBarHeight: 96,
@@ -546,11 +577,58 @@ Page({
         return this.data.thirdTabs[this.data.currentThirdTabIndex];
     },
     syncWaterfallCards(cards) {
-        const { leftColumnCards, rightColumnCards } = splitWaterfallColumns(cards);
+        const nextCards = this.applyKnownImageSizes(cards);
+        const { leftColumnCards, rightColumnCards } = splitWaterfallColumns(nextCards);
         this.setData({
-            displayCards: cards,
+            displayCards: nextCards,
             leftColumnCards,
             rightColumnCards,
+        });
+        this.scheduleImageSizeProbe(nextCards);
+    },
+    applyKnownImageSizes(cards) {
+        return (Array.isArray(cards) ? cards : []).map((card) => {
+            const cacheEntry = this.imageSizeCache[String(card?.image || '').trim()];
+            if (cacheEntry) {
+                return withCardImageSize(card, cacheEntry.width, cacheEntry.height);
+            }
+            return withCardImageSize(card);
+        });
+    },
+    scheduleImageSizeProbe(cards) {
+        (Array.isArray(cards) ? cards : []).forEach((card) => {
+            this.probeCardImageSize(card);
+        });
+    },
+    probeCardImageSize(card) {
+        const imageUrl = String(card?.image || '').trim();
+        if (!imageUrl || this.imageSizeCache[imageUrl] || this.imageSizeLoadingKeys.has(imageUrl)) {
+            return;
+        }
+        this.imageSizeLoadingKeys.add(imageUrl);
+        wx.getImageInfo({
+            src: imageUrl,
+            success: (res) => {
+                const width = normalizePositiveNumber(res?.width);
+                const height = normalizePositiveNumber(res?.height);
+                if (!width || !height) {
+                    return;
+                }
+                this.imageSizeCache[imageUrl] = { width, height };
+                const nextCards = this.applyKnownImageSizes(this.data.displayCards || []);
+                const changed = nextCards.some((item, index) => Number(item.mediaHeightRpx || 0) !== Number(this.data.displayCards?.[index]?.mediaHeightRpx || 0));
+                if (changed) {
+                    const { leftColumnCards, rightColumnCards } = splitWaterfallColumns(nextCards);
+                    this.setData({
+                        displayCards: nextCards,
+                        leftColumnCards,
+                        rightColumnCards,
+                    });
+                }
+            },
+            complete: () => {
+                this.imageSizeLoadingKeys.delete(imageUrl);
+            },
         });
     },
     prefetchCardDetail(card) {

@@ -34,6 +34,8 @@ export interface TemplateItem {
     thumbnail?: string;
     preview_url?: string;
     images?: string;
+    image_width?: number;
+    image_height?: number;
     price: number;
     is_free: boolean;
     is_featured?: boolean;
@@ -76,6 +78,8 @@ export interface TemplateUpdateRequest {
     thumbnail?: string;
     preview_url?: string;
     images?: string;
+    image_width?: number;
+    image_height?: number;
     price?: number;
     is_free?: boolean;
     is_featured?: boolean;

@@ -68,6 +68,8 @@ func inspirationToResponse(asset *model.InspirationAsset) gin.H {
 		"description":     asset.Description,
 		"cover_image":     asset.CoverImage,
 		"images":          parseJSONStringArray(asset.Images),
+		"image_width":     asset.ImageWidth,
+		"image_height":    asset.ImageHeight,
 		"tags":            parseJSONStringArray(asset.Tags),
 		"scene":           asset.Scene,
 		"style":           asset.Style,
