@@ -27,6 +27,17 @@ function base64Decode(input: string): string {
   }
 }
 
+const PREVIEW_HORIZONTAL_MARGIN_RPX = 48;
+const DEFAULT_PREVIEW_IMAGE_HEIGHT_PX = 500;
+
+function normalizePositiveNumber(value: unknown): number {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) {
+    return 0;
+  }
+  return Math.round(num);
+}
+
 Page({
   data: {
     title: '',
@@ -36,6 +47,7 @@ Page({
     userAvatar: '',
     createdAt: '',
     readOnly: false,
+    imageHeight: DEFAULT_PREVIEW_IMAGE_HEIGHT_PX,
   },
 
   onLoad(options: any) {
@@ -56,10 +68,50 @@ Page({
           userAvatar: data.userAvatar || '',
           createdAt: data.createdAt || '',
         });
+        this.updatePreviewImageHeight(data.imageUrl || '', Number(data.imageWidth || 0), Number(data.imageHeight || 0));
       } catch (e) {
         console.error('预览数据解析失败:', e);
       }
     }
+  },
+
+  getPreviewContainerWidthPx(): number {
+    try {
+      const systemInfo = wx.getSystemInfoSync();
+      const windowWidth = Number(systemInfo.windowWidth || 375);
+      return Math.max(1, Math.round(windowWidth * (750 - PREVIEW_HORIZONTAL_MARGIN_RPX) / 750));
+    } catch (error) {
+      return 351;
+    }
+  },
+
+  computePreviewImageHeight(width?: number, height?: number): number {
+    const normalizedWidth = normalizePositiveNumber(width);
+    const normalizedHeight = normalizePositiveNumber(height);
+    if (!normalizedWidth || !normalizedHeight) {
+      return DEFAULT_PREVIEW_IMAGE_HEIGHT_PX;
+    }
+    return Math.max(1, Math.round(this.getPreviewContainerWidthPx() * normalizedHeight / normalizedWidth));
+  },
+
+  updatePreviewImageHeight(url: string, width?: number, height?: number) {
+    this.setData({
+      imageHeight: this.computePreviewImageHeight(width, height),
+    });
+
+    const imageUrl = String(url || '').trim();
+    if (!imageUrl) {
+      return;
+    }
+
+    wx.getImageInfo({
+      src: imageUrl,
+      success: (res) => {
+        this.setData({
+          imageHeight: this.computePreviewImageHeight(res?.width, res?.height),
+        });
+      },
+    });
   },
 
   onBack() {

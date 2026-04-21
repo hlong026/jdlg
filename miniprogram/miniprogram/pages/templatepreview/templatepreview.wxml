@@ -9,11 +9,11 @@
       <text class="template-title">{{title}}</text>
     </view>
     <!-- 图片展示 -->
-    <view class="main-image-wrapper" wx:if="{{imageUrl}}">
+    <view class="main-image-wrapper" wx:if="{{imageUrl}}" style="height: {{imageHeight || 500}}px;">
       <image
         class="main-image"
         src="{{imageUrl}}"
-        mode="aspectFill"
+        mode="aspectFit"
         bindtap="onPreviewImage"
       />
     </view>
