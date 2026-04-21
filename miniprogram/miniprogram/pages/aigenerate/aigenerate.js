@@ -955,10 +955,10 @@ Page({
             const referenceImageUrls = this.data.useFixedSlots
                 ? normalizeReferenceImageUrls(this.data.referenceImages || [], MAX_MAKE_SAME_REFERENCE_IMAGE_COUNT)
                 : normalizeReferenceImageUrls(this.data.uploadedImages || []);
-            if (this.data.useFixedSlots && originalImageUrls.length < FIXED_ORIGINAL_IMAGE_COUNT) {
+            if (this.data.useFixedSlots && !originalImageUrls[0]) {
                 wx.hideLoading();
                 this.setData({ generating: false });
-                wx.showToast({ title: '请先上传原1和原2', icon: 'none' });
+                wx.showToast({ title: '请先上传原1', icon: 'none' });
                 return;
             }
             const orderedImageUrls = this.data.useFixedSlots

@@ -3,12 +3,26 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const aiTools_1 = require("../../utils/aiTools");
 const aiToolApi_1 = require("../../utils/aiToolApi");
 const aiToolPresentation_1 = require("../../utils/aiToolPresentation");
+function buildUsageTips(tool) {
+    if (!tool || tool.showUsageTips === false) {
+        return [];
+    }
+    const content = String(tool.usageTipsContent || '').trim();
+    if (!content) {
+        return [];
+    }
+    return content
+        .split(/\r?\n+/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+}
 Page({
     data: {
         tool: null,
         categoryLabel: '',
         useMinimalPresentation: false,
         highlights: [],
+        usageTipsTitle: '使用提示',
         loading: false,
     },
     async onLoad(options) {
@@ -28,11 +42,8 @@ Page({
                 tool,
                 categoryLabel: (0, aiTools_1.getCategoryLabel)(tool.category),
                 useMinimalPresentation,
-                highlights: useMinimalPresentation ? [] : [
-                    tool.uploadHint,
-                    '系统会自动带入该工具对应的默认提示词和参考风格规则，你只需要补充自己的要求。',
-                    tool.common ? '这是当前分类下优先推荐的常用工具。' : '这是当前分类下的扩展工具，适合探索更多表达方向。',
-                ],
+                highlights: buildUsageTips(tool),
+                usageTipsTitle: String(tool.usageTipsTitle || '使用提示'),
             });
         }
         catch (error) {
