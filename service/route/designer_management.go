@@ -263,15 +263,20 @@ func RegisterDesignerManagementRoutes(r *gin.RouterGroup, userDBModel *model.Use
 				}
 			}
 			list = append(list, gin.H{
-				"user_id":               user.ID,
-				"username":              user.Username,
-				"display_name":          profile["name"],
-				"avatar":                profile["avatar"],
-				"service_title":         profile["title"],
-				"service_enabled":       profile["service_enabled"],
-				"specialty_styles":      profile["specialties_text"],
-				"certification_status":  profile["cert_status"],
-				"certification_type":    func() string { if latestCert != nil { return latestCert.Type }; return "" }(),
+				"user_id":              user.ID,
+				"username":             user.Username,
+				"display_name":         profile["name"],
+				"avatar":               profile["avatar"],
+				"service_title":        profile["title"],
+				"service_enabled":      profile["service_enabled"],
+				"specialty_styles":     profile["specialties_text"],
+				"certification_status": profile["cert_status"],
+				"certification_type": func() string {
+					if latestCert != nil {
+						return latestCert.Type
+					}
+					return ""
+				}(),
 				"designer_visible":      profile["designer_visible"],
 				"can_withdraw":          user.CanWithdraw,
 				"total_works":           totalWorks,
@@ -294,9 +299,9 @@ func RegisterDesignerManagementRoutes(r *gin.RouterGroup, userDBModel *model.Use
 				"page":      page,
 				"page_size": pageSize,
 				"summary": gin.H{
-					"total_designers":   summaryTotal,
-					"public_designers":  publicCount,
-					"approved_designers": approvedCount,
+					"total_designers":      summaryTotal,
+					"public_designers":     publicCount,
+					"approved_designers":   approvedCount,
 					"designers_with_works": withWorksCount,
 				},
 			},
@@ -372,22 +377,22 @@ func RegisterDesignerManagementRoutes(r *gin.RouterGroup, userDBModel *model.Use
 				thumbnail = strings.TrimSpace(item.Thumbnail)
 			}
 			workList = append(workList, gin.H{
-				"id":            item.ID,
-				"name":          item.Name,
-				"description":   item.Description,
-				"thumbnail":     thumbnail,
-				"price":         item.Price,
-				"is_free":       item.IsFree,
-				"status":        item.Status,
-				"publish_scope": item.PublishScope,
-				"source_type":   item.SourceType,
-				"like_count":    item.LikeCount,
+				"id":             item.ID,
+				"name":           item.Name,
+				"description":    item.Description,
+				"thumbnail":      thumbnail,
+				"price":          item.Price,
+				"is_free":        item.IsFree,
+				"status":         item.Status,
+				"publish_scope":  item.PublishScope,
+				"source_type":    item.SourceType,
+				"like_count":     item.LikeCount,
 				"download_count": item.DownloadCount,
-				"main_tab":      item.MainTab,
-				"sub_tab":       item.SubTab,
-				"reject_reason": item.RejectReason,
-				"created_at":    item.CreatedAt,
-				"updated_at":    item.UpdatedAt,
+				"main_tab":       item.MainTab,
+				"sub_tab":        item.SubTab,
+				"reject_reason":  item.RejectReason,
+				"created_at":     item.CreatedAt,
+				"updated_at":     item.UpdatedAt,
 			})
 		}
 
@@ -397,33 +402,33 @@ func RegisterDesignerManagementRoutes(r *gin.RouterGroup, userDBModel *model.Use
 				continue
 			}
 			reviewList = append(reviewList, gin.H{
-				"id":            item.ID,
+				"id":               item.ID,
 				"reviewer_user_id": item.ReviewerUserID,
-				"reviewer_name": item.ReviewerName,
-				"reviewer_avatar": item.ReviewerAvatar,
-				"rating":        item.Rating,
-				"content":       item.Content,
-				"sentiment":     item.Sentiment,
-				"order_id":      item.OrderID,
-				"order_no":      item.OrderNo,
-				"created_at":    item.CreatedAt,
+				"reviewer_name":    item.ReviewerName,
+				"reviewer_avatar":  item.ReviewerAvatar,
+				"rating":           item.Rating,
+				"content":          item.Content,
+				"sentiment":        item.Sentiment,
+				"order_id":         item.OrderID,
+				"order_no":         item.OrderNo,
+				"created_at":       item.CreatedAt,
 			})
 		}
 
 		certification := gin.H(nil)
 		if latestCert != nil {
 			certification = gin.H{
-				"id":               latestCert.ID,
-				"type":             latestCert.Type,
-				"status":           latestCert.Status,
-				"identity_type":    latestCert.IdentityType,
-				"real_name":        latestCert.RealName,
-				"company_name":     latestCert.CompanyName,
-				"credit_code":      latestCert.CreditCode,
+				"id":                latestCert.ID,
+				"type":              latestCert.Type,
+				"status":            latestCert.Status,
+				"identity_type":     latestCert.IdentityType,
+				"real_name":         latestCert.RealName,
+				"company_name":      latestCert.CompanyName,
+				"credit_code":       latestCert.CreditCode,
 				"extra_docs_remark": latestCert.ExtraDocsRemark,
-				"admin_remark":     latestCert.AdminRemark,
-				"created_at":       latestCert.CreatedAt,
-				"reviewed_at":      latestCert.ReviewedAt,
+				"admin_remark":      latestCert.AdminRemark,
+				"created_at":        latestCert.CreatedAt,
+				"reviewed_at":       latestCert.ReviewedAt,
 			}
 		}
 
@@ -438,6 +443,7 @@ func RegisterDesignerManagementRoutes(r *gin.RouterGroup, userDBModel *model.Use
 			"service_intro":              "",
 			"service_enabled":            false,
 			"designer_visible":           true,
+			"phone":                      "",
 			"enterprise_wechat_verified": false,
 			"enterprise_wechat_contact":  "",
 		}
@@ -453,6 +459,7 @@ func RegisterDesignerManagementRoutes(r *gin.RouterGroup, userDBModel *model.Use
 				"service_intro":              profile.ServiceIntro,
 				"service_enabled":            profile.ServiceEnabled,
 				"designer_visible":           profile.DesignerVisible,
+				"phone":                      profile.PrimaryPhone(),
 				"enterprise_wechat_verified": profile.EnterpriseWechatVerified,
 				"enterprise_wechat_contact":  profile.EnterpriseWechatContact,
 			}
@@ -462,27 +469,27 @@ func RegisterDesignerManagementRoutes(r *gin.RouterGroup, userDBModel *model.Use
 			"code": 0,
 			"msg":  "success",
 			"data": gin.H{
-				"user_id":     user.ID,
-				"username":    user.Username,
-				"can_withdraw": user.CanWithdraw,
-				"created_at":  user.CreatedAt,
-				"updated_at":  user.UpdatedAt,
-				"profile":     profileData,
+				"user_id":       user.ID,
+				"username":      user.Username,
+				"can_withdraw":  user.CanWithdraw,
+				"created_at":    user.CreatedAt,
+				"updated_at":    user.UpdatedAt,
+				"profile":       profileData,
 				"certification": certification,
 				"stats": gin.H{
-					"total_works":            totalWorks,
-					"published_works":        publishedWorks,
-					"total_orders":           totalOrders,
-					"month_orders":           monthOrders,
-					"total_earnings":         totalEarnings,
-					"month_earnings":         monthEarnings,
-					"follow_count":           followCount,
-					"positive_review_count":  positiveCount,
-					"negative_review_count":  negativeCount,
-					"review_count":           positiveCount + negativeCount,
+					"total_works":           totalWorks,
+					"published_works":       publishedWorks,
+					"total_orders":          totalOrders,
+					"month_orders":          monthOrders,
+					"total_earnings":        totalEarnings,
+					"month_earnings":        monthEarnings,
+					"follow_count":          followCount,
+					"positive_review_count": positiveCount,
+					"negative_review_count": negativeCount,
+					"review_count":          positiveCount + negativeCount,
 				},
-				"works":         workList,
-				"reviews":       reviewList,
+				"works":          workList,
+				"reviews":        reviewList,
 				"public_preview": publicPreview,
 			},
 		})
