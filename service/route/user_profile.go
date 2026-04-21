@@ -1,12 +1,15 @@
 package route
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"net/http"
+	"service/component"
 	"service/config"
 	"service/function"
 	"service/model"
+	"strconv"
 	"strings"
 	"time"
 
@@ -67,6 +70,21 @@ func maskRecoveryPhone(raw string) string {
 		return phone
 	}
 	return phone[:3] + "****" + phone[len(phone)-4:]
+}
+
+func clearMergedUserStoneCache(userIDs ...int64) {
+	redisClient := component.GetRedis()
+	if redisClient == nil {
+		return
+	}
+	ctx := context.Background()
+	for _, userID := range userIDs {
+		if userID <= 0 {
+			continue
+		}
+		key := "user:stones:" + strconv.FormatInt(userID, 10)
+		_ = redisClient.Del(ctx, key).Err()
+	}
 }
 
 // RegisterUserProfileRoutes 注册用户信息修改路由
@@ -233,6 +251,7 @@ func RegisterUserProfileRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeS
 				response["designer_visible"] = profileData.DesignerVisible
 				response["enterprise_wechat_verified"] = profileData.EnterpriseWechatVerified
 				response["enterprise_wechat_contact"] = profileData.EnterpriseWechatContact
+				response["phone"] = profileData.EnterpriseWechatContact
 				response["enterprise_wechat_verified_at"] = profileData.EnterpriseWechatVerifiedAt
 				response["has_password"] = profileData.HasPassword
 			} else {
@@ -248,6 +267,7 @@ func RegisterUserProfileRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeS
 				response["designer_visible"] = true
 				response["enterprise_wechat_verified"] = false
 				response["enterprise_wechat_contact"] = ""
+				response["phone"] = ""
 				response["enterprise_wechat_verified_at"] = nil
 				response["has_password"] = false
 			}
@@ -730,6 +750,7 @@ func RegisterUserProfileRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeS
 					})
 					return
 				}
+				clearMergedUserStoneCache(targetUser.ID, codeSession.UserID)
 				if userProfileModel != nil {
 					_, _ = userProfileModel.GetOrCreate(targetUser.ID, "")
 					_ = userProfileModel.SetEnterpriseWechatVerification(targetUser.ID, true, phone)

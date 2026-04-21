@@ -28,7 +28,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func buildTokenLoginResponse(c *gin.Context, user *model.User, codeSessionModel *model.CodeSessionRedisModel, deviceID string) (gin.H, error) {
+func buildTokenLoginResponse(c *gin.Context, user *model.User, codeSessionModel *model.CodeSessionRedisModel, userProfileModel *model.UserProfileModel, deviceID string) (gin.H, error) {
 	if user == nil {
 		return nil, errors.New("user is nil")
 	}
@@ -55,11 +55,19 @@ func buildTokenLoginResponse(c *gin.Context, user *model.User, codeSessionModel 
 		return nil, err
 	}
 
-	return gin.H{
+	payload := gin.H{
 		"id":       user.ID,
 		"username": user.Username,
 		"token":    token,
-	}, nil
+	}
+	if userProfileModel != nil {
+		if profile, err := userProfileModel.GetByUserID(user.ID); err == nil && profile != nil {
+			payload["phone"] = strings.TrimSpace(profile.EnterpriseWechatContact)
+			payload["hasPassword"] = profile.HasPassword
+		}
+	}
+
+	return payload, nil
 }
 
 // RegisterMiniprogramRoutes 注册小程序路由
@@ -122,7 +130,7 @@ func RegisterMiniprogramRoutes(r *gin.RouterGroup, authProcessor *processor.Auth
 			}
 		}
 
-		loginPayload, err := buildTokenLoginResponse(c, result.User, codeSessionModel, req.DeviceID)
+		loginPayload, err := buildTokenLoginResponse(c, result.User, codeSessionModel, userProfileModel, req.DeviceID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"code": 500,
@@ -171,7 +179,7 @@ func RegisterMiniprogramRoutes(r *gin.RouterGroup, authProcessor *processor.Auth
 			return
 		}
 
-		loginPayload, err := buildTokenLoginResponse(c, result.User, codeSessionModel, req.DeviceID)
+		loginPayload, err := buildTokenLoginResponse(c, result.User, codeSessionModel, userProfileModel, req.DeviceID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"code": 500,
@@ -238,14 +246,27 @@ func RegisterMiniprogramRoutes(r *gin.RouterGroup, authProcessor *processor.Auth
 		}
 
 		if user == nil {
-			user = &model.User{
-				UserType: "miniprogram",
-				Username: "p_" + phone,
+			created := false
+			for _, candidate := range model.BuildPhoneUsernameCandidates(phone) {
+				user = &model.User{
+					UserType: "miniprogram",
+					Username: candidate,
+				}
+				if createErr := userDBModel.Create(user); createErr == nil {
+					created = true
+					break
+				} else if !strings.Contains(createErr.Error(), "Duplicate") && !strings.Contains(createErr.Error(), "1062") {
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"code": 500,
+						"msg":  "创建用户失败: " + createErr.Error(),
+					})
+					return
+				}
 			}
-			if err := userDBModel.Create(user); err != nil {
+			if !created {
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"code": 500,
-					"msg":  "创建用户失败: " + err.Error(),
+					"msg":  "创建用户失败: 用户名冲突未能自动处理",
 				})
 				return
 			}
@@ -286,7 +307,7 @@ func RegisterMiniprogramRoutes(r *gin.RouterGroup, authProcessor *processor.Auth
 			}
 		}
 
-		loginPayload, err := buildTokenLoginResponse(c, user, codeSessionModel, req.DeviceID)
+		loginPayload, err := buildTokenLoginResponse(c, user, codeSessionModel, userProfileModel, req.DeviceID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"code": 500,

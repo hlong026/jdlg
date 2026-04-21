@@ -6,10 +6,16 @@ Page({
         darkMode: false,
         cacheSize: '0MB',
         version: '1.0.0',
+        phoneDisplay: '未绑定',
+        passwordDisplay: '未设置',
     },
     onLoad() {
         this.initThemeSetting();
         this.initCacheSize();
+        this.initAccountSummary();
+    },
+    onShow() {
+        this.initAccountSummary();
     },
     initThemeSetting() {
         try {
@@ -39,6 +45,23 @@ Page({
             console.error('获取缓存大小失败:', e);
         }
     },
+    initAccountSummary() {
+        try {
+            const userInfo = wx.getStorageSync('userInfo') || {};
+            const phone = String(userInfo.phone || '');
+            const hasPassword = userInfo.hasPassword === true;
+            const phoneDisplay = phone && phone.length >= 7
+                ? `${phone.slice(0, 3)}****${phone.slice(-4)}`
+                : '未绑定';
+            this.setData({
+                phoneDisplay,
+                passwordDisplay: hasPassword ? '已设置' : '未设置',
+            });
+        }
+        catch (e) {
+            console.error('初始化账号安全摘要失败:', e);
+        }
+    },
     goToProfile() {
         wx.navigateTo({
             url: '/pages/myInformationmodification/myInformationmodification?source=settings&section=profile',
@@ -51,6 +74,17 @@ Page({
         });
     },
     goToPasswordSecurity() {
+        wx.navigateTo({
+            url: '/pages/myInformationmodification/myInformationmodification?source=settings&section=profile',
+            fail: () => {
+                wx.showToast({
+                    title: '页面跳转失败',
+                    icon: 'none',
+                });
+            },
+        });
+    },
+    goToPhoneBinding() {
         wx.navigateTo({
             url: '/pages/myInformationmodification/myInformationmodification?source=settings&section=profile',
             fail: () => {

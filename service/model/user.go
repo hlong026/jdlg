@@ -92,6 +92,23 @@ func buildMiniprogramUsernameCandidates(openid string) []string {
 	return []string{primary, secondary}
 }
 
+func buildMiniprogramPhoneUsernameCandidates(phone string) []string {
+	normalized := NormalizePhoneForClient(phone)
+	if normalized == "" {
+		return nil
+	}
+	primary := buildMiniprogramUsername("p_"+normalized, "")
+	secondary := buildMiniprogramUsername("p_"+normalized, fmt.Sprintf("%08x", crc32.ChecksumIEEE([]byte(normalized))))
+	if primary == secondary {
+		return []string{primary}
+	}
+	return []string{primary, secondary}
+}
+
+func BuildPhoneUsernameCandidates(phone string) []string {
+	return buildMiniprogramPhoneUsernameCandidates(phone)
+}
+
 func (m *UserModel) updateUnionIDIfNeeded(user *User, unionid string) error {
 	if user == nil || unionid == "" || user.UnionID == unionid {
 		return nil

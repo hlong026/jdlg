@@ -213,11 +213,21 @@ Page({
 
       if (res.statusCode === 200 && res.data.code === 0) {
         const data = res.data.data;
+        const cachedUserInfo = wx.getStorageSync('userInfo') || {};
+        wx.setStorageSync('userInfo', {
+          ...cachedUserInfo,
+          id: data.id,
+          username: data.username || '',
+          nickname: data.nickname || '',
+          avatar: data.avatar || '',
+          phone: data.phone || data.enterprise_wechat_contact || '',
+          hasPassword: data.has_password || false,
+        });
         this.setData({
           userInfo: {
             id: data.id,
             username: data.username || '',
-            phone: data.enterprise_wechat_contact || '',
+            phone: data.phone || data.enterprise_wechat_contact || '',
             nickname: data.nickname || '',
             avatar: data.avatar || '',
             designerBio: data.designer_bio || '',
@@ -344,10 +354,22 @@ Page({
         throw new Error(res.data?.msg || '绑定手机号失败');
       }
       const phoneDisplay = String(res.data?.data?.phone || phone);
+      const mergedToUserId = Number(res.data?.data?.merged_to_user_id || 0);
       wx.showModal({
         title: '绑定成功',
-        content: `手机号 ${phoneDisplay} 已绑定到当前账号`,
+        content: mergedToUserId
+          ? `手机号 ${phoneDisplay} 已绑定到已有账号，系统已自动完成账号归并。`
+          : `手机号 ${phoneDisplay} 已绑定到当前账号`,
         showCancel: false,
+        success: () => {
+          this.loadUserInfo();
+        },
+      });
+      const cachedUserInfo = wx.getStorageSync('userInfo') || {};
+      wx.setStorageSync('userInfo', {
+        ...cachedUserInfo,
+        id: mergedToUserId || cachedUserInfo.id,
+        phone,
       });
       this.setData({
         'userInfo.phone': phone,

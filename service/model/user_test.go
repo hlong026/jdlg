@@ -47,3 +47,13 @@ func TestBuildMiniprogramUsernameCandidatesEmptyOpenID(t *testing.T) {
 		t.Fatalf("expected nil candidates for empty openid, got %#v", candidates)
 	}
 }
+
+func TestBuildMiniprogramPhoneUsernameCandidates(t *testing.T) {
+	candidates := buildMiniprogramPhoneUsernameCandidates("+86 13800138000")
+	if len(candidates) != 2 {
+		t.Fatalf("buildMiniprogramPhoneUsernameCandidates returned %d candidates, want 2", len(candidates))
+	}
+	if candidates[0] != "wx_p_13800138000" {
+		t.Fatalf("primary phone username = %q", candidates[0])
+	}
+}

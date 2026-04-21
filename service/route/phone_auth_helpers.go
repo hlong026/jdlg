@@ -1,6 +1,7 @@
 package route
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -53,6 +54,11 @@ func sendPhoneVerificationCode(scene, phone string) error {
 		expireMinutes = 5
 	}
 	if err := component.SendTencentSMS(fullPhone, templateID, []string{code, fmt.Sprintf("%d", expireMinutes)}); err != nil {
+		if redisClient := component.GetRedis(); redisClient != nil {
+			ctx := context.Background()
+			_ = redisClient.Del(ctx, "phone_code:"+scene+":"+phone).Err()
+			_ = redisClient.Del(ctx, "phone_code_cooldown:"+scene+":"+phone).Err()
+		}
 		return err
 	}
 	return nil

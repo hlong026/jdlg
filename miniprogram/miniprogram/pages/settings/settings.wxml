@@ -15,7 +15,7 @@
           <text class="section-kicker">账户</text>
           <text class="section-title">账号与安全</text>
         </view>
-        <text class="section-meta">3项</text>
+        <text class="section-meta">4项</text>
       </view>
       <view class="section-body">
         <view class="setting-item" bindtap="goToProfile">
@@ -40,7 +40,22 @@
             </view>
             <view class="item-texts">
               <text class="item-title">修改登录密码</text>
-              <text class="item-desc">修改用户名、登录密码和账号安全信息</text>
+              <text class="item-desc">当前状态：{{passwordDisplay}}，可修改用户名、密码和账号安全信息</text>
+            </view>
+          </view>
+          <view class="item-tail">
+            <text class="item-arrow">›</text>
+          </view>
+        </view>
+
+        <view class="setting-item" bindtap="goToPhoneBinding">
+          <view class="item-left">
+            <view class="item-icon-wrap warm">
+              <text class="item-icon">机</text>
+            </view>
+            <view class="item-texts">
+              <text class="item-title">绑定手机号</text>
+              <text class="item-desc">当前状态：{{phoneDisplay}}，绑定后可直接用手机号验证码登录</text>
             </view>
           </view>
           <view class="item-tail">

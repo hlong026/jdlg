@@ -41,6 +41,9 @@ func (s *AccountMergeService) MergeUsers(masterUserID, sourceUserID int64, reaso
 	if err = s.mergeUserOrders(tx, masterUserID, sourceUserID); err != nil {
 		return err
 	}
+	if err = s.mergeUserBalances(tx, masterUserID, sourceUserID); err != nil {
+		return err
+	}
 	if err = s.exec(tx, `UPDATE stone_records SET user_id = ? WHERE user_id = ?`, masterUserID, sourceUserID); err != nil {
 		return err
 	}
@@ -90,6 +93,9 @@ func (s *AccountMergeService) MergeUsers(masterUserID, sourceUserID int64, reaso
 	if err = s.exec(tx, `UPDATE certification_applications SET user_id = ? WHERE user_id = ?`, masterUserID, sourceUserID); err != nil {
 		return err
 	}
+	if err = s.exec(tx, `UPDATE code_sessions SET user_id = ? WHERE user_id = ?`, masterUserID, sourceUserID); err != nil {
+		return err
+	}
 	if err = s.exec(tx, `UPDATE users SET merge_status = 'merged_target', merged_to_user_id = NULL, updated_at = NOW() WHERE id = ?`, masterUserID); err != nil {
 		return err
 	}
@@ -106,6 +112,37 @@ func (s *AccountMergeService) MergeUsers(masterUserID, sourceUserID int64, reaso
 	}
 
 	return tx.Commit()
+}
+
+func (s *AccountMergeService) mergeUserBalances(tx *sql.Tx, masterUserID, sourceUserID int64) error {
+	var masterStones int64
+	var sourceStones int64
+	var masterCanWithdraw int
+	var sourceCanWithdraw int
+	var masterPassword string
+	var sourcePassword string
+	if err := tx.QueryRow(`SELECT COALESCE(stones, 0), COALESCE(can_withdraw, 0), COALESCE(NULLIF(password, ''), '') FROM users WHERE id = ?`, masterUserID).
+		Scan(&masterStones, &masterCanWithdraw, &masterPassword); err != nil {
+		return err
+	}
+	if err := tx.QueryRow(`SELECT COALESCE(stones, 0), COALESCE(can_withdraw, 0), COALESCE(NULLIF(password, ''), '') FROM users WHERE id = ?`, sourceUserID).
+		Scan(&sourceStones, &sourceCanWithdraw, &sourcePassword); err != nil {
+		return err
+	}
+	targetPassword := masterPassword
+	if strings.TrimSpace(targetPassword) == "" && strings.TrimSpace(sourcePassword) != "" {
+		targetPassword = sourcePassword
+	}
+	targetCanWithdraw := masterCanWithdraw
+	if sourceCanWithdraw > targetCanWithdraw {
+		targetCanWithdraw = sourceCanWithdraw
+	}
+	if _, err := tx.Exec(`UPDATE users SET stones = ?, can_withdraw = ?, password = CASE WHEN ? <> '' THEN ? ELSE password END, updated_at = NOW() WHERE id = ?`,
+		masterStones+sourceStones, targetCanWithdraw, targetPassword, targetPassword, masterUserID); err != nil {
+		return err
+	}
+	_, err := tx.Exec(`UPDATE users SET stones = 0, updated_at = NOW() WHERE id = ?`, sourceUserID)
+	return err
 }
 
 func (s *AccountMergeService) mergeIdentities(tx *sql.Tx, masterUserID, sourceUserID int64) error {

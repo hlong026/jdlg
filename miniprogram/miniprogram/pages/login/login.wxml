@@ -14,6 +14,18 @@
       <text class="app-slogan">智能设计，灵感无限</text>
     </view>
 
+    <view class="identity-summary-card">
+      <view class="identity-summary-head">
+        <text class="identity-summary-title">一个账号，三种登录方式</text>
+        <text class="identity-summary-desc">微信、手机号验证码、账号密码都会归到同一个账号主体，不再因为设备或登录方式不同生成新账号。</text>
+      </view>
+      <view class="identity-summary-tags">
+        <view class="summary-tag">微信快速登录</view>
+        <view class="summary-tag">手机号验证码</view>
+        <view class="summary-tag">账号密码兜底</view>
+      </view>
+    </view>
+
     <!-- 登录方式切换 -->
     <view class="login-tabs">
       <view
@@ -42,6 +54,10 @@
     <!-- 微信登录 -->
     <view class="login-content" wx:if="{{loginType === 'wechat'}}">
       <view class="form-card">
+        <view class="mode-header">
+          <text class="mode-title">微信快速登录</text>
+          <text class="mode-desc">适合首次进入小程序，系统会优先识别你现有的微信身份。</text>
+        </view>
         <view class="login-tip">
           <text>使用微信账号快速登录/注册，安全便捷</text>
         </view>
@@ -58,6 +74,10 @@
     <!-- 手机号登录 -->
     <view class="login-content" wx:if="{{loginType === 'phone'}}">
       <view class="form-card">
+        <view class="mode-header">
+          <text class="mode-title">手机号验证码登录</text>
+          <text class="mode-desc">适合正式手机号注册/登录，首次验证成功会自动创建账号并绑定手机号。</text>
+        </view>
         <view class="login-tip">
           <text>使用手机号验证码注册/登录，首次登录自动创建账号，已绑定账号会自动归并</text>
         </view>
@@ -113,6 +133,10 @@
     <!-- 账号密码登录 -->
     <view class="login-content" wx:if="{{loginType === 'password'}}">
       <view class="form-card">
+        <view class="mode-header">
+          <text class="mode-title">账号密码登录</text>
+          <text class="mode-desc">适合已经设置过用户名和密码的用户，作为稳定兜底入口保留。</text>
+        </view>
         <view class="form-group">
           <view class="input-wrapper">
             <t-icon name="user" size="40rpx" color="#b79066" />
@@ -163,6 +187,10 @@
         <text>我已阅读并同意</text>
         <text class="agreement-link" bindtap="openPrivacyPolicy">《隐私政策》</text>
       </view>
+    </view>
+
+    <view class="login-footer-note">
+      <text>为了保护账号安全，手机号登录会走短信验证码验证；微信登录和账号密码登录也会统一归到同一个账号主体。</text>
     </view>
   </view>
 
