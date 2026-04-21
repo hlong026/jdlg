@@ -806,3 +806,50 @@ func (m *TemplateModel) SetFeatured(id int64, isFeatured bool) error {
 	_, err := m.DB.Exec(query, isFeaturedInt, id)
 	return err
 }
+
+func (m *TemplateModel) ListWithoutImageMetadata(limit int, offset int) ([]*Template, error) {
+	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, thumbnail, preview_url, images, image_width, image_height, price, is_free, is_featured,
+	          download_count, like_count, status, publish_scope, reject_reason, source_type, creator, creator_user_id, created_at, updated_at
+	          FROM templates
+	          WHERE (image_width <= 0 OR image_height <= 0)
+	            AND (
+	              TRIM(COALESCE(thumbnail, '')) <> ''
+	              OR TRIM(COALESCE(preview_url, '')) <> ''
+	              OR TRIM(COALESCE(images, '')) <> ''
+	            )
+	          ORDER BY id ASC
+	          LIMIT ? OFFSET ?`
+	rows, err := m.DB.Query(query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	templates := make([]*Template, 0)
+	for rows.Next() {
+		template := &Template{}
+		var isFreeInt, isFeaturedInt int
+		var creatorUserID sql.NullInt64
+		if err := rows.Scan(
+			&template.ID, &template.Name, &template.Category, &template.MainTab, &template.SubTab, &template.ThirdTab, &template.Description,
+			&template.Thumbnail, &template.PreviewURL, &template.Images, &template.ImageWidth, &template.ImageHeight,
+			&template.Price, &isFreeInt, &isFeaturedInt, &template.DownloadCount, &template.LikeCount,
+			&template.Status, &template.PublishScope, &template.RejectReason, &template.SourceType, &template.Creator, &creatorUserID, &template.CreatedAt, &template.UpdatedAt,
+		); err != nil {
+			continue
+		}
+		if creatorUserID.Valid {
+			template.CreatorUserID = creatorUserID.Int64
+		}
+		template.IsFree = isFreeInt == 1
+		template.IsFeatured = isFeaturedInt == 1
+		normalizeTemplateRecord(template)
+		templates = append(templates, template)
+	}
+	return templates, nil
+}
+
+func (m *TemplateModel) UpdateImageMetadataByID(id int64, width int, height int) error {
+	_, err := m.DB.Exec(`UPDATE templates SET image_width = ?, image_height = ? WHERE id = ?`, width, height, id)
+	return err
+}

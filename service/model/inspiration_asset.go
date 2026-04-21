@@ -241,6 +241,62 @@ func (m *InspirationAssetModel) Delete(id int64) error {
 	return err
 }
 
+func (m *InspirationAssetModel) ListWithoutImageMetadata(limit int, offset int) ([]*InspirationAsset, error) {
+	query := `SELECT id, title, description, cover_image, images, image_width, image_height, tags, scene, style, topic, sort_order, status, creator, creator_user_id, view_count, like_count, created_at, updated_at
+	          FROM inspiration_assets
+	          WHERE (image_width <= 0 OR image_height <= 0)
+	            AND (
+	              TRIM(COALESCE(cover_image, '')) <> ''
+	              OR TRIM(COALESCE(images, '')) <> ''
+	            )
+	          ORDER BY id ASC
+	          LIMIT ? OFFSET ?`
+	rows, err := m.DB.Query(query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	list := make([]*InspirationAsset, 0)
+	for rows.Next() {
+		asset := &InspirationAsset{}
+		var uid sql.NullInt64
+		if err := rows.Scan(
+			&asset.ID,
+			&asset.Title,
+			&asset.Description,
+			&asset.CoverImage,
+			&asset.Images,
+			&asset.ImageWidth,
+			&asset.ImageHeight,
+			&asset.Tags,
+			&asset.Scene,
+			&asset.Style,
+			&asset.Topic,
+			&asset.SortOrder,
+			&asset.Status,
+			&asset.Creator,
+			&uid,
+			&asset.ViewCount,
+			&asset.LikeCount,
+			&asset.CreatedAt,
+			&asset.UpdatedAt,
+		); err != nil {
+			continue
+		}
+		if uid.Valid {
+			asset.CreatorUserID = uid.Int64
+		}
+		list = append(list, asset)
+	}
+	return list, nil
+}
+
+func (m *InspirationAssetModel) UpdateImageMetadataByID(id int64, width int, height int) error {
+	_, err := m.DB.Exec(`UPDATE inspiration_assets SET image_width = ?, image_height = ? WHERE id = ?`, width, height, id)
+	return err
+}
+
 func (m *InspirationAssetModel) IncrementViewCount(id int64) error {
 	_, err := m.DB.Exec(`UPDATE inspiration_assets SET view_count = view_count + 1 WHERE id = ?`, id)
 	return err

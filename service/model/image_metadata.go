@@ -129,6 +129,10 @@ func collectTemplateDisplayImageURLs(template *Template) []string {
 	return urls
 }
 
+func CollectTemplateDisplayImageURLs(template *Template) []string {
+	return collectTemplateDisplayImageURLs(template)
+}
+
 func collectInspirationDisplayImageURLs(asset *InspirationAsset) []string {
 	if asset == nil {
 		return nil
@@ -156,6 +160,10 @@ func collectInspirationDisplayImageURLs(asset *InspirationAsset) []string {
 	return urls
 }
 
+func CollectInspirationDisplayImageURLs(asset *InspirationAsset) []string {
+	return collectInspirationDisplayImageURLs(asset)
+}
+
 func populateTemplateImageMetadata(template *Template) {
 	if template == nil {
 		return
@@ -175,6 +183,10 @@ func populateTemplateImageMetadata(template *Template) {
 	}
 }
 
+func PopulateTemplateImageMetadata(template *Template) {
+	populateTemplateImageMetadata(template)
+}
+
 func populateInspirationImageMetadata(asset *InspirationAsset) {
 	if asset == nil {
 		return
@@ -192,4 +204,8 @@ func populateInspirationImageMetadata(asset *InspirationAsset) {
 		asset.ImageHeight = height
 		return
 	}
+}
+
+func PopulateInspirationImageMetadata(asset *InspirationAsset) {
+	populateInspirationImageMetadata(asset)
 }
