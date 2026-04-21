@@ -344,6 +344,10 @@
   gap: 4px;
 }
 
+.meta-item-image {
+  min-width: 100%;
+}
+
 .meta-label {
   font-weight: 500;
 }
@@ -827,6 +831,12 @@
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 8px;
+}
+
+.image-size-tip {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #6b7280;
 }
 
 .image-preview-item {

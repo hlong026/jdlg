@@ -23,6 +23,8 @@ interface Inspiration {
     description: string;
     coverImage: string;
     imageUrls: string[];
+    imageWidth?: number;
+    imageHeight?: number;
     tags: string[];
     scene: string;
     style: string;
@@ -64,12 +66,40 @@ const statusOptions: Array<{ label: string; value: StatusValue | 'all' }> = [
     { label: '已归档', value: 'archived' },
 ];
 
+const normalizePositiveNumber = (value?: number) => {
+    const num = Number(value || 0);
+    return Number.isFinite(num) && num > 0 ? Math.round(num) : 0;
+};
+
+const gcd = (left: number, right: number): number => {
+    let a = Math.abs(left);
+    let b = Math.abs(right);
+    while (b !== 0) {
+        const temp = a % b;
+        a = b;
+        b = temp;
+    }
+    return a || 1;
+};
+
+const formatImageMeta = (width?: number, height?: number) => {
+    const normalizedWidth = normalizePositiveNumber(width);
+    const normalizedHeight = normalizePositiveNumber(height);
+    if (!normalizedWidth || !normalizedHeight) {
+        return '未识别';
+    }
+    const divisor = gcd(normalizedWidth, normalizedHeight);
+    return `${normalizedWidth / divisor}:${normalizedHeight / divisor} / ${normalizedWidth}×${normalizedHeight}`;
+};
+
 const convertInspiration = (item: InspirationItem): Inspiration => ({
     id: String(item.id),
     title: item.title,
     description: item.description || '',
     coverImage: item.cover_image || item.images?.[0] || '',
     imageUrls: Array.isArray(item.images) ? item.images : [],
+    imageWidth: item.image_width,
+    imageHeight: item.image_height,
     tags: Array.isArray(item.tags) ? item.tags : [],
     scene: item.scene || '',
     style: item.style || '',
@@ -322,6 +352,7 @@ const Inspirations: React.FC = () => {
                                         <div className="item-header">
                                             <h4>{item.title}</h4>
                                             <span className={`status-badge ${status.className}`}>{status.label}</span>
+                                            <span>尺寸：{formatImageMeta(item.imageWidth, item.imageHeight)}</span>
                                         </div>
                                         <div className="item-meta">
                                             <span>{getTopicLabel(item.topic)}</span>
@@ -406,6 +437,7 @@ const Inspirations: React.FC = () => {
                                         <span className="upload-hint">最多 9 张，第一张作为封面</span>
                                     </div>
                                     {uploading && <div className="upload-hint">图片上传中...</div>}
+                                    {selectedItem && <div className="image-size-tip">当前封面尺寸：{formatImageMeta(selectedItem.imageWidth, selectedItem.imageHeight)}</div>}
                                     {formData.imageUrls.length > 0 && (
                                         <div className="image-preview-list">
                                             {formData.imageUrls.map((url, index) => (

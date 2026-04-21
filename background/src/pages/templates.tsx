@@ -48,6 +48,8 @@ interface Template {
     thumbnail?: string;
     previewUrl?: string;
     images?: string;
+    imageWidth?: number;
+    imageHeight?: number;
     price: number;
     isFree: boolean;
     isFeatured?: boolean;
@@ -73,6 +75,32 @@ const defaultForm = {
     price: 0,
     isFree: true,
     status: 'draft',
+};
+
+const normalizePositiveNumber = (value?: number) => {
+    const num = Number(value || 0);
+    return Number.isFinite(num) && num > 0 ? Math.round(num) : 0;
+};
+
+const gcd = (left: number, right: number): number => {
+    let a = Math.abs(left);
+    let b = Math.abs(right);
+    while (b !== 0) {
+        const temp = a % b;
+        a = b;
+        b = temp;
+    }
+    return a || 1;
+};
+
+const formatImageMeta = (width?: number, height?: number) => {
+    const normalizedWidth = normalizePositiveNumber(width);
+    const normalizedHeight = normalizePositiveNumber(height);
+    if (!normalizedWidth || !normalizedHeight) {
+        return '未识别';
+    }
+    const divisor = gcd(normalizedWidth, normalizedHeight);
+    return `${normalizedWidth / divisor}:${normalizedHeight / divisor} / ${normalizedWidth}×${normalizedHeight}`;
 };
 
 type TabConfigSaveState = 'idle' | 'editing' | 'saving' | 'saved' | 'invalid' | 'error';
@@ -140,6 +168,8 @@ const Templates: React.FC = () => {
         thumbnail: t.thumbnail,
         previewUrl: t.preview_url,
         images: t.images,
+        imageWidth: t.image_width,
+        imageHeight: t.image_height,
         price: t.price ?? 0,
         isFree: t.is_free ?? true,
         isFeatured: t.is_featured ?? false,
@@ -1234,6 +1264,10 @@ const Templates: React.FC = () => {
                                                 <span className="meta-label">涓嬭浇:</span>
                                                 {template.downloadCount}
                                             </span>
+                                            <span className="meta-item meta-item-image">
+                                                <span className="meta-label">灏哄:</span>
+                                                {formatImageMeta(template.imageWidth, template.imageHeight)}
+                                            </span>
                                         </div>
                                         {template.rejectReason ? (
                                             <p className="template-description">鎷掔粷鍘熷洜锛歿template.rejectReason}</p>
@@ -1376,6 +1410,11 @@ const Templates: React.FC = () => {
                                             閫夋嫨鍥剧墖骞朵笂浼?
                                         </button>
                                     </div>
+                                    {selectedTemplate && (
+                                        <div className="image-size-tip">
+                                            当前封面尺寸：{formatImageMeta(selectedTemplate.imageWidth, selectedTemplate.imageHeight)}
+                                        </div>
+                                    )}
                                     {formData.imageUrls && formData.imageUrls.length > 0 && (
                                         <div className="image-preview-list">
                                             {formData.imageUrls.map((url, idx) => (
