@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"service/component"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // abs 返回整数的绝对值
@@ -23,6 +25,11 @@ func abs(n int64) int64 {
 		return -n
 	}
 	return n
+}
+
+func generateAdminUploadObjectKey(filename string) string {
+	ext := strings.ToLower(filepath.Ext(filename))
+	return fmt.Sprintf("admin_uploads/%s%s", uuid.New().String(), ext)
 }
 
 // RegisterManagementRoutes 注册管理后台路由
@@ -854,7 +861,7 @@ func RegisterManagementRoutes(r *gin.RouterGroup, authProcessor *processor.AuthP
 
 			// 生成对象键（路径）
 			cfg := config.Get()
-			objectKey := "admin_uploads/" + file.Filename
+			objectKey := generateAdminUploadObjectKey(file.Filename)
 
 			// 上传到COS
 			cosClient := component.GetCOSClient()

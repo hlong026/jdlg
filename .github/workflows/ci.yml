@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "codex/**"
+  pull_request:
+
+jobs:
+  service-check:
+    name: 后端检查
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: service
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: service/go.mod
+
+      - name: 执行后端测试
+        run: CGO_ENABLED=0 go test ./...
+
+  background-build:
+    name: 后台前端构建
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: background
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 安装依赖
+        run: npm install
+
+      - name: 执行构建
+        run: npm run build
