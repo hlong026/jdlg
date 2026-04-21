@@ -201,7 +201,7 @@ func resolveTemplateDownloadAccess(userOrderModel *model.UserOrderModel, userPro
 		}
 		contact := ""
 		if profile != nil {
-			contact = strings.TrimSpace(profile.EnterpriseWechatContact)
+			contact = profile.PrimaryPhone()
 			phoneVerified = profile.EnterpriseWechatVerified && contact != ""
 		}
 	}
@@ -438,17 +438,17 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 				if err == nil && case1 != nil && isPublicSquareTemplate(case1) {
 					creatorInfo := buildTemplateCreatorInfo(case1.CreatorUserID, userProfileModel, userDBModel)
 					groupData["case1"] = gin.H{
-						"id":             case1.ID,
-						"name":           case1.Name,
-						"description":    case1.Description,
-						"thumbnail":      case1.Thumbnail,
-						"preview_url":    case1.PreviewURL,
-						"images":         case1.Images,
-						"price":          case1.Price,
-						"is_free":        case1.IsFree,
-						"download_count": case1.DownloadCount,
-						"like_count":     case1.LikeCount,
-						"creator":        case1.Creator,
+						"id":              case1.ID,
+						"name":            case1.Name,
+						"description":     case1.Description,
+						"thumbnail":       case1.Thumbnail,
+						"preview_url":     case1.PreviewURL,
+						"images":          case1.Images,
+						"price":           case1.Price,
+						"is_free":         case1.IsFree,
+						"download_count":  case1.DownloadCount,
+						"like_count":      case1.LikeCount,
+						"creator":         case1.Creator,
 						"creator_user_id": case1.CreatorUserID,
 						"creator_info":    creatorInfo,
 					}
@@ -460,17 +460,17 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 					if err == nil && case2 != nil && isPublicSquareTemplate(case2) {
 						creatorInfo := buildTemplateCreatorInfo(case2.CreatorUserID, userProfileModel, userDBModel)
 						groupData["case2"] = gin.H{
-							"id":             case2.ID,
-							"name":           case2.Name,
-							"description":    case2.Description,
-							"thumbnail":      case2.Thumbnail,
-							"preview_url":    case2.PreviewURL,
-							"images":         case2.Images,
-							"price":          case2.Price,
-							"is_free":        case2.IsFree,
-							"download_count": case2.DownloadCount,
-							"like_count":     case2.LikeCount,
-							"creator":        case2.Creator,
+							"id":              case2.ID,
+							"name":            case2.Name,
+							"description":     case2.Description,
+							"thumbnail":       case2.Thumbnail,
+							"preview_url":     case2.PreviewURL,
+							"images":          case2.Images,
+							"price":           case2.Price,
+							"is_free":         case2.IsFree,
+							"download_count":  case2.DownloadCount,
+							"like_count":      case2.LikeCount,
+							"creator":         case2.Creator,
 							"creator_user_id": case2.CreatorUserID,
 							"creator_info":    creatorInfo,
 						}
@@ -572,26 +572,26 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 				}
 				creatorInfo := buildTemplateCreatorInfo(t.CreatorUserID, userProfileModel, userDBModel)
 				respList = append(respList, gin.H{
-					"id":             t.ID,
-					"name":           t.Name,
-					"description":    t.Description,
-					"thumbnail":      t.Thumbnail,
-					"preview_url":    t.PreviewURL,
-					"images":         t.Images,
-					"price":          t.Price,
-					"is_free":        t.IsFree,
-					"download_count": t.DownloadCount,
-					"like_count":     t.LikeCount,
-					"category":       t.Category,
-					"main_tab":       t.MainTab,
-					"sub_tab":        t.SubTab,
-					"status":         t.Status,
-					"publish_scope":  t.PublishScope,
-					"source_type":    t.SourceType,
-					"creator":        t.Creator,
+					"id":              t.ID,
+					"name":            t.Name,
+					"description":     t.Description,
+					"thumbnail":       t.Thumbnail,
+					"preview_url":     t.PreviewURL,
+					"images":          t.Images,
+					"price":           t.Price,
+					"is_free":         t.IsFree,
+					"download_count":  t.DownloadCount,
+					"like_count":      t.LikeCount,
+					"category":        t.Category,
+					"main_tab":        t.MainTab,
+					"sub_tab":         t.SubTab,
+					"status":          t.Status,
+					"publish_scope":   t.PublishScope,
+					"source_type":     t.SourceType,
+					"creator":         t.Creator,
 					"creator_user_id": t.CreatorUserID,
-					"created_at":     t.CreatedAt,
-					"updated_at":     t.UpdatedAt,
+					"created_at":      t.CreatedAt,
+					"updated_at":      t.UpdatedAt,
 					"creator_info":    creatorInfo,
 				})
 			}
@@ -1070,8 +1070,8 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 			}
 			templateModel.IncrementDownloadCount(id)
 			c.JSON(http.StatusOK, gin.H{"code": 0, "msg": "下载成功", "data": gin.H{
-				"template_id": id,
-				"image_urls": imageURLs,
+				"template_id":   id,
+				"image_urls":    imageURLs,
 				"download_urls": downloadURLs,
 			}})
 		})
@@ -1215,8 +1215,8 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 				Name           string `json:"name" binding:"required"`
 				Description    string `json:"description"`
 				Category       string `json:"category"`
-				MainTab        string `json:"main_tab"`          // 一级 Tab（可选）
-				SubTab         string `json:"sub_tab"`           // 二级 Tab（可选）
+				MainTab        string `json:"main_tab"` // 一级 Tab（可选）
+				SubTab         string `json:"sub_tab"`  // 二级 Tab（可选）
 				ImageURL       string `json:"image_url" binding:"required"`
 				Prompt         string `json:"prompt"`
 				IsFree         *bool  `json:"is_free"`          // 是否免费，默认 true

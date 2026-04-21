@@ -19,35 +19,48 @@ func normalizeCNPhoneWithPrefix(phone string) (string, error) {
 	return "+86" + normalized, nil
 }
 
-func sendPhoneVerificationCode(scene, phone string) error {
+func sendPhoneVerificationCode(scene, phone string) (string, bool, error) {
 	cfg := config.Get()
 	if cfg == nil {
-		return fmt.Errorf("系统配置未初始化")
+		return "", false, fmt.Errorf("系统配置未初始化")
 	}
 	templateID := strings.TrimSpace(cfg.TencentSMS.LoginTemplateID)
 	if scene == model.PhoneVerificationSceneBind && strings.TrimSpace(cfg.TencentSMS.BindPhoneTemplateID) != "" {
 		templateID = strings.TrimSpace(cfg.TencentSMS.BindPhoneTemplateID)
 	}
-	if templateID == "" {
-		return fmt.Errorf("短信模板未配置")
+	mockEnabled := cfg.IsTencentSMSMockEnabled()
+	if templateID == "" && !mockEnabled {
+		return "", false, fmt.Errorf("短信模板未配置")
 	}
 
 	codeStore := model.NewPhoneVerificationCodeRedisModel(component.GetRedis())
-	code, err := codeStore.Create(
+	fixedCode := ""
+	if mockEnabled {
+		fixedCode = strings.TrimSpace(cfg.TencentSMS.MockCode)
+	}
+	code, err := codeStore.CreateWithCode(
 		scene,
 		phone,
+		fixedCode,
 		cfg.TencentSMS.CodeTTLSeconds,
 		cfg.TencentSMS.SendCooldownSeconds,
 		cfg.TencentSMS.MaxDailySendPerPhone,
 		time.Now(),
 	)
 	if err != nil {
-		return err
+		return "", false, err
+	}
+
+	if mockEnabled {
+		if cfg.TencentSMS.ExposeMockCode {
+			return code, true, nil
+		}
+		return "", true, nil
 	}
 
 	fullPhone, err := normalizeCNPhoneWithPrefix(phone)
 	if err != nil {
-		return err
+		return "", false, err
 	}
 	expireMinutes := cfg.TencentSMS.CodeTTLSeconds / 60
 	if expireMinutes <= 0 {
@@ -59,9 +72,9 @@ func sendPhoneVerificationCode(scene, phone string) error {
 			_ = redisClient.Del(ctx, "phone_code:"+scene+":"+phone).Err()
 			_ = redisClient.Del(ctx, "phone_code_cooldown:"+scene+":"+phone).Err()
 		}
-		return err
+		return "", false, err
 	}
-	return nil
+	return "", false, nil
 }
 
 func verifyPhoneVerificationCode(scene, phone, code string) error {

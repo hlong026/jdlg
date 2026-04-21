@@ -80,6 +80,10 @@ func (m *PhoneVerificationCodeRedisModel) EnsureCanSend(scene, phone string, coo
 }
 
 func (m *PhoneVerificationCodeRedisModel) Create(scene, phone string, ttlSeconds, cooldownSeconds, maxDaily int64, now time.Time) (string, error) {
+	return m.CreateWithCode(scene, phone, "", ttlSeconds, cooldownSeconds, maxDaily, now)
+}
+
+func (m *PhoneVerificationCodeRedisModel) CreateWithCode(scene, phone, fixedCode string, ttlSeconds, cooldownSeconds, maxDaily int64, now time.Time) (string, error) {
 	if m == nil || m.Redis == nil {
 		return "", fmt.Errorf("redis 不可用")
 	}
@@ -95,7 +99,10 @@ func (m *PhoneVerificationCodeRedisModel) Create(scene, phone string, ttlSeconds
 		ttlSeconds = 300
 	}
 
-	code := randomSMSCode()
+	code := strings.TrimSpace(fixedCode)
+	if code == "" {
+		code = randomSMSCode()
+	}
 	key := phoneCodeKey(scene, phone)
 	payload := code + "|0"
 	if err := m.Redis.Set(m.ctx, key, payload, time.Duration(ttlSeconds)*time.Second).Err(); err != nil {

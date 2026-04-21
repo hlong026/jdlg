@@ -393,7 +393,7 @@ Page({
         }
         this.setData({ phoneCodeSending: true });
         try {
-            await new Promise((resolve, reject) => {
+            const responseData = await new Promise((resolve, reject) => {
                 wx.request({
                     url: `${API_BASE_URL}/api/v1/miniprogram/login/phone/send-code`,
                     method: 'POST',
@@ -412,8 +412,12 @@ Page({
                     fail: reject,
                 });
             });
+            const mockCode = String(responseData?.data?.mock_code || '');
+            if (mockCode) {
+                this.setData({ phoneCode: mockCode });
+            }
             wx.showToast({
-                title: '验证码已发送',
+                title: mockCode ? `测试验证码 ${mockCode}` : '验证码已发送',
                 icon: 'success',
             });
             this.startPhoneCodeCountdown(60);

@@ -62,7 +62,7 @@ func buildTokenLoginResponse(c *gin.Context, user *model.User, codeSessionModel 
 	}
 	if userProfileModel != nil {
 		if profile, err := userProfileModel.GetByUserID(user.ID); err == nil && profile != nil {
-			payload["phone"] = strings.TrimSpace(profile.EnterpriseWechatContact)
+			payload["phone"] = profile.PrimaryPhone()
 			payload["hasPassword"] = profile.HasPassword
 		}
 	}
@@ -342,16 +342,25 @@ func RegisterMiniprogramRoutes(r *gin.RouterGroup, authProcessor *processor.Auth
 			})
 			return
 		}
-		if err := sendPhoneVerificationCode(model.PhoneVerificationSceneLogin, phone); err != nil {
+		mockCode, mockEnabled, err := sendPhoneVerificationCode(model.PhoneVerificationSceneLogin, phone)
+		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"code": 400,
 				"msg":  "发送验证码失败: " + err.Error(),
 			})
 			return
 		}
+		data := gin.H{}
+		if mockEnabled {
+			data["mock_mode"] = true
+			if mockCode != "" {
+				data["mock_code"] = mockCode
+			}
+		}
 		c.JSON(http.StatusOK, gin.H{
 			"code": 0,
 			"msg":  "验证码已发送",
+			"data": data,
 		})
 	})
 
@@ -2986,7 +2995,7 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 		qrcodeURL := strings.TrimSpace(cfg.EnterpriseWechat.Download4KQRCodeURL)
 		if userProfileModel != nil {
 			if profile, err := userProfileModel.GetOrCreate(codeSession.UserID, ""); err == nil && profile != nil {
-				contact = strings.TrimSpace(profile.EnterpriseWechatContact)
+				contact = profile.PrimaryPhone()
 				if !hasValidEnterpriseWechatContact(contact) {
 					contact = ""
 				}
@@ -3132,7 +3141,11 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "获取手机号授权验证状态失败"})
 			return
 		}
-		if profile == nil || !profile.EnterpriseWechatVerified || !hasValidEnterpriseWechatContact(profile.EnterpriseWechatContact) {
+		verifiedPhone := ""
+		if profile != nil {
+			verifiedPhone = profile.PrimaryPhone()
+		}
+		if profile == nil || !profile.EnterpriseWechatVerified || !hasValidEnterpriseWechatContact(verifiedPhone) {
 			c.JSON(http.StatusForbidden, gin.H{"code": 403, "msg": "请先完成手机号授权验证后再下载保存"})
 			return
 		}
@@ -3205,7 +3218,11 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "获取手机号授权验证状态失败"})
 			return
 		}
-		if profile == nil || !profile.EnterpriseWechatVerified || !hasValidEnterpriseWechatContact(profile.EnterpriseWechatContact) {
+		verifiedPhone := ""
+		if profile != nil {
+			verifiedPhone = profile.PrimaryPhone()
+		}
+		if profile == nil || !profile.EnterpriseWechatVerified || !hasValidEnterpriseWechatContact(verifiedPhone) {
 			c.JSON(http.StatusForbidden, gin.H{"code": 403, "msg": "请先完成手机号授权验证后再下载保存"})
 			return
 		}
@@ -3285,7 +3302,11 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "获取手机号授权验证状态失败"})
 			return
 		}
-		if profile == nil || !profile.EnterpriseWechatVerified || !hasValidEnterpriseWechatContact(profile.EnterpriseWechatContact) {
+		verifiedPhone := ""
+		if profile != nil {
+			verifiedPhone = profile.PrimaryPhone()
+		}
+		if profile == nil || !profile.EnterpriseWechatVerified || !hasValidEnterpriseWechatContact(verifiedPhone) {
 			c.JSON(http.StatusForbidden, gin.H{"code": 403, "msg": "请先完成手机号授权验证后再下载保存"})
 			return
 		}
@@ -3325,7 +3346,11 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "获取手机号授权验证状态失败"})
 			return
 		}
-		if profile == nil || !profile.EnterpriseWechatVerified || !hasValidEnterpriseWechatContact(profile.EnterpriseWechatContact) {
+		verifiedPhone := ""
+		if profile != nil {
+			verifiedPhone = profile.PrimaryPhone()
+		}
+		if profile == nil || !profile.EnterpriseWechatVerified || !hasValidEnterpriseWechatContact(verifiedPhone) {
 			c.JSON(http.StatusForbidden, gin.H{"code": 403, "msg": "请先完成手机号授权验证后再下载保存"})
 			return
 		}

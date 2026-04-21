@@ -448,6 +448,10 @@ func (s *AccountMergeService) mergeProfile(tx *sql.Tx, masterUserID, sourceUserI
 	serviceEnabled := master.ServiceEnabled || source.ServiceEnabled
 	hasPassword := master.HasPassword || source.HasPassword
 	enterpriseWechatVerified := master.EnterpriseWechatVerified || source.EnterpriseWechatVerified
+	phone := strings.TrimSpace(master.Phone)
+	if phone == "" {
+		phone = strings.TrimSpace(source.Phone)
+	}
 	enterpriseWechatContact := strings.TrimSpace(master.EnterpriseWechatContact)
 	if enterpriseWechatContact == "" {
 		enterpriseWechatContact = strings.TrimSpace(source.EnterpriseWechatContact)
@@ -462,11 +466,11 @@ func (s *AccountMergeService) mergeProfile(tx *sql.Tx, masterUserID, sourceUserI
 	if _, err := tx.Exec(`UPDATE user_profiles
 		SET nickname = ?, avatar = ?, designer_bio = ?, specialty_styles = ?, designer_experience_years = ?,
 		    service_title = ?, service_quote = ?, service_intro = ?, service_enabled = ?, designer_visible = ?,
-		    enterprise_wechat_verified = ?, enterprise_wechat_verified_at = ?, enterprise_wechat_contact = ?, has_password = ?, updated_at = NOW()
+		    enterprise_wechat_verified = ?, enterprise_wechat_verified_at = ?, phone = ?, enterprise_wechat_contact = ?, has_password = ?, updated_at = NOW()
 		WHERE user_id = ?`,
 		nickname, avatar, designerBio, specialtyStyles, designerExperienceYears,
 		serviceTitle, serviceQuote, serviceIntro, designerVisibleBoolToInt(serviceEnabled), designerVisibleBoolToInt(designerVisible),
-		designerVisibleBoolToInt(enterpriseWechatVerified), enterpriseWechatVerifiedAt, enterpriseWechatContact, designerVisibleBoolToInt(hasPassword), masterUserID); err != nil {
+		designerVisibleBoolToInt(enterpriseWechatVerified), enterpriseWechatVerifiedAt, phone, enterpriseWechatContact, designerVisibleBoolToInt(hasPassword), masterUserID); err != nil {
 		return err
 	}
 	_, err := tx.Exec(`DELETE FROM user_profiles WHERE user_id = ?`, sourceUserID)

@@ -67,12 +67,12 @@ Page({
   data: {
     defaultAvatarImage: resolveAssetPath('/assets/images/home.jpg'),
     // 用户信息
-      userInfo: {
-        id: 0,
-        username: '',
-        phone: '',
-        nickname: '',
-        avatar: '',
+    userInfo: {
+      id: 0,
+      username: '',
+      phone: '',
+      nickname: '',
+      avatar: '',
       designerBio: '',
       specialtyStyles: '',
       designerExperienceYears: 0,
@@ -83,16 +83,16 @@ Page({
       serviceEnabled: false,
       hasPassword: false,
     },
-        currentDeviceId: '',
-        bindingPhone: false,
-        phoneBindForm: {
-          phone: '',
-          code: '',
-        },
-        phoneCodeSending: false,
-        phoneCodeCountdown: 0,
-        // 加载状态
-        loading: true,
+    currentDeviceId: '',
+    bindingPhone: false,
+    phoneBindForm: {
+      phone: '',
+      code: '',
+    },
+    phoneCodeSending: false,
+    phoneCodeCountdown: 0,
+    // 加载状态
+    loading: true,
     saving: false,
     savingNickname: false,
     savingPassword: false,
@@ -299,7 +299,11 @@ Page({
       if (res.statusCode !== 200 || res.data.code !== 0) {
         throw new Error(res.data?.msg || '发送验证码失败');
       }
-      wx.showToast({ title: '验证码已发送', icon: 'success' });
+      const mockCode = String(res.data?.data?.mock_code || '');
+      if (mockCode) {
+        this.setData({ 'phoneBindForm.code': mockCode });
+      }
+      wx.showToast({ title: mockCode ? `测试验证码 ${mockCode}` : '验证码已发送', icon: 'success' });
       this.startBindPhoneCountdown(60);
     } catch (error: any) {
       wx.showToast({ title: error.message || '发送验证码失败', icon: 'none' });

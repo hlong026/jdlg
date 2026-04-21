@@ -191,6 +191,9 @@ type TencentSMSConfig struct {
 	SendCooldownSeconds  int64
 	MaxVerifyAttempts    int64
 	MaxDailySendPerPhone int64
+	MockEnabled          bool
+	MockCode             string
+	ExposeMockCode       bool
 }
 
 var globalConfig *Config
@@ -266,6 +269,9 @@ func Init() *Config {
 			SendCooldownSeconds:  getEnvInt64("TENCENT_SMS_SEND_COOLDOWN_SECONDS", 60),
 			MaxVerifyAttempts:    getEnvInt64("TENCENT_SMS_MAX_VERIFY_ATTEMPTS", 6),
 			MaxDailySendPerPhone: getEnvInt64("TENCENT_SMS_MAX_DAILY_SEND_PER_PHONE", 20),
+			MockEnabled:          getEnvBool("TENCENT_SMS_MOCK_ENABLED", true),
+			MockCode:             getEnv("TENCENT_SMS_MOCK_CODE", "123456"),
+			ExposeMockCode:       getEnvBool("TENCENT_SMS_EXPOSE_MOCK_CODE", true),
 		},
 	}
 	return globalConfig
@@ -314,4 +320,21 @@ func (c *Config) IsDevelopment() bool {
 // IsProduction 判断是否为生产环境
 func (c *Config) IsProduction() bool {
 	return c.Server.Env == "production"
+}
+
+func (c *Config) IsTencentSMSMockEnabled() bool {
+	if c == nil {
+		return true
+	}
+	if c.IsProduction() {
+		return c.TencentSMS.MockEnabled
+	}
+	if c.TencentSMS.MockEnabled {
+		return true
+	}
+	return strings.TrimSpace(c.TencentSMS.SecretID) == "" ||
+		strings.TrimSpace(c.TencentSMS.SecretKey) == "" ||
+		strings.TrimSpace(c.TencentSMS.SdkAppID) == "" ||
+		strings.TrimSpace(c.TencentSMS.SignName) == "" ||
+		strings.TrimSpace(c.TencentSMS.LoginTemplateID) == ""
 }

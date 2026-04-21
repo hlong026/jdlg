@@ -17,6 +17,9 @@ func SendTencentSMS(phone, templateID string, templateParams []string) error {
 		return fmt.Errorf("短信服务未初始化")
 	}
 	smsCfg := cfg.TencentSMS
+	if cfg.IsTencentSMSMockEnabled() {
+		return nil
+	}
 	if strings.TrimSpace(smsCfg.SecretID) == "" ||
 		strings.TrimSpace(smsCfg.SecretKey) == "" ||
 		strings.TrimSpace(smsCfg.Region) == "" ||

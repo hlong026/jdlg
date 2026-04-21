@@ -72,6 +72,13 @@ func maskRecoveryPhone(raw string) string {
 	return phone[:3] + "****" + phone[len(phone)-4:]
 }
 
+func profilePhone(profile *model.UserProfile) string {
+	if profile == nil {
+		return ""
+	}
+	return profile.PrimaryPhone()
+}
+
 func clearMergedUserStoneCache(userIDs ...int64) {
 	redisClient := component.GetRedis()
 	if redisClient == nil {
@@ -139,7 +146,7 @@ func RegisterUserProfileRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeS
 			return
 		}
 
-		storedPhone := strings.TrimSpace(profileData.EnterpriseWechatContact)
+		storedPhone := profilePhone(profileData)
 		if !profileData.EnterpriseWechatVerified || storedPhone == "" {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"code": 400,
@@ -251,7 +258,7 @@ func RegisterUserProfileRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeS
 				response["designer_visible"] = profileData.DesignerVisible
 				response["enterprise_wechat_verified"] = profileData.EnterpriseWechatVerified
 				response["enterprise_wechat_contact"] = profileData.EnterpriseWechatContact
-				response["phone"] = profileData.EnterpriseWechatContact
+				response["phone"] = profilePhone(profileData)
 				response["enterprise_wechat_verified_at"] = profileData.EnterpriseWechatVerifiedAt
 				response["has_password"] = profileData.HasPassword
 			} else {
@@ -822,16 +829,25 @@ func RegisterUserProfileRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeS
 				})
 				return
 			}
-			if err := sendPhoneVerificationCode(model.PhoneVerificationSceneBind, phone); err != nil {
+			mockCode, mockEnabled, err := sendPhoneVerificationCode(model.PhoneVerificationSceneBind, phone)
+			if err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{
 					"code": 400,
 					"msg":  "发送验证码失败: " + err.Error(),
 				})
 				return
 			}
+			data := gin.H{}
+			if mockEnabled {
+				data["mock_mode"] = true
+				if mockCode != "" {
+					data["mock_code"] = mockCode
+				}
+			}
 			c.JSON(http.StatusOK, gin.H{
 				"code": 0,
 				"msg":  "验证码已发送",
+				"data": data,
 			})
 		})
 	}

@@ -611,7 +611,11 @@ Page({
             if (res.statusCode !== 200 || res.data.code !== 0) {
                 throw new Error(res.data?.msg || '发送验证码失败');
             }
-            wx.showToast({ title: '验证码已发送', icon: 'success' });
+            const mockCode = String(res.data?.data?.mock_code || '');
+            if (mockCode) {
+                this.setData({ 'phoneBindForm.code': mockCode });
+            }
+            wx.showToast({ title: mockCode ? `测试验证码 ${mockCode}` : '验证码已发送', icon: 'success' });
             this.startBindPhoneCountdown(60);
         }
         catch (error) {
