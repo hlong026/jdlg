@@ -341,6 +341,13 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 				SourceType:   req.SourceType,
 				Creator:      username,
 			}
+			if err := validateTemplatePrimaryImage(template); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 400,
+					"msg":  err.Error(),
+				})
+				return
+			}
 
 			if err := templateModel.Create(template); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
@@ -401,6 +408,13 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 			template.PublishScope = req.PublishScope
 			template.RejectReason = req.RejectReason
 			template.SourceType = req.SourceType
+			if err := validateTemplatePrimaryImage(template); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 400,
+					"msg":  err.Error(),
+				})
+				return
+			}
 
 			if err := templateModel.Update(template); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{

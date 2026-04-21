@@ -110,6 +110,10 @@ func RegisterInspirationManagementRoutes(r *gin.RouterGroup, inspirationModel *m
 			if asset.Creator == "" {
 				asset.Creator = "管理员"
 			}
+			if err := validateInspirationPrimaryImage(asset); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": err.Error()})
+				return
+			}
 			if err := inspirationModel.Create(asset); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "创建失败: " + err.Error()})
 				return
@@ -159,6 +163,10 @@ func RegisterInspirationManagementRoutes(r *gin.RouterGroup, inspirationModel *m
 			asset.CoverImage = ""
 			if len(images) > 0 {
 				asset.CoverImage = images[0]
+			}
+			if err := validateInspirationPrimaryImage(asset); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": err.Error()})
+				return
 			}
 			if err := inspirationModel.Update(asset); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "更新失败: " + err.Error()})
