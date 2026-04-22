@@ -297,6 +297,11 @@ func (m *InspirationAssetModel) UpdateImageMetadataByID(id int64, width int, hei
 	return err
 }
 
+func (m *InspirationAssetModel) UpdateImageAssetsByID(id int64, coverImage string, images string) error {
+	_, err := m.DB.Exec(`UPDATE inspiration_assets SET cover_image = ?, images = ? WHERE id = ?`, strings.TrimSpace(coverImage), strings.TrimSpace(images), id)
+	return err
+}
+
 func (m *InspirationAssetModel) IncrementViewCount(id int64) error {
 	_, err := m.DB.Exec(`UPDATE inspiration_assets SET view_count = view_count + 1 WHERE id = ?`, id)
 	return err

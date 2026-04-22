@@ -1,6 +1,7 @@
 package route
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
@@ -114,6 +115,10 @@ func RegisterInspirationManagementRoutes(r *gin.RouterGroup, inspirationModel *m
 				c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": err.Error()})
 				return
 			}
+			if err := generateInspirationDerivedImages(context.Background(), asset, "inspirations/admin"); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "生成灵感衍生图失败: " + err.Error()})
+				return
+			}
 			if err := inspirationModel.Create(asset); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "创建失败: " + err.Error()})
 				return
@@ -166,6 +171,10 @@ func RegisterInspirationManagementRoutes(r *gin.RouterGroup, inspirationModel *m
 			}
 			if err := validateInspirationPrimaryImage(asset); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": err.Error()})
+				return
+			}
+			if err := generateInspirationDerivedImages(context.Background(), asset, inspirationVariantNamespace(asset)); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "生成灵感衍生图失败: " + err.Error()})
 				return
 			}
 			if err := inspirationModel.Update(asset); err != nil {

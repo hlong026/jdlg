@@ -1,6 +1,7 @@
 package route
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"net/http"
@@ -348,6 +349,13 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 				})
 				return
 			}
+			if err := generateTemplateDerivedImages(context.Background(), template, "templates/admin"); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"code": 500,
+					"msg":  "生成模板衍生图失败: " + err.Error(),
+				})
+				return
+			}
 
 			if err := templateModel.Create(template); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
@@ -412,6 +420,13 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 				c.JSON(http.StatusBadRequest, gin.H{
 					"code": 400,
 					"msg":  err.Error(),
+				})
+				return
+			}
+			if err := generateTemplateDerivedImages(context.Background(), template, templateVariantNamespace(template)); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"code": 500,
+					"msg":  "生成模板衍生图失败: " + err.Error(),
 				})
 				return
 			}

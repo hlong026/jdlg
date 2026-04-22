@@ -1841,6 +1841,14 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			Creator:       "设计师上传",
 			CreatorUserID: codeSession.UserID,
 		}
+		if err := validateTemplatePrimaryImage(template); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": err.Error()})
+			return
+		}
+		if err := generateTemplateDerivedImages(context.Background(), template, "templates/album_upload"); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "生成模板衍生图失败: " + err.Error()})
+			return
+		}
 		if err := templateModel.Create(template); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "提交作品失败: " + err.Error()})
 			return

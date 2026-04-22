@@ -853,3 +853,8 @@ func (m *TemplateModel) UpdateImageMetadataByID(id int64, width int, height int)
 	_, err := m.DB.Exec(`UPDATE templates SET image_width = ?, image_height = ? WHERE id = ?`, width, height, id)
 	return err
 }
+
+func (m *TemplateModel) UpdateImageAssetsByID(id int64, thumbnail string, previewURL string, images string) error {
+	_, err := m.DB.Exec(`UPDATE templates SET thumbnail = ?, preview_url = ?, images = ? WHERE id = ?`, strings.TrimSpace(thumbnail), strings.TrimSpace(previewURL), strings.TrimSpace(images), id)
+	return err
+}

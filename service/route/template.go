@@ -1,6 +1,7 @@
 package route
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -1497,6 +1498,20 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 				template.OriginalTaskID = *req.OriginalTaskID
 			}
 
+			if err := validateTemplatePrimaryImage(template); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 400,
+					"msg":  err.Error(),
+				})
+				return
+			}
+			if err := generateTemplateDerivedImages(context.Background(), template, "templates/user_submit"); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"code": 500,
+					"msg":  "生成模板衍生图失败: " + err.Error(),
+				})
+				return
+			}
 			if err := templateModel.Create(template); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"code": 500,

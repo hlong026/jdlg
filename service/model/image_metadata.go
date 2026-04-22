@@ -89,6 +89,10 @@ func parseImageURLList(raw string) []string {
 	return urls
 }
 
+func ParseImageURLList(raw string) []string {
+	return parseImageURLList(raw)
+}
+
 func stringValueFromMap(value map[string]interface{}, key string) string {
 	raw, ok := value[key]
 	if !ok {
