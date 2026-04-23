@@ -1,26 +1,95 @@
-// pages/allrounddesign/allrounddesign.ts
 import { generateRequestParams, paramsToHeaders } from '../../utils/parameter';
 import { getCachedDeviceFingerprint } from '../../utils/deviceFingerprint';
 import { sanitizeAIGenerationErrorMessage } from '../../utils/aiError';
 
-// API基础地址
 const API_BASE_URL = 'https://api.jiadilingguang.com';
+const ALLROUND_API_PATH = '/api/v1/miniprogram/ai/allround-design';
+const CREATIVE_API_PATH = '/api/v1/miniprogram/ai/parent-child-design';
+const TASK_STATUS_API_PATH = '/api/v1/miniprogram/ai/task/status';
+const UPLOAD_API_PATH = '/api/v1/miniprogram/ai/upload-reference-image';
+
+function getTaskStatusPollDelay(attempt: number): number {
+  if (attempt < 2) {
+    return 3000;
+  }
+  if (attempt < 6) {
+    return 4000;
+  }
+  return 5000;
+}
+
+function getModuleMeta(activeTab: string) {
+  switch (activeTab) {
+    case 'poster':
+      return {
+        title: '海报设计',
+        desc: '适合活动预告、品牌表达和设计说明页的快速生成。',
+        badge: '视觉表达',
+        hint: '至少填写主题或文案，并选择一个主风格，就可以提交生成任务。',
+        buttonText: 'AI 提交海报任务',
+      };
+    case 'cultural':
+      return {
+        title: '文创设计',
+        desc: '适合文创周边、衍生品和展陈配套的概念设计。',
+        badge: '产品创意',
+        hint: '先明确产品类型和设计要求，再选择风格，会更容易得到稳定结果。',
+        buttonText: 'AI 提交文创任务',
+      };
+    case 'creative':
+      return {
+        title: '创意玩偶',
+        desc: '原亲子工坊能力已并入综合设计，用统一工作台完成玩偶创意生成。',
+        badge: '能力合并',
+        hint: '创意玩偶沿用原亲子工坊的生成链路，生成结果会直接展示在当前页面。',
+        buttonText: 'AI 生成玩偶',
+      };
+    case 'style':
+    default:
+      return {
+        title: '风格转换',
+        desc: '上传原图后快速切换目标风格，适合立面、空间和概念图表达。',
+        badge: '方案提效',
+        hint: '完成原图上传和目标风格选择后，即可提交转换任务。',
+        buttonText: 'AI 提交转换任务',
+      };
+  }
+}
+
+function parseCreativeResultUrl(result: any): string {
+  if (!result) {
+    return '';
+  }
+
+  if (typeof result === 'string') {
+    try {
+      const parsed = JSON.parse(result);
+      return parsed.url || parsed.url_raw || result;
+    } catch (_error) {
+      return result;
+    }
+  }
+
+  return result.url || result.url_raw || '';
+}
 
 Page({
-  /**
-   * 页面的初始数据
-   */
   data: {
-    activeTab: 'style', // style, poster, cultural
     tabs: [
-      { label: '风格变换', value: 'style' },
-      { label: '海报设计', value: 'poster' },
-      { label: '文创设计', value: 'cultural' }
+      { label: '风格转换', value: 'style', shortDesc: '立面与空间' },
+      { label: '海报设计', value: 'poster', shortDesc: '宣传与发布' },
+      { label: '文创设计', value: 'cultural', shortDesc: '周边与衍生' },
+      { label: '创意玩偶', value: 'creative', shortDesc: '亲子工坊并入' },
     ],
+    activeTab: 'style',
+    activeModuleTitle: '',
+    activeModuleDesc: '',
+    activeModuleBadge: '',
+    activeModuleHint: '',
+    generateButtonText: '',
 
-    // 风格变换相关
-    originalImage: '', // 原图
-    targetStyle: '', // 目标风格
+    originalImage: '',
+    targetStyle: '',
     styleOptions: [
       { label: '现代简约', value: 'modern' },
       { label: '新中式', value: 'chinese' },
@@ -31,13 +100,12 @@ Page({
       { label: '卡通风格', value: 'cartoon' },
       { label: '水彩风格', value: 'watercolor' },
       { label: '油画风格', value: 'oil' },
-      { label: '素描风格', value: 'sketch' }
+      { label: '素描风格', value: 'sketch' },
     ],
 
-    // 海报设计相关
-    posterTheme: '', // 海报主题
-    posterText: '', // 海报文字内容
-    posterStyle: '', // 海报风格
+    posterTheme: '',
+    posterText: '',
+    posterStyle: '',
     posterStyleOptions: [
       { label: '简约商务', value: 'business' },
       { label: '时尚潮流', value: 'fashion' },
@@ -46,14 +114,13 @@ Page({
       { label: '复古风格', value: 'vintage' },
       { label: '插画风格', value: 'illustration' },
       { label: '手绘风格', value: 'handdrawn' },
-      { label: '极简风格', value: 'minimalist' }
+      { label: '极简风格', value: 'minimalist' },
     ],
-    posterReferenceImages: [] as string[], // 海报参考图
+    posterReferenceImages: [] as string[],
 
-    // 文创设计相关
-    productType: '', // 产品类型
-    productRequirements: '', // 设计要求
-    culturalStyle: '', // 文创风格
+    productType: '',
+    productRequirements: '',
+    culturalStyle: '',
     culturalStyleOptions: [
       { label: '国潮风格', value: 'guochao' },
       { label: '简约现代', value: 'modern' },
@@ -62,499 +129,669 @@ Page({
       { label: '几何图案', value: 'geometric' },
       { label: '文字设计', value: 'typography' },
       { label: '抽象艺术', value: 'abstract' },
-      { label: '自然元素', value: 'nature' }
+      { label: '自然元素', value: 'nature' },
     ],
-    culturalReferenceImages: [] as string[], // 文创参考图
+    culturalReferenceImages: [] as string[],
 
-    // 步骤完成状态（用于验证必填项）
-    stepCompleted: {
-      originalImage: false,
-      targetStyle: false,
-      posterContent: false,
-      posterStyle: false,
-      posterReference: false,
-      productInfo: false,
-      culturalStyle: false,
-      culturalReference: false
-    },
+    creativePrototype: 'landmark',
+    creativeMood: 'cute',
+    creativeTheme: '',
+    creativeRequirements: '',
+    creativeReferenceImages: [] as string[],
+    creativePrototypeOptions: [
+      { label: '城市地标', value: 'landmark' },
+      { label: '普通住宅', value: 'residence' },
+      { label: '公共建筑', value: 'building' },
+    ],
+    creativeMoodOptions: [
+      { label: '可爱', value: 'cute' },
+      { label: '酷炫', value: 'cool' },
+      { label: '复古', value: 'retro' },
+      { label: '科幻', value: 'scifi' },
+    ],
 
-    allStepsCompleted: false // 所有必填步骤是否完成
+    generatedImages: [] as string[],
+    allStepsCompleted: false,
+    submitting: false,
+    taskNotice: '',
   },
 
-  /**
-   * 生命周期函数--监听页面加载
-   */
   onLoad() {
-
+    this.syncActiveModuleState();
   },
 
-  /**
-   * Tab切换
-   */
-  onTabSwitch(e: any) {
-    const value = e.currentTarget.dataset.value
+  onShareAppMessage() {
+    return {
+      title: '综合设计',
+      path: '/pages/allrounddesign/allrounddesign',
+    };
+  },
+
+  syncActiveModuleState() {
+    const meta = getModuleMeta(this.data.activeTab);
     this.setData({
-      activeTab: value
-    })
-    this.checkAllStepsCompleted()
+      activeModuleTitle: meta.title,
+      activeModuleDesc: meta.desc,
+      activeModuleBadge: meta.badge,
+      activeModuleHint: meta.hint,
+      generateButtonText: meta.buttonText,
+    });
+    this.updateGenerateState();
   },
 
-  // ========== 风格变换相关 ==========
-  /**
-   * 上传原图
-   */
+  updateGenerateState() {
+    let ready = false;
+
+    if (this.data.activeTab === 'style') {
+      ready = !!(this.data.originalImage && this.data.targetStyle);
+    } else if (this.data.activeTab === 'poster') {
+      ready = !!((this.data.posterTheme || this.data.posterText) && this.data.posterStyle);
+    } else if (this.data.activeTab === 'cultural') {
+      ready = !!((this.data.productType || this.data.productRequirements) && this.data.culturalStyle);
+    } else if (this.data.activeTab === 'creative') {
+      ready = !!(this.data.creativeTheme || this.data.creativeRequirements);
+    }
+
+    this.setData({
+      allStepsCompleted: ready,
+    });
+  },
+
+  onTabSwitch(e: any) {
+    const value = String(e.currentTarget.dataset.value || '');
+    if (!value || value === this.data.activeTab) {
+      return;
+    }
+
+    this.setData(
+      {
+        activeTab: value,
+        taskNotice: value === 'creative' ? this.data.taskNotice : '',
+      },
+      () => {
+        this.syncActiveModuleState();
+      },
+    );
+  },
+
   onUploadOriginalImage() {
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
       sourceType: ['camera', 'album'],
       success: (res) => {
-        const imagePath = res.tempFiles[0].tempFilePath
-        this.setData({
-          originalImage: imagePath
-        })
-        this.checkStepCompleted('originalImage')
+        const imagePath = res.tempFiles[0].tempFilePath;
+        this.setData(
+          {
+            originalImage: imagePath,
+          },
+          () => {
+            this.updateGenerateState();
+          },
+        );
       },
-      fail: (err) => {
-        console.error('选择图片失败', err)
+      fail: (error) => {
+        console.error('选择图片失败', error);
         wx.showToast({
           title: '选择图片失败',
-          icon: 'none'
-        })
-      }
-    })
+          icon: 'none',
+        });
+      },
+    });
   },
 
-  /**
-   * 删除原图
-   */
   onDeleteOriginalImage() {
-    this.setData({
-      originalImage: ''
-    })
-    this.checkStepCompleted('originalImage')
+    this.setData(
+      {
+        originalImage: '',
+      },
+      () => {
+        this.updateGenerateState();
+      },
+    );
   },
 
-  /**
-   * 选择目标风格
-   */
   onSelectTargetStyle(e: any) {
-    const value = e.currentTarget.dataset.value
-    this.setData({
-      targetStyle: value
-    })
-    this.checkStepCompleted('targetStyle')
+    this.setData(
+      {
+        targetStyle: e.currentTarget.dataset.value,
+      },
+      () => {
+        this.updateGenerateState();
+      },
+    );
   },
 
-  // ========== 海报设计相关 ==========
-  /**
-   * 海报主题输入
-   */
   onPosterThemeInput(e: any) {
-    this.setData({
-      posterTheme: e.detail.value
-    })
-    this.checkStepCompleted('posterContent')
+    this.setData(
+      {
+        posterTheme: e.detail.value,
+      },
+      () => {
+        this.updateGenerateState();
+      },
+    );
   },
 
-  /**
-   * 海报文字输入
-   */
   onPosterTextInput(e: any) {
-    this.setData({
-      posterText: e.detail.value
-    })
-    this.checkStepCompleted('posterContent')
+    this.setData(
+      {
+        posterText: e.detail.value,
+      },
+      () => {
+        this.updateGenerateState();
+      },
+    );
   },
 
-  /**
-   * 选择海报风格
-   */
   onSelectPosterStyle(e: any) {
-    const value = e.currentTarget.dataset.value
-    this.setData({
-      posterStyle: value
-    })
-    this.checkStepCompleted('posterStyle')
+    this.setData(
+      {
+        posterStyle: e.currentTarget.dataset.value,
+      },
+      () => {
+        this.updateGenerateState();
+      },
+    );
   },
 
-  /**
-   * 上传海报参考图
-   */
   onUploadPosterReference() {
-    wx.chooseMedia({
-      count: 9,
-      mediaType: ['image'],
-      sourceType: ['camera', 'album'],
-      success: (res) => {
-        const tempFiles = res.tempFiles.map(file => file.tempFilePath)
-        const currentImages = this.data.posterReferenceImages || []
-        const newImages = [...currentImages, ...tempFiles].slice(0, 9)
-        this.setData({
-          posterReferenceImages: newImages
-        })
-        this.checkStepCompleted('posterReference')
-      },
-      fail: (err) => {
-        console.error('选择图片失败', err)
-        wx.showToast({
-          title: '选择图片失败',
-          icon: 'none'
-        })
-      }
-    })
+    this.selectReferenceImages('posterReferenceImages');
   },
 
-  /**
-   * 删除海报参考图
-   */
   onDeletePosterReferenceImage(e: any) {
-    const index = e.currentTarget.dataset.index
-    const images = this.data.posterReferenceImages
-    images.splice(index, 1)
-    this.setData({
-      posterReferenceImages: images
-    })
-    this.checkStepCompleted('posterReference')
+    this.removeReferenceImage('posterReferenceImages', e.currentTarget.dataset.index);
   },
 
-  // ========== 文创设计相关 ==========
-  /**
-   * 产品类型输入
-   */
   onProductTypeInput(e: any) {
-    this.setData({
-      productType: e.detail.value
-    })
-    this.checkStepCompleted('productInfo')
+    this.setData(
+      {
+        productType: e.detail.value,
+      },
+      () => {
+        this.updateGenerateState();
+      },
+    );
   },
 
-  /**
-   * 设计要求输入
-   */
   onProductRequirementsInput(e: any) {
-    this.setData({
-      productRequirements: e.detail.value
-    })
-    this.checkStepCompleted('productInfo')
+    this.setData(
+      {
+        productRequirements: e.detail.value,
+      },
+      () => {
+        this.updateGenerateState();
+      },
+    );
   },
 
-  /**
-   * 选择文创风格
-   */
   onSelectCulturalStyle(e: any) {
-    const value = e.currentTarget.dataset.value
-    this.setData({
-      culturalStyle: value
-    })
-    this.checkStepCompleted('culturalStyle')
+    this.setData(
+      {
+        culturalStyle: e.currentTarget.dataset.value,
+      },
+      () => {
+        this.updateGenerateState();
+      },
+    );
   },
 
-  /**
-   * 上传文创参考图
-   */
   onUploadCulturalReference() {
+    this.selectReferenceImages('culturalReferenceImages');
+  },
+
+  onDeleteCulturalReferenceImage(e: any) {
+    this.removeReferenceImage('culturalReferenceImages', e.currentTarget.dataset.index);
+  },
+
+  onSelectCreativePrototype(e: any) {
+    this.setData({
+      creativePrototype: e.currentTarget.dataset.value,
+    });
+  },
+
+  onSelectCreativeMood(e: any) {
+    this.setData({
+      creativeMood: e.currentTarget.dataset.value,
+    });
+  },
+
+  onCreativeThemeInput(e: any) {
+    this.setData(
+      {
+        creativeTheme: e.detail.value,
+      },
+      () => {
+        this.updateGenerateState();
+      },
+    );
+  },
+
+  onCreativeRequirementsInput(e: any) {
+    this.setData(
+      {
+        creativeRequirements: e.detail.value,
+      },
+      () => {
+        this.updateGenerateState();
+      },
+    );
+  },
+
+  onUploadCreativeReference() {
+    this.selectReferenceImages('creativeReferenceImages');
+  },
+
+  onDeleteCreativeReferenceImage(e: any) {
+    this.removeReferenceImage('creativeReferenceImages', e.currentTarget.dataset.index);
+  },
+
+  selectReferenceImages(targetField: string) {
     wx.chooseMedia({
       count: 9,
       mediaType: ['image'],
       sourceType: ['camera', 'album'],
       success: (res) => {
-        const tempFiles = res.tempFiles.map(file => file.tempFilePath)
-        const currentImages = this.data.culturalReferenceImages || []
-        const newImages = [...currentImages, ...tempFiles].slice(0, 9)
-        this.setData({
-          culturalReferenceImages: newImages
-        })
-        this.checkStepCompleted('culturalReference')
+        const currentImages = (((this.data as any)[targetField] || []) as string[]).slice();
+        const nextImages = [...currentImages, ...res.tempFiles.map((file) => file.tempFilePath)].slice(0, 9);
+        const nextData: any = {};
+        nextData[targetField] = nextImages;
+        this.setData(nextData, () => {
+          this.updateGenerateState();
+        });
       },
-      fail: (err) => {
-        console.error('选择图片失败', err)
+      fail: (error) => {
+        console.error('选择图片失败', error);
         wx.showToast({
           title: '选择图片失败',
-          icon: 'none'
-        })
-      }
-    })
+          icon: 'none',
+        });
+      },
+    });
   },
 
-  /**
-   * 删除文创参考图
-   */
-  onDeleteCulturalReferenceImage(e: any) {
-    const index = e.currentTarget.dataset.index
-    const images = this.data.culturalReferenceImages
-    images.splice(index, 1)
-    this.setData({
-      culturalReferenceImages: images
-    })
-    this.checkStepCompleted('culturalReference')
+  removeReferenceImage(targetField: string, index: number) {
+    const currentImages = ((((this.data as any)[targetField] || []) as string[]).slice());
+    currentImages.splice(Number(index), 1);
+    const nextData: any = {};
+    nextData[targetField] = currentImages;
+    this.setData(nextData, () => {
+      this.updateGenerateState();
+    });
   },
 
-  /**
-   * 检查步骤是否完成
-   */
-  checkStepCompleted(step: string) {
-    let completed = false
-    const stepCompleted: any = { ...this.data.stepCompleted }
-    const activeTab = this.data.activeTab
-
-    if (activeTab === 'style') {
-      // 风格变换
-      if (step === 'originalImage') {
-        completed = !!this.data.originalImage
-      } else if (step === 'targetStyle') {
-        completed = !!this.data.targetStyle
-      }
-    } else if (activeTab === 'poster') {
-      // 海报设计
-      if (step === 'posterContent') {
-        completed = !!(this.data.posterTheme || this.data.posterText)
-      } else if (step === 'posterStyle') {
-        completed = !!this.data.posterStyle
-      } else if (step === 'posterReference') {
-        completed = this.data.posterReferenceImages.length > 0
-      }
-    } else if (activeTab === 'cultural') {
-      // 文创设计
-      if (step === 'productInfo') {
-        completed = !!(this.data.productType || this.data.productRequirements)
-      } else if (step === 'culturalStyle') {
-        completed = !!this.data.culturalStyle
-      } else if (step === 'culturalReference') {
-        completed = this.data.culturalReferenceImages.length > 0
-      }
-    }
-
-    stepCompleted[step] = completed
-    this.setData({
-      stepCompleted: stepCompleted
-    })
-
-    this.checkAllStepsCompleted()
-  },
-
-  /**
-   * 检查所有步骤是否完成
-   */
-  checkAllStepsCompleted() {
-    const activeTab = this.data.activeTab
-    const completed = this.data.stepCompleted
-    let allCompleted = false
-
-    if (activeTab === 'style') {
-      // 风格变换：至少完成前两步
-      allCompleted = completed.originalImage && completed.targetStyle
-    } else if (activeTab === 'poster') {
-      // 海报设计：至少完成前两步
-      allCompleted = completed.posterContent && completed.posterStyle
-    } else if (activeTab === 'cultural') {
-      // 文创设计：至少完成前两步
-      allCompleted = completed.productInfo && completed.culturalStyle
-    }
-
-    this.setData({
-      allStepsCompleted: allCompleted
-    })
-  },
-
-  /**
-   * AI生成设计
-   */
   async onGenerateDesign() {
+    if (this.data.submitting) {
+      return;
+    }
+
     if (!this.data.allStepsCompleted) {
       wx.showToast({
-        title: '请完成所有必填步骤',
-        icon: 'none'
-      })
-      return
+        title: '请先完成当前模块必填项',
+        icon: 'none',
+      });
+      return;
     }
 
-    const token = wx.getStorageSync('token')
+    const token = wx.getStorageSync('token');
     if (!token) {
       wx.showToast({
         title: '请先登录',
-        icon: 'none'
-      })
-      return
+        icon: 'none',
+      });
+      return;
     }
 
+    this.setData({
+      submitting: true,
+    });
+
     wx.showLoading({
-      title: '正在生成设计...',
-    })
+      title: this.data.activeTab === 'creative' ? '正在生成创意玩偶...' : '正在提交设计任务...',
+    });
 
     try {
-      const activeTab = this.data.activeTab
-      let requestData: any = {}
-
-      if (activeTab === 'style') {
-        // 风格变换
-        // 上传原图
-        let originalImageUrl = ''
-        if (this.data.originalImage) {
-          if (this.data.originalImage.startsWith('http://') || this.data.originalImage.startsWith('https://')) {
-            originalImageUrl = this.data.originalImage
-          } else {
-            originalImageUrl = await this.uploadImageToOSS(this.data.originalImage, token) || ''
-          }
-        }
-
-        requestData = {
-          design_type: 'style_transform',
-          original_image: originalImageUrl,
-          target_style: this.data.targetStyle
-        }
-      } else if (activeTab === 'poster') {
-        // 海报设计
-        // 上传参考图
-        const referenceUrls: string[] = []
-        for (const imagePath of this.data.posterReferenceImages) {
-          if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-            referenceUrls.push(imagePath)
-          } else {
-            const url = await this.uploadImageToOSS(imagePath, token)
-            if (url) {
-              referenceUrls.push(url)
-            }
-          }
-        }
-
-        requestData = {
-          design_type: 'poster',
-          theme: this.data.posterTheme,
-          text: this.data.posterText,
-          style: this.data.posterStyle,
-          reference_images: referenceUrls
-        }
-      } else if (activeTab === 'cultural') {
-        // 文创设计
-        // 上传参考图
-        const referenceUrls: string[] = []
-        for (const imagePath of this.data.culturalReferenceImages) {
-          if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-            referenceUrls.push(imagePath)
-          } else {
-            const url = await this.uploadImageToOSS(imagePath, token)
-            if (url) {
-              referenceUrls.push(url)
-            }
-          }
-        }
-
-        requestData = {
-          design_type: 'cultural',
-          product_type: this.data.productType,
-          requirements: this.data.productRequirements,
-          style: this.data.culturalStyle,
-          reference_images: referenceUrls
-        }
+      if (this.data.activeTab === 'creative') {
+        await this.submitCreativeDesign(token);
+        return;
       }
 
-      // 调用后端API
-      const apiPath = '/api/v1/miniprogram/ai/allround-design'
-
-      // 获取设备ID
-      const deviceID = getCachedDeviceFingerprint() || '';
-
-      // 生成请求参数
-      const params = generateRequestParams(token, requestData, apiPath, deviceID);
-      const headers = paramsToHeaders(params);
-
-      await new Promise<any>((resolve, reject) => {
-        wx.request({
-          url: `${API_BASE_URL}${apiPath}`,
-          method: 'POST',
-          header: {
-            ...headers,
-            'Content-Type': 'application/json',
-          },
-          data: requestData,
-          success: (res) => {
-            if (res.statusCode === 200 && res.data) {
-              const data = res.data as any
-              if (data.code === 0) {
-                resolve(data.data)
-              } else {
-                reject(new Error(data.msg || '生成失败'))
-              }
-            } else {
-              reject(new Error(`请求失败: ${res.statusCode}`))
-            }
-          },
-          fail: (err) => {
-            reject(err)
-          },
-        })
-      })
-
-      wx.hideLoading()
-
+      await this.submitAllroundDesign(token);
+      wx.hideLoading();
+      this.setData({
+        submitting: false,
+        taskNotice: '任务已提交，可前往生成历史查看进度。',
+      });
       wx.showToast({
         title: '任务已提交',
         icon: 'success',
-        duration: 2000
-      })
-
+      });
     } catch (error: any) {
-      wx.hideLoading()
-      console.error('生成设计失败:', error)
+      wx.hideLoading();
+      this.setData({
+        submitting: false,
+      });
+      console.error('综合设计生成失败', error);
       wx.showToast({
-        title: sanitizeAIGenerationErrorMessage(error.message || '生成失败'),
+        title: sanitizeAIGenerationErrorMessage(error.message || '提交失败'),
         icon: 'none',
-        duration: 2000
-      })
+      });
     }
   },
 
-  /**
-   * 上传图片到OSS
-   */
+  async submitAllroundDesign(token: string) {
+    let requestData: any = {};
+
+    if (this.data.activeTab === 'style') {
+      const originalImageUrl = this.data.originalImage.startsWith('http://') || this.data.originalImage.startsWith('https://')
+        ? this.data.originalImage
+        : (await this.uploadImageToOSS(this.data.originalImage, token)) || '';
+
+      requestData = {
+        design_type: 'style_transform',
+        original_image: originalImageUrl,
+        target_style: this.data.targetStyle,
+      };
+    } else if (this.data.activeTab === 'poster') {
+      requestData = {
+        design_type: 'poster',
+        theme: this.data.posterTheme,
+        text: this.data.posterText,
+        style: this.data.posterStyle,
+        reference_images: await this.uploadReferenceList(this.data.posterReferenceImages, token),
+      };
+    } else if (this.data.activeTab === 'cultural') {
+      requestData = {
+        design_type: 'cultural',
+        product_type: this.data.productType,
+        requirements: this.data.productRequirements,
+        style: this.data.culturalStyle,
+        reference_images: await this.uploadReferenceList(this.data.culturalReferenceImages, token),
+      };
+    }
+
+    const deviceID = getCachedDeviceFingerprint() || '';
+    const params = generateRequestParams(token, requestData, ALLROUND_API_PATH, deviceID);
+    const headers = paramsToHeaders(params);
+
+    await new Promise<any>((resolve, reject) => {
+      wx.request({
+        url: `${API_BASE_URL}${ALLROUND_API_PATH}`,
+        method: 'POST',
+        header: {
+          ...headers,
+          'Content-Type': 'application/json',
+        },
+        data: requestData,
+        success: (res) => {
+          const data = res.data as any;
+          if (res.statusCode === 200 && data && data.code === 0) {
+            resolve(data.data);
+            return;
+          }
+          reject(new Error((data && data.msg) || '提交失败'));
+        },
+        fail: reject,
+      });
+    });
+  },
+
+  async submitCreativeDesign(token: string) {
+    const requestData = {
+      design_type: 'doll',
+      prototype: this.data.creativePrototype,
+      style: this.data.creativeMood,
+      theme: this.data.creativeTheme,
+      requirements: this.data.creativeRequirements,
+      reference_images: await this.uploadReferenceList(this.data.creativeReferenceImages, token),
+    };
+
+    const deviceID = getCachedDeviceFingerprint() || '';
+    const params = generateRequestParams(token, requestData, CREATIVE_API_PATH, deviceID);
+    const headers = paramsToHeaders(params);
+
+    const response = await new Promise<any>((resolve, reject) => {
+      wx.request({
+        url: `${API_BASE_URL}${CREATIVE_API_PATH}`,
+        method: 'POST',
+        header: {
+          ...headers,
+          'Content-Type': 'application/json',
+        },
+        data: requestData,
+        success: (res) => {
+          const data = res.data as any;
+          if (res.statusCode === 200 && data && data.code === 0) {
+            resolve(data.data);
+            return;
+          }
+          reject(new Error((data && data.msg) || '提交失败'));
+        },
+        fail: reject,
+      });
+    });
+
+    const taskNo = response && response.task_no;
+    if (!taskNo) {
+      throw new Error('未获取到任务编号');
+    }
+
+    this.setData({
+      taskNotice: '创意玩偶生成中，请稍候查看结果。',
+    });
+    this.pollCreativeTaskStatus(taskNo);
+  },
+
+  async pollCreativeTaskStatus(taskNo: string) {
+    const token = wx.getStorageSync('token') || '';
+    let attempt = 0;
+    const maxAttempts = 30;
+
+    const poll = async () => {
+      if (attempt >= maxAttempts) {
+        wx.hideLoading();
+        this.setData({
+          submitting: false,
+          taskNotice: '生成超时，请稍后到生成历史查看结果。',
+        });
+        wx.showToast({
+          title: '生成超时',
+          icon: 'none',
+        });
+        return;
+      }
+
+      try {
+        const requestData = {
+          task_no: taskNo,
+          task_type: 'ai_draw',
+        };
+        const deviceID = getCachedDeviceFingerprint() || '';
+        const params = generateRequestParams(token, requestData, TASK_STATUS_API_PATH, deviceID);
+        const headers = paramsToHeaders(params);
+
+        const response = await new Promise<any>((resolve, reject) => {
+          wx.request({
+            url: `${API_BASE_URL}${TASK_STATUS_API_PATH}`,
+            method: 'POST',
+            header: {
+              token: headers.token,
+              'token-signature': headers['token-signature'],
+              sin: headers.sin,
+              'md5-signature': headers['md5-signature'],
+              pass: headers.pass,
+              tm: headers.tm,
+              'Content-Type': 'application/json',
+            },
+            data: requestData,
+            success: (res) => {
+              const data = res.data as any;
+              if (res.statusCode === 200 && data && data.code === 0) {
+                resolve(data.data);
+                return;
+              }
+              reject(new Error((data && data.msg) || '查询失败'));
+            },
+            fail: reject,
+          });
+        });
+
+        if (response.status === 'success' && response.result) {
+          const resultUrl = parseCreativeResultUrl(response.result);
+          wx.hideLoading();
+
+          if (!resultUrl) {
+            this.setData({
+              submitting: false,
+              taskNotice: '生成完成，但暂未取得结果图。',
+            });
+            wx.showToast({
+              title: '未取得结果图',
+              icon: 'none',
+            });
+            return;
+          }
+
+          this.setData({
+            submitting: false,
+            generatedImages: [resultUrl, ...this.data.generatedImages],
+            taskNotice: '创意玩偶已生成，可继续保存或再次生成。',
+          });
+          wx.showToast({
+            title: '生成成功',
+            icon: 'success',
+          });
+          return;
+        }
+
+        if (response.status === 'failed') {
+          const message = sanitizeAIGenerationErrorMessage(response.error_message || response.error || '生成失败');
+          wx.hideLoading();
+          this.setData({
+            submitting: false,
+            taskNotice: message,
+          });
+          wx.showToast({
+            title: message,
+            icon: 'none',
+          });
+          return;
+        }
+      } catch (_error) {
+        // Keep polling on transient task-status errors.
+      }
+
+      const delay = getTaskStatusPollDelay(attempt);
+      attempt += 1;
+      setTimeout(poll, delay);
+    };
+
+    poll();
+  },
+
+  async uploadReferenceList(images: string[], token: string): Promise<string[]> {
+    const urls: string[] = [];
+    for (const imagePath of images || []) {
+      if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+        urls.push(imagePath);
+        continue;
+      }
+
+      const url = await this.uploadImageToOSS(imagePath, token);
+      if (url) {
+        urls.push(url);
+      }
+    }
+    return urls;
+  },
+
   async uploadImageToOSS(imagePath: string, token: string): Promise<string | null> {
     try {
-      const apiPath = '/api/v1/miniprogram/ai/upload-reference-image'
-
-      // 获取设备ID
       const deviceID = getCachedDeviceFingerprint() || '';
-
-      // 生成请求参数（文件上传时使用空对象作为body）
-      const params = generateRequestParams(token, '{}', apiPath, deviceID);
+      const params = generateRequestParams(token, '{}', UPLOAD_API_PATH, deviceID);
       const headers = paramsToHeaders(params);
 
-      return new Promise((resolve, reject) => {
+      return await new Promise((resolve, reject) => {
         wx.uploadFile({
-          url: `${API_BASE_URL}${apiPath}`,
+          url: `${API_BASE_URL}${UPLOAD_API_PATH}`,
           filePath: imagePath,
           name: 'file',
           header: headers,
           success: (res) => {
             try {
-              const data = JSON.parse(res.data) as any
+              const data = JSON.parse(res.data) as any;
               if (data.code === 0 && data.data && data.data.url) {
-                resolve(data.data.url)
-              } else {
-                reject(new Error(data.msg || '上传失败'))
+                resolve(data.data.url);
+                return;
               }
-            } catch (e) {
-              reject(new Error('解析响应失败'))
+              reject(new Error(data.msg || '上传失败'));
+            } catch (_error) {
+              reject(new Error('解析上传响应失败'));
             }
           },
-          fail: (err) => {
-            reject(err)
-          },
-        })
-      })
+          fail: reject,
+        });
+      }) as string;
     } catch (error) {
-      console.error('上传图片失败:', error)
-      return null
+      console.error('上传图片失败', error);
+      return null;
     }
   },
 
-  /**
-   * 用户点击右上角分享
-   */
-  onShareAppMessage() {
-    return {
-      title: '全能设计',
-      path: '/pages/allrounddesign/allrounddesign'
+  onPreviewGeneratedImage(e: any) {
+    const index = Number(e.currentTarget.dataset.index || 0);
+    const current = this.data.generatedImages[index];
+    if (!current) {
+      return;
     }
-  }
-})
+
+    wx.previewImage({
+      current,
+      urls: this.data.generatedImages,
+    });
+  },
+
+  onSaveImage(e: any) {
+    const imageUrl = this.data.generatedImages[Number(e.currentTarget.dataset.index || 0)];
+    if (!imageUrl) {
+      return;
+    }
+
+    wx.showModal({
+      title: '下载保存需验证',
+      content: '生成结果默认仅支持查看，下载保存需先添加企业微信并留下电话号码。',
+      showCancel: false,
+    });
+  },
+
+  onShareImage() {
+    wx.showToast({
+      title: '分享功能待实现',
+      icon: 'none',
+    });
+  },
+
+  onOpenGenerateHistory() {
+    wx.navigateTo({
+      url: '/pages/generatehistory/generatehistory',
+      fail: () => {
+        wx.showToast({
+          title: '页面跳转失败',
+          icon: 'none',
+        });
+      },
+    });
+  },
+
+  onOpenLegacyWorkshop() {
+    wx.navigateTo({
+      url: '/pages/Parentchildcreativity/Parentchildcreativity',
+      fail: () => {
+        wx.showToast({
+          title: '页面跳转失败',
+          icon: 'none',
+        });
+      },
+    });
+  },
+});
