@@ -449,21 +449,29 @@
   position: absolute;
   top: 12rpx;
   left: 12rpx;
-  width: 40rpx;
-  height: 40rpx;
+  width: 44rpx;
+  height: 44rpx;
   border-radius: 50%;
   border: 2rpx solid rgba(255, 255, 255, 0.92);
-  background: rgba(83, 61, 40, 0.16);
+  background: rgba(255, 255, 255, 0.22);
   display: flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+  z-index: 3;
 
   &.checked {
     background: #ff5e7a;
     border-color: #ff5e7a;
     box-shadow: 0 6rpx 16rpx rgba(255, 94, 122, 0.3);
   }
+}
+
+.manage-select-check {
+  font-size: 26rpx;
+  line-height: 1;
+  color: #fff;
+  font-weight: 700;
 }
 
 .manage-status-tag {

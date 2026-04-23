@@ -52,6 +52,7 @@ Page({
     // 批量管理模式
     isEditMode: false as boolean,
     selectedIds: [] as string[],
+    selectedMap: {} as Record<string, boolean>,
     selectAll: false as boolean,
     // 左滑相关
     touchStartX: 0 as number,
@@ -372,6 +373,7 @@ Page({
     this.setData({
       isEditMode,
       selectedIds: [],
+      selectedMap: {},
       selectAll: false,
       swipedItemId: '',
     });
@@ -441,10 +443,7 @@ Page({
     } else {
       selectedIds.push(id);
     }
-    this.setData({
-      selectedIds,
-      selectAll: selectedIds.length === this.data.list.length && this.data.list.length > 0,
-    });
+    this.applySelectionState(selectedIds);
   },
 
   /** 复选框点击 */
@@ -456,9 +455,20 @@ Page({
   /** 全选/取消全选 */
   onToggleSelectAll() {
     const selectAll = !this.data.selectAll;
+    const selectedIds = selectAll ? this.data.list.map(item => item.task_no) : [];
+    this.applySelectionState(selectedIds);
+  },
+
+  applySelectionState(selectedIds: string[]) {
+    const selectedMap = selectedIds.reduce((acc, taskNo) => {
+      acc[taskNo] = true;
+      return acc;
+    }, {} as Record<string, boolean>);
+
     this.setData({
-      selectAll,
-      selectedIds: selectAll ? this.data.list.map(item => item.task_no) : [],
+      selectedIds,
+      selectedMap,
+      selectAll: selectedIds.length === this.data.list.length && this.data.list.length > 0,
     });
   },
 
@@ -521,6 +531,7 @@ Page({
         this.setData({
           isEditMode: false,
           selectedIds: [],
+          selectedMap: {},
           selectAll: false,
           page: 1,
           hasMore: true,

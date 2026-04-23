@@ -168,8 +168,8 @@
           <view class="manage-no-image" wx:else>
             <t-icon name="image" size="52rpx" color="#9b8466" />
           </view>
-          <view class="manage-select-indicator {{selectedIds.indexOf(item.task_no) > -1 ? 'checked' : ''}}">
-            <t-icon wx:if="{{selectedIds.indexOf(item.task_no) > -1}}" name="check" size="24rpx" color="#fff" />
+          <view class="manage-select-indicator {{selectedMap[item.task_no] ? 'checked' : ''}}">
+            <text wx:if="{{selectedMap[item.task_no]}}" class="manage-select-check">✓</text>
           </view>
           <view class="manage-status-tag {{item.status}}">
             <text wx:if="{{item.status === 'pending'}}">等待中</text>
