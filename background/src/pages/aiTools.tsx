@@ -657,8 +657,8 @@ const AITools: React.FC = () => {
                                 <div className="editor-section">
                                     <div className="editor-section-header">
                                         <div>
-                                            <h4>预设参考图</h4>
-                                            <p>配置前台可选的参考图方案和对应提示词后缀。</p>
+                                            <h4>旧版预设参考图（兼容字段）</h4>
+                                            <p>用于兼容历史数据和旧链路。当前小程序会优先读取下方“风格参考卡片”；若风格项未配图，会按顺序回退到这里取图。</p>
                                         </div>
                                         <button className="btn-secondary" onClick={() => setFormData((prev) => ({ ...prev, presetReferences: [...prev.presetReferences, defaultReference()] }))}>
                                             <FiPlus />
@@ -716,15 +716,15 @@ const AITools: React.FC = () => {
                                     <div className="editor-section">
                                         <div className="editor-section-header">
                                             <div>
-                                                <h4>风格项</h4>
-                                                <p>配置前台单选风格与对应提示词后缀。</p>
+                                            <h4>风格参考卡片</h4>
+                                            <p>这里是前台主配置入口。配置风格名称、风格图片和提示词后缀后，小程序会在上传图下方展示图片卡片供用户选择。</p>
                                             </div>
                                             <button className="btn-secondary" onClick={() => setFormData((prev) => ({ ...prev, stylePresets: [...prev.stylePresets, defaultStylePreset()] }))}>
                                                 <FiPlus />
-                                                添加风格项
+                                                添加风格卡片
                                             </button>
                                         </div>
-                                        {formData.stylePresets.length === 0 ? <div className="section-empty">暂无风格项</div> : null}
+                                        {formData.stylePresets.length === 0 ? <div className="section-empty">暂无风格卡片</div> : null}
                                         {formData.stylePresets.map((item, index) => (
                                             <div key={`style-${index}`} className="nested-editor-card">
                                                 <div className="nested-editor-toolbar">
@@ -744,7 +744,7 @@ const AITools: React.FC = () => {
                                                     </div>
                                                 </div>
                                                 <div className="form-group">
-                                                    <label>图片 URL</label>
+                                                    <label>风格图片 URL</label>
                                                     <input
                                                         type="file"
                                                         accept="image/*"

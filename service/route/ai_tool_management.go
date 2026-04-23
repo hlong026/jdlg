@@ -154,9 +154,6 @@ func validateAIToolManagementRequest(req *aiToolManagementRequest) string {
 		if errMsg := validateImageURL(item.ImageURL, "预设参考图["+item.Name+"]的图片URL"); errMsg != "" {
 			return errMsg
 		}
-		if len(item.PromptSuffix) > 1000 {
-			return "预设参考图[" + item.Name + "]的提示词后缀不能超过1000个字符"
-		}
 		if _, exists := presetIDs[item.ID]; exists {
 			return "预设参考图ID不能重复"
 		}
@@ -169,9 +166,6 @@ func validateAIToolManagementRequest(req *aiToolManagementRequest) string {
 		}
 		if errMsg := validateImageURL(item.ImageURL, "风格项["+item.Name+"]的图片URL"); errMsg != "" {
 			return errMsg
-		}
-		if len(item.PromptSuffix) > 1000 {
-			return "风格项[" + item.Name + "]的提示词后缀不能超过1000个字符"
 		}
 		if _, exists := styleIDs[item.ID]; exists {
 			return "风格项ID不能重复"

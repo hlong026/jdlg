@@ -31,12 +31,47 @@ function normalizeToolId(value) {
     }
     return String(value || '').trim();
 }
+function buildVisualStyleOptions(tool) {
+    if (!tool) {
+        return [];
+    }
+    const presetReferences = Array.isArray(tool.presetReferences) ? tool.presetReferences : [];
+    const stylePresets = Array.isArray(tool.stylePresets) ? tool.stylePresets : [];
+    if (stylePresets.length > 0) {
+        return stylePresets.map((stylePreset, index) => {
+            const fallbackReference = presetReferences[index];
+            const sourceId = String(stylePreset.id || '').trim();
+            const fallbackName = String(fallbackReference?.name || '').trim();
+            const name = String(stylePreset.name || fallbackName || `风格${index + 1}`).trim();
+            return {
+                key: `style:${sourceId || index}`,
+                sourceType: 'style',
+                sourceId: sourceId || `style-${index}`,
+                name,
+                imageUrl: normalizeUploadedImageUrl(stylePreset.imageUrl || fallbackReference?.imageUrl || ''),
+                promptSuffix: String(stylePreset.promptSuffix || fallbackReference?.promptSuffix || '').trim(),
+            };
+        }).filter((item) => item.name || item.imageUrl || item.promptSuffix);
+    }
+    return presetReferences.map((reference, index) => {
+        const sourceId = String(reference.id || '').trim();
+        return {
+            key: `reference:${sourceId || index}`,
+            sourceType: 'reference',
+            sourceId: sourceId || `reference-${index}`,
+            name: String(reference.name || `风格${index + 1}`).trim(),
+            imageUrl: normalizeUploadedImageUrl(reference.imageUrl || ''),
+            promptSuffix: String(reference.promptSuffix || '').trim(),
+        };
+    }).filter((item) => item.name || item.imageUrl || item.promptSuffix);
+}
 Page({
     data: {
         tool: null,
         categoryLabel: '',
         useMinimalPresentation: false,
-        selectedStyleId: '',
+        visualStyleOptions: [],
+        selectedStyleOptionKey: '',
         selectedReferencePresetId: '',
         selectedPresetReferenceImageUrl: '',
         promptText: '',
@@ -83,7 +118,8 @@ Page({
                 tool,
                 categoryLabel: (0, aiTools_1.getCategoryLabel)(tool.category),
                 useMinimalPresentation: (0, aiToolPresentation_1.shouldUseMinimalAIToolPresentation)(tool),
-                selectedStyleId: tool.stylePresets[0]?.id || '',
+                visualStyleOptions: buildVisualStyleOptions(tool),
+                selectedStyleOptionKey: '',
             }, () => {
                 this.loadAIPricing();
                 this.loadStoneBalance();
@@ -101,6 +137,12 @@ Page({
     },
     onShow() {
         this.loadStoneBalance();
+    },
+    onHide() {
+        wx.hideLoading();
+    },
+    onUnload() {
+        wx.hideLoading();
     },
     getToken() {
         return String(wx.getStorageSync('token') || '').trim();
@@ -137,11 +179,17 @@ Page({
         }
         return `本次预计生成 ${selectedGenerateCount} 张，预计消耗 ${currentCost} 灵石。`;
     },
-    hasPresetReference() {
-        return !!normalizeUploadedImageUrl(this.data.selectedPresetReferenceImageUrl);
+    getSelectedVisualStyle() {
+        return (this.data.visualStyleOptions || []).find((item) => item.key === this.data.selectedStyleOptionKey);
+    },
+    getSelectedVisualStyleImageUrl() {
+        return normalizeUploadedImageUrl(this.getSelectedVisualStyle()?.imageUrl || '');
+    },
+    hasVisualStyleReferenceImage() {
+        return !!this.getSelectedVisualStyleImageUrl();
     },
     getCurrentScene() {
-        return this.hasPresetReference() ? 'ai_draw_multi' : 'ai_draw_single';
+        return this.hasVisualStyleReferenceImage() ? 'ai_draw_multi' : 'ai_draw_single';
     },
     getCurrentGenerateCount() {
         const currentValue = Number(this.data.selectedGenerateCount || DEFAULT_GENERATE_COUNT);
@@ -385,13 +433,14 @@ Page({
         }
     },
     onSelectStyle(e) {
-        const id = String(e.currentTarget.dataset.id || '');
-        if (!id) {
+        const key = String(e.currentTarget.dataset.key || '');
+        if (!key) {
             return;
         }
+        const nextKey = this.data.selectedStyleOptionKey === key ? '' : key;
         this.setData({
-            selectedStyleId: id,
-        });
+            selectedStyleOptionKey: nextKey,
+        }, () => this.syncCurrentCost());
     },
     onSelectQuality(e) {
         const value = String(e.currentTarget.dataset.value || '');
@@ -429,13 +478,6 @@ Page({
             promptText: String(e.detail.value || ''),
         });
     },
-    getSelectedStyle() {
-        const tool = this.data.tool;
-        if (!tool) {
-            return undefined;
-        }
-        return tool.stylePresets.find((item) => item.id === this.data.selectedStyleId);
-    },
     async onStartCreate() {
         const tool = this.data.tool;
         if (!tool || this.data.generating) {
@@ -453,15 +495,13 @@ Page({
         if (!token) {
             return;
         }
-        const selectedStyle = this.getSelectedStyle();
-        const presetImageUrl = normalizeUploadedImageUrl(this.data.selectedPresetReferenceImageUrl);
-        const hasPreset = !!presetImageUrl || !!this.data.selectedReferencePresetId;
+        const selectedStyle = this.getSelectedVisualStyle();
+        const selectedStyleImageUrl = this.getSelectedVisualStyleImageUrl();
+        const hasStyleReferenceImage = this.hasVisualStyleReferenceImage();
         const generateCount = this.getCurrentGenerateCount();
-        const selectedReferencePresetId = String(this.data.selectedReferencePresetId || '').trim();
-        // 构建 images 数组：原图 + 预设参考图（如有）
         const imageUrls = [originalImageUrl];
-        if (presetImageUrl) {
-            imageUrls.push(presetImageUrl);
+        if (selectedStyleImageUrl) {
+            imageUrls.push(selectedStyleImageUrl);
         }
         if (!this.data.pricingLoaded || this.data.currentUnitCost <= 0 || this.data.currentCost <= 0) {
             wx.showToast({
@@ -498,7 +538,7 @@ Page({
             });
             return;
         }
-        const scene = hasPreset ? 'ai_draw_multi' : 'ai_draw_single';
+        const scene = hasStyleReferenceImage ? 'ai_draw_multi' : 'ai_draw_single';
         const promptText = String(this.data.promptText || '').trim();
         const payload = {
             service_type: DEFAULT_SERVICE_TYPE,
@@ -508,9 +548,9 @@ Page({
             generate_count: generateCount,
             tool_id: normalizeToolId(tool.id),
             user_prompt: promptText,
-            reference_selection_type: hasPreset ? 'preset' : 'none',
-            reference_preset_id: selectedReferencePresetId,
-            style_preset_id: selectedStyle?.id || '',
+            reference_selection_type: selectedStyle?.sourceType === 'reference' ? 'preset' : (hasStyleReferenceImage ? 'style' : 'none'),
+            reference_preset_id: selectedStyle?.sourceType === 'reference' ? selectedStyle.sourceId : '',
+            style_preset_id: selectedStyle?.sourceType === 'style' ? selectedStyle.sourceId : '',
             original_image_url: originalImageUrl,
             image_url: originalImageUrl,
             images: imageUrls,
@@ -518,8 +558,8 @@ Page({
         if (selectedStyle?.name) {
             payload.style = selectedStyle.name;
         }
-        if (presetImageUrl) {
-            payload.reference_image_url = presetImageUrl;
+        if (selectedStyleImageUrl) {
+            payload.reference_image_url = selectedStyleImageUrl;
         }
         const requestBody = { scene, payload };
         const apiPath = '/api/v1/miniprogram/ai/draw';
@@ -579,7 +619,7 @@ Page({
                         task_type: 'ai_draw',
                         prompt: promptText || tool.name,
                         user_prompt: promptText || tool.name,
-                        reference_image_url: presetImageUrl || '',
+                        reference_image_url: selectedStyleImageUrl || '',
                         original_image_url: originalImageUrl,
                         quality: this.data.selectedQuality,
                         canvas: this.data.selectedCanvas,

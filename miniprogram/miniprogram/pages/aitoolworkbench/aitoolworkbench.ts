@@ -1,14 +1,14 @@
 import { generateRequestParams, paramsToHeaders } from '../../utils/parameter'
 import { getCachedDeviceFingerprint } from '../../utils/deviceFingerprint'
 import { sanitizeAIGenerationErrorMessage } from '../../utils/aiError'
-import { AIToolItem, AIToolStylePreset, getCategoryLabel } from '../../utils/aiTools'
+import { AIToolItem, getCategoryLabel } from '../../utils/aiTools'
 import { fetchAIToolDetail } from '../../utils/aiToolApi'
 import { shouldUseMinimalAIToolPresentation } from '../../utils/aiToolPresentation'
 
 const API_BASE_URL = 'https://api.jiadilingguang.com'
 const DEFAULT_SERVICE_TYPE = 'normal'
 const DEFAULT_SERVICE = 'normal_style_change'
-const DEFAULT_QUALITY = 'hd'
+const DEFAULT_QUALITY = 'uhd'
 const DEFAULT_CANVAS = '1:1'
 const DEFAULT_GENERATE_COUNT = 1
 const DEFAULT_DRAW_SINGLE_COST = 0
@@ -22,6 +22,7 @@ type PresetTapEvent = {
   currentTarget: {
     dataset: {
       id?: string
+      key?: string
     }
   }
 }
@@ -30,6 +31,17 @@ type InputEvent = {
   detail: {
     value?: string
   }
+}
+
+type VisualStyleSource = 'style' | 'reference'
+
+type VisualStyleOption = {
+  key: string
+  sourceType: VisualStyleSource
+  sourceId: string
+  name: string
+  imageUrl: string
+  promptSuffix: string
 }
 
 function normalizeUploadedImageUrl(value: any): string {
@@ -51,12 +63,50 @@ function normalizeToolId(value: any): number | string {
   return String(value || '').trim()
 }
 
+function buildVisualStyleOptions(tool: AIToolItem | null | undefined): VisualStyleOption[] {
+  if (!tool) {
+    return []
+  }
+  const presetReferences = Array.isArray(tool.presetReferences) ? tool.presetReferences : []
+  const stylePresets = Array.isArray(tool.stylePresets) ? tool.stylePresets : []
+
+  if (stylePresets.length > 0) {
+    return stylePresets.map((stylePreset, index) => {
+      const fallbackReference = presetReferences[index]
+      const sourceId = String(stylePreset.id || '').trim()
+      const fallbackName = String(fallbackReference?.name || '').trim()
+      const name = String(stylePreset.name || fallbackName || `风格${index + 1}`).trim()
+      return {
+        key: `style:${sourceId || index}`,
+        sourceType: 'style' as VisualStyleSource,
+        sourceId: sourceId || `style-${index}`,
+        name,
+        imageUrl: normalizeUploadedImageUrl(stylePreset.imageUrl || fallbackReference?.imageUrl || ''),
+        promptSuffix: String(stylePreset.promptSuffix || fallbackReference?.promptSuffix || '').trim(),
+      }
+    }).filter((item) => item.name || item.imageUrl || item.promptSuffix)
+  }
+
+  return presetReferences.map((reference, index) => {
+    const sourceId = String(reference.id || '').trim()
+    return {
+      key: `reference:${sourceId || index}`,
+      sourceType: 'reference' as VisualStyleSource,
+      sourceId: sourceId || `reference-${index}`,
+      name: String(reference.name || `风格${index + 1}`).trim(),
+      imageUrl: normalizeUploadedImageUrl(reference.imageUrl || ''),
+      promptSuffix: String(reference.promptSuffix || '').trim(),
+    }
+  }).filter((item) => item.name || item.imageUrl || item.promptSuffix)
+}
+
 Page({
   data: {
     tool: null as AIToolItem | null,
     categoryLabel: '',
     useMinimalPresentation: false,
-    selectedStyleId: '',
+    visualStyleOptions: [] as VisualStyleOption[],
+    selectedStyleOptionKey: '',
     selectedReferencePresetId: '',
     selectedPresetReferenceImageUrl: '',
     promptText: '',
@@ -104,7 +154,8 @@ Page({
         tool,
         categoryLabel: getCategoryLabel(tool.category),
         useMinimalPresentation: shouldUseMinimalAIToolPresentation(tool),
-        selectedStyleId: tool.stylePresets[0]?.id || '',
+        visualStyleOptions: buildVisualStyleOptions(tool),
+        selectedStyleOptionKey: '',
       }, () => {
         this.loadAIPricing()
         this.loadStoneBalance()
@@ -177,13 +228,20 @@ Page({
     return `本次预计生成 ${selectedGenerateCount} 张，预计消耗 ${currentCost} 灵石。`
   },
 
-  hasPresetReference(): boolean {
-    // 选了预设参考图（无论是否有图片URL）都视为多图场景
-    return !!this.data.selectedReferencePresetId
+  getSelectedVisualStyle(): VisualStyleOption | undefined {
+    return (this.data.visualStyleOptions || []).find((item) => item.key === this.data.selectedStyleOptionKey)
+  },
+
+  getSelectedVisualStyleImageUrl(): string {
+    return normalizeUploadedImageUrl(this.getSelectedVisualStyle()?.imageUrl || '')
+  },
+
+  hasVisualStyleReferenceImage(): boolean {
+    return !!this.getSelectedVisualStyleImageUrl()
   },
 
   getCurrentScene(): 'ai_draw_single' | 'ai_draw_multi' {
-    return this.hasPresetReference() ? 'ai_draw_multi' : 'ai_draw_single'
+    return this.hasVisualStyleReferenceImage() ? 'ai_draw_multi' : 'ai_draw_single'
   },
 
   getCurrentGenerateCount(): number {
@@ -438,13 +496,14 @@ Page({
   },
 
   onSelectStyle(e: PresetTapEvent) {
-    const id = String(e.currentTarget.dataset.id || '')
-    if (!id) {
+    const key = String(e.currentTarget.dataset.key || '')
+    if (!key) {
       return
     }
+    const nextKey = this.data.selectedStyleOptionKey === key ? '' : key
     this.setData({
-      selectedStyleId: id,
-    })
+      selectedStyleOptionKey: nextKey,
+    }, () => this.syncCurrentCost())
   },
 
   onSelectQuality(e: any) {
@@ -487,14 +546,6 @@ Page({
     })
   },
 
-  getSelectedStyle(): AIToolStylePreset | undefined {
-    const tool = this.data.tool
-    if (!tool) {
-      return undefined
-    }
-    return tool.stylePresets.find((item) => item.id === this.data.selectedStyleId)
-  },
-
   async onStartCreate() {
     const tool = this.data.tool
     if (!tool || this.data.generating) {
@@ -515,16 +566,14 @@ Page({
       return
     }
 
-    const selectedStyle = this.getSelectedStyle()
-    const presetImageUrl = normalizeUploadedImageUrl(this.data.selectedPresetReferenceImageUrl)
-    const hasPreset = this.hasPresetReference()
+    const selectedStyle = this.getSelectedVisualStyle()
+    const selectedStyleImageUrl = this.getSelectedVisualStyleImageUrl()
+    const hasStyleReferenceImage = this.hasVisualStyleReferenceImage()
     const generateCount = this.getCurrentGenerateCount()
-    const selectedReferencePresetId = String(this.data.selectedReferencePresetId || '').trim()
 
-    // 构建 images 数组：原图 + 预设参考图（如有）
     const imageUrls: string[] = [originalImageUrl]
-    if (presetImageUrl) {
-      imageUrls.push(presetImageUrl)
+    if (selectedStyleImageUrl) {
+      imageUrls.push(selectedStyleImageUrl)
     }
 
     if (!this.data.pricingLoaded || this.data.currentUnitCost <= 0 || this.data.currentCost <= 0) {
@@ -563,7 +612,7 @@ Page({
       return
     }
 
-    const scene = hasPreset ? 'ai_draw_multi' : 'ai_draw_single'
+    const scene = hasStyleReferenceImage ? 'ai_draw_multi' : 'ai_draw_single'
     const promptText = String(this.data.promptText || '').trim()
     const payload: Record<string, any> = {
       service_type: DEFAULT_SERVICE_TYPE,
@@ -573,9 +622,9 @@ Page({
       generate_count: generateCount,
       tool_id: normalizeToolId(tool.id),
       user_prompt: promptText,
-      reference_selection_type: hasPreset ? 'preset' : 'none',
-      reference_preset_id: selectedReferencePresetId,
-      style_preset_id: selectedStyle?.id || '',
+      reference_selection_type: selectedStyle?.sourceType === 'reference' ? 'preset' : (hasStyleReferenceImage ? 'style' : 'none'),
+      reference_preset_id: selectedStyle?.sourceType === 'reference' ? selectedStyle.sourceId : '',
+      style_preset_id: selectedStyle?.sourceType === 'style' ? selectedStyle.sourceId : '',
       original_image_url: originalImageUrl,
       image_url: originalImageUrl,
       images: imageUrls,
@@ -584,8 +633,8 @@ Page({
     if (selectedStyle?.name) {
       payload.style = selectedStyle.name
     }
-    if (presetImageUrl) {
-      payload.reference_image_url = presetImageUrl
+    if (selectedStyleImageUrl) {
+      payload.reference_image_url = selectedStyleImageUrl
     }
 
     const requestBody = { scene, payload }
@@ -648,7 +697,7 @@ Page({
             task_type: 'ai_draw',
             prompt: promptText || tool.name,
             user_prompt: promptText || tool.name,
-            reference_image_url: presetImageUrl || '',
+            reference_image_url: selectedStyleImageUrl || '',
             original_image_url: originalImageUrl,
             quality: this.data.selectedQuality,
             canvas: this.data.selectedCanvas,
