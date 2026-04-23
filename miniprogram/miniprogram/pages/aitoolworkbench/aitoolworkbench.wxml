@@ -1,6 +1,10 @@
 ﻿<view class="aitoolworkbench-page">
   <navigation-bar title="开始使用" background="#e6daca" />
 
+  <view class="aitoolworkbench-loading" wx:if="{{loadingTool}}">
+    <text>工具信息加载中...</text>
+  </view>
+
   <view class="aitoolworkbench-content" wx:if="{{tool}}">
     <view class="aitoolworkbench-info-card category-{{tool.category}}" wx:if="{{!useMinimalPresentation}}">
       <view class="aitoolworkbench-info-meta">

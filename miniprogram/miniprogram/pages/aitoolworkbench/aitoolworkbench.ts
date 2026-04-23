@@ -156,6 +156,9 @@ function normalizeToolId(value: any): number | string {
   return String(value || '').trim()
 }
 
+let lastPreviewTapAt = 0
+let lastPreviewTapIndex = -1
+
 Page({
   data: {
     tool: null as AIToolItem | null,
@@ -670,14 +673,14 @@ Page({
 
     if (imageUrl) {
       const now = Date.now()
-      if (this.lastPreviewTapIndex === slotIndex && now - this.lastPreviewTapAt <= 320) {
-        this.lastPreviewTapAt = 0
-        this.lastPreviewTapIndex = -1
+      if (lastPreviewTapIndex === slotIndex && now - lastPreviewTapAt <= 320) {
+        lastPreviewTapAt = 0
+        lastPreviewTapIndex = -1
         this.openImagePreview(slotIndex)
         return
       }
-      this.lastPreviewTapAt = now
-      this.lastPreviewTapIndex = slotIndex
+      lastPreviewTapAt = now
+      lastPreviewTapIndex = slotIndex
       return
     }
 

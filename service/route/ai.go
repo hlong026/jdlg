@@ -540,32 +540,22 @@ func handleAIRequest(c *gin.Context, codeSessionModel *model.CodeSessionRedisMod
 	// 计算总费用（每张图片的费用 × 生成数量）
 	totalStones := pricing.Stones * generateCount
 
-	// 6. 检查用户余额
-	currentStones, err := userModel.GetStones(codeSession.UserID)
-	if err != nil {
+	// 6. 原子扣减灵石（Redis Lua 脚本保证并发安全，check + deduct 在同一原子操作中完成）
+	if err := userModel.DeductStones(codeSession.UserID, totalStones); err != nil {
+		if strings.Contains(err.Error(), "余额不足") {
+			currentStones, _ := userModel.GetStones(codeSession.UserID)
+			c.JSON(http.StatusPaymentRequired, gin.H{
+				"code": 402,
+				"msg":  "余额不足",
+				"data": gin.H{
+					"required": totalStones,
+					"current":  currentStones,
+				},
+			})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"code": 500,
-			"msg":  "查询余额失败: " + err.Error(),
-		})
-		return
-	}
-
-	if currentStones < totalStones {
-		c.JSON(http.StatusPaymentRequired, gin.H{
-			"code": 402,
-			"msg":  "余额不足",
-			"data": gin.H{
-				"required": totalStones,
-				"current":  currentStones,
-			},
-		})
-		return
-	}
-
-	// 7. 扣除灵石（原子操作）
-	if err := userModel.DeductStones(codeSession.UserID, totalStones); err != nil {
-		c.JSON(http.StatusPaymentRequired, gin.H{
-			"code": 402,
 			"msg":  "扣费失败: " + err.Error(),
 		})
 		return
@@ -633,16 +623,6 @@ func handleAIRequest(c *gin.Context, codeSessionModel *model.CodeSessionRedisMod
 		})
 		return
 	}
-	if resolvedToolID > 0 && aiToolModel != nil {
-		if err := aiToolModel.IncrementUsageCountWithTx(tx, resolvedToolID); err != nil {
-			_ = userModel.AddStones(codeSession.UserID, totalStones)
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"code": 500,
-				"msg":  "更新 AI 工具使用次数失败: " + err.Error(),
-			})
-			return
-		}
-	}
 	if err := tx.Commit(); err != nil {
 		_ = userModel.AddStones(codeSession.UserID, totalStones)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -652,6 +632,13 @@ func handleAIRequest(c *gin.Context, codeSessionModel *model.CodeSessionRedisMod
 		return
 	}
 	committed = true
+
+	// 异步更新工具使用次数（非关键操作，失败不影响主流程）
+	if resolvedToolID > 0 && aiToolModel != nil {
+		if err := aiToolModel.IncrementUsageCount(resolvedToolID); err != nil {
+			fmt.Printf("[WARN] 更新 AI 工具使用次数失败: tool_id=%d, err=%v\n", resolvedToolID, err)
+		}
+	}
 
 	// 10. 返回成功
 	c.JSON(http.StatusOK, gin.H{

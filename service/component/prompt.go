@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	AIDrawPromptPrefix = "请帮我生成图片，如果用户上传了参考图，同时你自己的库里面也有用户上传的类似地标，或建筑，或什么别的东西的图，以用户上传的为主"
+	AIDrawPromptPrefix = "请根据以下要求生成高质量图片，以用户上传的参考图为准，保持核心结构与空间逻辑不变，提升画面表达质量。"
 )
 
 // 支持的纵横比（来自 ai绘图api.md）
@@ -174,7 +174,7 @@ func GetSeedreamImageSizeFromPayload(payload map[string]interface{}) string {
 	return imageSize
 }
 
-// StripUserPromptFromAIDraw 从完整 prompt 中去掉前缀「请帮我生成图片，」和后缀「，画面风格：xxx，画面清晰度：xxx，画布大小：xxx」，只保留用户输入部分
+// StripUserPromptFromAIDraw 从完整 prompt 中去掉前缀和后缀，只保留用户输入部分
 func StripUserPromptFromAIDraw(fullPrompt string) string {
 	s := fullPrompt
 	if strings.HasPrefix(s, AIDrawPromptPrefix) {

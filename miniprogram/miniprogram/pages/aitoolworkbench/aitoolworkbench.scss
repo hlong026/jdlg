@@ -8,6 +8,15 @@ page {
   background: linear-gradient(180deg, #e6daca 0%, #ece4d9 100%);
 }
 
+.aitoolworkbench-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 400rpx;
+  color: #8f6b49;
+  font-size: 28rpx;
+}
+
 .aitoolworkbench-content {
   width: 706rpx;
   margin: 0 auto;
