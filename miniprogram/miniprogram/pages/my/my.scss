@@ -350,7 +350,7 @@ page {
   position: relative;
   width: 750rpx;
   margin: 0 auto;
-  padding-top: 88rpx;
+  padding-top: 44rpx;
   padding-bottom: calc(130rpx + env(safe-area-inset-bottom));
   box-sizing: border-box;
   z-index: 1;
@@ -360,8 +360,14 @@ page {
   width: 694rpx;
   margin: 0 auto;
   display: flex;
-  align-items: flex-start;
-  gap: 22rpx;
+  align-items: center;
+  gap: 18rpx;
+  padding: 22rpx 24rpx;
+  border-radius: 32rpx;
+  background: linear-gradient(180deg, rgba(255, 250, 243, 0.84) 0%, rgba(246, 234, 216, 0.66) 100%);
+  border: 1rpx solid rgba(223, 203, 176, 0.9);
+  box-shadow: 0 18rpx 34rpx rgba(150, 118, 82, 0.1);
+  box-sizing: border-box;
 }
 
 .page .user-profile {
@@ -369,17 +375,17 @@ page {
   padding: 0;
   display: flex;
   align-items: center;
-  gap: 22rpx;
+  gap: 18rpx;
 }
 
 .page .avatar {
-  width: 136rpx;
-  height: 136rpx;
+  width: 124rpx;
+  height: 124rpx;
   border-radius: 50%;
   background: #d9c9b4;
   flex-shrink: 0;
   border: 4rpx solid rgba(255, 255, 255, 0.42);
-  box-shadow: 0 10rpx 24rpx rgba(142, 111, 73, 0.12);
+  box-shadow: 0 12rpx 26rpx rgba(142, 111, 73, 0.14);
 }
 
 .page .user-info {
@@ -387,17 +393,17 @@ page {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 12rpx;
-  padding-top: 2rpx;
+  gap: 10rpx;
+  padding-top: 0;
 }
 
 .page .nickname {
   display: block;
-  font-size: 50rpx;
-  line-height: 1.08;
+  font-size: 48rpx;
+  line-height: 1.06;
   font-weight: 600;
   color: #473720;
-  max-width: 300rpx;
+  max-width: 280rpx;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -406,13 +412,13 @@ page {
 .page .vip-tags {
   display: flex;
   align-items: center;
-  gap: 12rpx;
+  gap: 10rpx;
   flex-wrap: wrap;
 }
 
 .page .vip-tag {
-  height: 50rpx;
-  padding: 0 22rpx;
+  height: 46rpx;
+  padding: 0 20rpx;
   border-radius: 999rpx;
   display: flex;
   align-items: center;
@@ -421,8 +427,8 @@ page {
 }
 
 .page .vip-tag text {
-  font-size: 22rpx;
-  line-height: 22rpx;
+  font-size: 21rpx;
+  line-height: 21rpx;
 }
 
 .page .vip-tag-dark {
@@ -444,12 +450,12 @@ page {
 .page .cert-info {
   display: flex;
   align-items: center;
-  gap: 10rpx;
+  gap: 8rpx;
   flex-wrap: wrap;
 }
 
 .page .cert-badge {
-  padding: 6rpx 14rpx;
+  padding: 6rpx 12rpx;
   border-radius: 999rpx;
   background: #5a3a25;
   color: #dbc3a9;
@@ -459,26 +465,27 @@ page {
 
 .page .cert-text,
 .page .login-hint {
-  font-size: 20rpx;
-  line-height: 1.4;
+  font-size: 19rpx;
+  line-height: 1.35;
   color: #8c7553;
 }
 
 .page .check-in-button {
-  width: 148rpx;
+  width: 156rpx;
   flex-shrink: 0;
-  margin-top: 8rpx;
-  padding: 8rpx 10rpx;
+  align-self: flex-start;
+  margin-top: 2rpx;
+  padding: 10rpx 12rpx;
   border-radius: 999rpx;
-  background: linear-gradient(180deg, rgba(255, 247, 236, 0.96) 0%, rgba(236, 207, 166, 0.94) 100%);
-  border: 1rpx solid rgba(205, 170, 128, 0.55);
-  box-shadow: 0 16rpx 28rpx rgba(181, 140, 92, 0.18);
+  background: linear-gradient(180deg, rgba(255, 249, 239, 0.98) 0%, rgba(236, 206, 162, 0.96) 100%);
+  border: 1rpx solid rgba(205, 170, 128, 0.62);
+  box-shadow: 0 18rpx 30rpx rgba(181, 140, 92, 0.2);
   box-sizing: border-box;
 }
 
 .page .check-in-image {
   display: block;
-  width: 128rpx;
+  width: 132rpx;
   margin: 0 auto;
 }
 
@@ -493,7 +500,7 @@ page {
 
 .page .stats-card {
   width: 694rpx;
-  margin: 20rpx auto 0;
+  margin: 16rpx auto 0;
   min-height: 124rpx;
   border-radius: 24rpx;
   background: linear-gradient(90deg, #eed2ab 0%, #f5e2c2 34%, #d6b58f 100%);
