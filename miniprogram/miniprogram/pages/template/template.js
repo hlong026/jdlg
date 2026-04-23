@@ -6,6 +6,7 @@ const perf_1 = require("../../utils/perf");
 const API_BASE_URL = 'https://api.jiadilingguang.com';
 const TEMPLATE_CARD_COLUMN_WIDTH_RPX = 347;
 const DEFAULT_CARD_MEDIA_HEIGHT_RPX = 320;
+const TEMPLATE_FETCH_BATCH_SIZE = 500;
 const TEMPLATE_DETAIL_CACHE_TTL = 2 * 60 * 1000;
 const detailPrefetchingKeys = new Set();
 const AI_TOOLS_MAIN_TAB = { label: '工具', value: 'ai_tools' };
@@ -40,12 +41,24 @@ const TEMPLATE_SUB_TAB_MAP = {
     ],
 };
 function normalizeMainTabs(list) {
-    return (Array.isArray(list) ? list : [])
+    const normalized = (Array.isArray(list) ? list : [])
         .map((item) => ({
         label: String(item?.label || '').trim(),
         value: String(item?.value || '').trim(),
     }))
         .filter((item) => item.label && item.value);
+    const result = normalized.length ? normalized : TEMPLATE_MAIN_TABS.slice();
+    const hasAIToolsTab = result.some((item) => item.value === AI_TOOLS_MAIN_TAB.value);
+    if (!hasAIToolsTab) {
+        const inspirationIndex = result.findIndex((item) => item.value === 'inspiration');
+        if (inspirationIndex >= 0) {
+            result.splice(inspirationIndex + 1, 0, AI_TOOLS_MAIN_TAB);
+        }
+        else {
+            result.push(AI_TOOLS_MAIN_TAB);
+        }
+    }
+    return result;
 }
 function normalizeSubTabs(list, mainTabs) {
     const mainValues = new Set(mainTabs.map((item) => item.value));
@@ -88,10 +101,10 @@ function normalizeImageUrl(url) {
         return (0, asset_1.resolveAssetPath)('/assets/images/home.jpg');
     }
     if (/^https?:\/\//i.test(cleanUrl)) {
-        return cleanUrl;
+        return (0, asset_1.normalizeCosUrl)(cleanUrl);
     }
     if (cleanUrl.startsWith('//')) {
-        return `https:${cleanUrl}`;
+        return (0, asset_1.normalizeCosUrl)(`https:${cleanUrl}`);
     }
     if (cleanUrl.startsWith('/')) {
         return `${API_BASE_URL}${cleanUrl}`;
@@ -267,7 +280,7 @@ function buildTags(item, currentMainLabel, currentSubLabel) {
     const styleTag = inferStyleTag(name, '');
     return [currentMainLabel, currentSubLabel, styleTag, category, subTab]
         .map((tag) => truncate(String(tag || '').trim(), 6))
-        .filter((tag, index, list) => Boolean(tag) && list.indexOf(tag) === index)
+        .filter((tag, index, list) => Boolean(tag) && tag !== '全部' && list.indexOf(tag) === index)
         .slice(0, 3);
 }
 function buildInspirationSubtitle(item, currentSubLabel) {
@@ -285,16 +298,16 @@ function buildInspirationTags(item, currentSubLabel) {
 }
 function buildEmptyTip(mainLabel, subLabel = '') {
     const suffix = mainLabel === '灵感' ? '暂无灵感内容' : '暂无模板内容';
-    return subLabel ? `${subLabel} ${suffix}` : `${mainLabel} ${suffix}`;
+    return (!subLabel || subLabel === '鍏ㄩ儴') ? `${mainLabel} ${suffix}` : `${subLabel} ${suffix}`;
 }
 function buildSearchEmptyTip(mainLabel, keyword) {
     return mainLabel === '灵感' ? `未找到与“${keyword}”相关的灵感` : `未找到与“${keyword}”相关的模板`;
 }
 function buildSummaryText(mainLabel, subLabel, keyword) {
     if (keyword) {
-        return `搜索“${keyword}” · ${subLabel}`;
+        return `搜索“${keyword}” · ${subLabel === '全部' ? mainLabel : subLabel}`;
     }
-    return `${mainLabel} · ${subLabel}`;
+    return subLabel === '全部' ? mainLabel : `${mainLabel} · ${subLabel}`;
 }
 function buildTemplateCard(item, currentMainLabel, currentSubLabel, index) {
     const title = String(item?.name || `模板方案 ${index + 1}`);
@@ -339,40 +352,51 @@ function paginateTemplateItems(items, page, pageSize) {
     const start = Math.max(page - 1, 0) * pageSize;
     return items.slice(start, start + pageSize);
 }
+function matchesTemplateSelection(item, mainTab, subTab, thirdTab) {
+    const itemMainTab = String(item?.main_tab || '').trim();
+    const itemSubTab = String(item?.sub_tab || '').trim();
+    const itemThirdTab = String(item?.third_tab || '').trim();
+    if (itemMainTab !== String(mainTab.value || '').trim()) {
+        return false;
+    }
+    if (subTab && String(subTab.value || '').trim() && itemSubTab !== String(subTab.value || '').trim()) {
+        return false;
+    }
+    if (thirdTab && String(thirdTab.value || '').trim() && itemThirdTab !== String(thirdTab.value || '').trim()) {
+        return false;
+    }
+    return true;
+}
 async function requestTemplateListByMainTab(mainTab, subTab, thirdTab, keyword, page, pageSize) {
     if (keyword) {
         const result = await requestListApi('/api/v1/miniprogram/templates/search', {
             keyword,
-            page,
-            page_size: pageSize,
+            page: 1,
+            page_size: TEMPLATE_FETCH_BATCH_SIZE,
         });
         if (!result) {
             return null;
         }
-        const list = (Array.isArray(result.list) ? result.list : []).filter((item) => {
-            const text = getTemplateFilterText(item);
-            return matchesMainTabKeywords(text, mainTab) && matchesSubTabKeywords(text, subTab) && matchesThirdTab(item, thirdTab);
-        });
+        const filteredList = (Array.isArray(result.list) ? result.list : []).filter((item) => matchesTemplateSelection(item, mainTab, subTab, thirdTab));
+        const list = paginateTemplateItems(filteredList, page, pageSize);
         return {
             list,
-            hasMore: list.length >= pageSize,
+            hasMore: filteredList.length > page * pageSize,
         };
     }
-    const preciseResult = await requestListApi('/api/v1/miniprogram/templates', {
+    const result = await requestListApi('/api/v1/miniprogram/templates', {
         main_tab: mainTab.value,
-        sub_tab: subTab?.value || undefined,
-        third_tab: thirdTab?.value || undefined,
-        page,
-        page_size: pageSize,
+        page: 1,
+        page_size: TEMPLATE_FETCH_BATCH_SIZE,
     });
-    const preciseList = Array.isArray(preciseResult?.list) ? preciseResult.list : [];
-    if (preciseResult) {
-        return {
-            list: preciseList,
-            hasMore: Number(preciseResult.total || 0) > page * pageSize || preciseList.length >= pageSize,
-        };
+    if (!result) {
+        return null;
     }
-    return null;
+    const filteredList = (Array.isArray(result.list) ? result.list : []).filter((item) => matchesTemplateSelection(item, mainTab, subTab, thirdTab));
+    return {
+        list: paginateTemplateItems(filteredList, page, pageSize),
+        hasMore: filteredList.length > page * pageSize,
+    };
 }
 async function requestInspirationListBySubTab(keyword, page, pageSize, subTab) {
     const result = await requestListApi('/api/v1/miniprogram/inspirations', {
