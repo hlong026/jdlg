@@ -49,6 +49,14 @@ Page({
     availableTools: [] as AITool[],
     selectedToolId: '',
     hasAITools: false,
+    // 批量管理模式
+    isEditMode: false as boolean,
+    selectedIds: [] as string[],
+    selectAll: false as boolean,
+    // 左滑相关
+    touchStartX: 0 as number,
+    touchStartY: 0 as number,
+    swipedItemId: '' as string,
   },
 
   onLoad() {
@@ -358,7 +366,103 @@ Page({
     });
   },
 
-  /** 删除单条记录（二次确认） */
+  /** 切换编辑模式 */
+  onToggleEditMode() {
+    const isEditMode = !this.data.isEditMode;
+    this.setData({
+      isEditMode,
+      selectedIds: [],
+      selectAll: false,
+      swipedItemId: '',
+    });
+  },
+
+  /** 左滑手势 - 开始 */
+  onTouchStart(e: any) {
+    const id = e.currentTarget.dataset.id as string;
+    // 如果当前有打开的滑动项且不是当前项，先关闭
+    if (this.data.swipedItemId && this.data.swipedItemId !== id) {
+      this.setData({ swipedItemId: '' });
+    }
+    this.setData({
+      touchStartX: e.touches[0].clientX,
+      touchStartY: e.touches[0].clientY,
+    });
+  },
+
+  /** 左滑手势 - 移动 */
+  onTouchMove(e: any) {
+    if (this.data.isEditMode) return;
+    const deltaX = e.touches[0].clientX - this.data.touchStartX;
+    const deltaY = Math.abs(e.touches[0].clientY - this.data.touchStartY);
+    // 纵向滑动不处理
+    if (deltaY > Math.abs(deltaX)) return;
+    // 向左滑超过阈值才打开
+    if (deltaX < -60) {
+      const id = e.currentTarget.dataset.id as string;
+      if (this.data.swipedItemId !== id) {
+        this.setData({ swipedItemId: id });
+      }
+    }
+  },
+
+  /** 左滑手势 - 结束 */
+  onTouchEnd(e: any) {
+    const deltaX = (e.changedTouches[0].clientX || 0) - this.data.touchStartX;
+    // 向右滑时关闭
+    if (deltaX > 60 && this.data.swipedItemId) {
+      this.setData({ swipedItemId: '' });
+    }
+  },
+
+  /** 点击列表项 */
+  onItemClick(e: any) {
+    // 如果有左滑打开的项，先关闭
+    if (this.data.swipedItemId) {
+      this.setData({ swipedItemId: '' });
+      return;
+    }
+    // 编辑模式下点击切换选中
+    if (this.data.isEditMode) {
+      const id = e.currentTarget.dataset.id as string;
+      if (id) this.toggleSelect(id);
+      return;
+    }
+    // 正常模式跳转详情
+    this.goToDetail(e);
+  },
+
+  /** 切换单项选中 */
+  toggleSelect(id: string) {
+    const selectedIds = [...this.data.selectedIds];
+    const idx = selectedIds.indexOf(id);
+    if (idx > -1) {
+      selectedIds.splice(idx, 1);
+    } else {
+      selectedIds.push(id);
+    }
+    this.setData({
+      selectedIds,
+      selectAll: selectedIds.length === this.data.list.length && this.data.list.length > 0,
+    });
+  },
+
+  /** 复选框点击 */
+  onToggleSelect(e: any) {
+    const id = e.currentTarget.dataset.id as string;
+    if (id) this.toggleSelect(id);
+  },
+
+  /** 全选/取消全选 */
+  onToggleSelectAll() {
+    const selectAll = !this.data.selectAll;
+    this.setData({
+      selectAll,
+      selectedIds: selectAll ? this.data.list.map(item => item.task_no) : [],
+    });
+  },
+
+  /** 删除单条记录（左滑触发，二次确认） */
   onDelete(e: any) {
     const item = e.currentTarget.dataset.item as TaskItem;
     if (!item || !item.task_no) return;
@@ -367,49 +471,87 @@ Page({
       title: '确认删除',
       content: '删除后无法恢复，确定要删除这条记录吗？',
       confirmText: '删除',
-      confirmColor: '#e34c4c',
+      confirmColor: '#c4543a',
       cancelText: '取消',
       success: (res) => {
         if (!res.confirm) return;
-        this.doDelete(item);
+        this.doDeleteByTaskNo(item.task_no).then(() => {
+          this.setData({
+            list: this.data.list.filter((t) => t.task_no !== item.task_no),
+            total: Math.max(0, (this.data.total || 0) - 1),
+            swipedItemId: '',
+          });
+          wx.showToast({ title: '已删除', icon: 'success' });
+        }).catch(() => {
+          wx.showToast({ title: '删除失败', icon: 'none' });
+        });
       }
     });
   },
 
-  async doDelete(item: TaskItem) {
-    wx.showLoading({ title: '删除中...' });
-    try {
-      const token = wx.getStorageSync('token');
-      if (!token) {
-        wx.showToast({ title: '请先登录', icon: 'none' });
-        return;
-      }
-      const apiPath = `/api/v1/miniprogram/user/tasks/${item.task_no}`;
-      const params = generateRequestParams(token, '', apiPath);
-      const headers = paramsToHeaders(params);
+  /** 批量删除 */
+  onBatchDelete() {
+    const { selectedIds } = this.data;
+    if (!selectedIds.length) return;
 
-      const res = await new Promise<any>((resolve, reject) => {
-        wx.request({
-          url: `${API_BASE_URL}${apiPath}`,
-          method: 'DELETE',
-          header: headers,
-          success: (r) => resolve(r.data),
-          fail: reject
-        });
-      });
-
-      if (res && res.code === 0) {
+    wx.showModal({
+      title: '确认删除',
+      content: `确定要删除选中的 ${selectedIds.length} 条记录吗？删除后无法恢复。`,
+      confirmText: '删除',
+      confirmColor: '#c4543a',
+      cancelText: '取消',
+      success: async (res) => {
+        if (!res.confirm) return;
+        wx.showLoading({ title: '删除中...' });
+        let failCount = 0;
+        for (const taskNo of selectedIds) {
+          try {
+            await this.doDeleteByTaskNo(taskNo);
+          } catch {
+            failCount++;
+          }
+        }
+        wx.hideLoading();
+        if (failCount > 0) {
+          wx.showToast({ title: `${failCount} 条删除失败`, icon: 'none' });
+        } else {
+          wx.showToast({ title: '已删除', icon: 'success' });
+        }
+        // 重新加载列表
         this.setData({
-          list: this.data.list.filter((t) => t.task_no !== item.task_no),
-          total: Math.max(0, (this.data.total || 0) - 1)
+          isEditMode: false,
+          selectedIds: [],
+          selectAll: false,
+          page: 1,
+          hasMore: true,
         });
-        wx.showToast({ title: '已删除', icon: 'success' });
-      } else {
-        wx.showToast({ title: (res && res.msg) || '删除失败', icon: 'none' });
+        this.loadHistory();
       }
-    } catch (err) {
-      console.error('删除失败:', err);
-      wx.showToast({ title: '删除失败', icon: 'none' });
+    });
+  },
+
+  /** 按 task_no 删除（通用方法） */
+  async doDeleteByTaskNo(taskNo: string): Promise<void> {
+    const token = wx.getStorageSync('token');
+    if (!token) {
+      throw new Error('未登录');
+    }
+    const apiPath = `/api/v1/miniprogram/user/tasks/${taskNo}`;
+    const params = generateRequestParams(token, '', apiPath);
+    const headers = paramsToHeaders(params);
+
+    const res = await new Promise<any>((resolve, reject) => {
+      wx.request({
+        url: `${API_BASE_URL}${apiPath}`,
+        method: 'DELETE',
+        header: headers,
+        success: (r) => resolve(r.data),
+        fail: reject
+      });
+    });
+
+    if (!res || res.code !== 0) {
+      throw new Error((res && res.msg) || '删除失败');
     }
   },
 
