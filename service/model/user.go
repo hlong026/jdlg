@@ -26,9 +26,43 @@ type UserModel struct {
 	DB *sql.DB
 }
 
+type ManagementUserListFilters struct {
+	Keyword                string
+	EnterpriseWechatStatus string
+}
+
+type ManagementUserListItem struct {
+	User
+	Nickname                   string     `json:"nickname"`
+	EnterpriseWechatVerified   bool       `json:"enterprise_wechat_verified"`
+	EnterpriseWechatVerifiedAt *time.Time `json:"enterprise_wechat_verified_at"`
+	EnterpriseWechatContact    string     `json:"enterprise_wechat_contact"`
+}
+
 // NewUserModel 创建用户模型
 func NewUserModel(db *sql.DB) *UserModel {
 	return &UserModel{DB: db}
+}
+
+func buildManagementUserListWhere(filters ManagementUserListFilters) (string, []interface{}) {
+	whereParts := []string{"u.user_type = 'miniprogram'"}
+	args := make([]interface{}, 0, 5)
+
+	keyword := strings.TrimSpace(filters.Keyword)
+	if keyword != "" {
+		likeKeyword := "%" + keyword + "%"
+		whereParts = append(whereParts, "(CAST(u.id AS CHAR) LIKE ? OR u.username LIKE ? OR COALESCE(p.nickname, '') LIKE ? OR COALESCE(p.enterprise_wechat_contact, '') LIKE ?)")
+		args = append(args, likeKeyword, likeKeyword, likeKeyword, likeKeyword)
+	}
+
+	switch strings.TrimSpace(filters.EnterpriseWechatStatus) {
+	case "verified":
+		whereParts = append(whereParts, "COALESCE(p.enterprise_wechat_verified, 0) = 1")
+	case "pending":
+		whereParts = append(whereParts, "COALESCE(p.enterprise_wechat_verified, 0) = 0")
+	}
+
+	return " WHERE " + strings.Join(whereParts, " AND "), args
 }
 
 // Create 创建用户
@@ -364,6 +398,62 @@ func (m *UserModel) GetEffectiveUserByID(userID int64) (*User, error) {
 }
 
 // GetAll 获取小程序用户列表（分页）
+func (m *UserModel) ListManagementUsers(filters ManagementUserListFilters, limit, offset int) ([]*ManagementUserListItem, error) {
+	whereSQL, args := buildManagementUserListWhere(filters)
+	query := `SELECT u.id, u.username, u.user_type, COALESCE(u.can_withdraw, 0), u.created_at, u.updated_at,
+	                  COALESCE(p.nickname, ''), COALESCE(p.enterprise_wechat_verified, 0), p.enterprise_wechat_verified_at, COALESCE(p.enterprise_wechat_contact, '')
+	          FROM users u
+	          LEFT JOIN user_profiles p ON p.user_id = u.id` + whereSQL + `
+	          ORDER BY u.id DESC
+	          LIMIT ? OFFSET ?`
+
+	queryArgs := append(args, limit, offset)
+	rows, err := m.DB.Query(query, queryArgs...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*ManagementUserListItem
+	for rows.Next() {
+		item := &ManagementUserListItem{}
+		var canWithdraw int
+		var enterpriseWechatVerified int
+		if err := rows.Scan(
+			&item.ID,
+			&item.Username,
+			&item.UserType,
+			&canWithdraw,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+			&item.Nickname,
+			&enterpriseWechatVerified,
+			&item.EnterpriseWechatVerifiedAt,
+			&item.EnterpriseWechatContact,
+		); err != nil {
+			continue
+		}
+		item.CanWithdraw = canWithdraw != 0
+		item.EnterpriseWechatVerified = enterpriseWechatVerified != 0
+		users = append(users, item)
+	}
+
+	return users, rows.Err()
+}
+
+func (m *UserModel) CountManagementUsers(filters ManagementUserListFilters) (int64, error) {
+	whereSQL, args := buildManagementUserListWhere(filters)
+	query := `SELECT COUNT(*)
+	          FROM users u
+	          LEFT JOIN user_profiles p ON p.user_id = u.id` + whereSQL
+
+	var count int64
+	if err := m.DB.QueryRow(query, args...).Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 func (m *UserModel) GetAll(limit, offset int) ([]*User, error) {
 	query := `SELECT id, username, password, openid, unionid, user_type, COALESCE(can_withdraw,0), created_at, updated_at 
 	          FROM users 

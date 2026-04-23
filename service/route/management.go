@@ -6,13 +6,13 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"service/component"
 	"service/config"
 	"service/function"
 	"service/model"
 	"service/processor"
+	"strconv"
+	"strings"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -40,7 +40,7 @@ func RegisterManagementRoutes(r *gin.RouterGroup, authProcessor *processor.AuthP
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"code": 400,
-				"msg":  FormatValidationError("参数错误: "+err.Error()),
+				"msg":  FormatValidationError("参数错误: " + err.Error()),
 			})
 			return
 		}
@@ -81,8 +81,8 @@ func RegisterManagementRoutes(r *gin.RouterGroup, authProcessor *processor.AuthP
 			"code": 0,
 			"msg":  "登录成功",
 			"data": gin.H{
-				"id":        result.User.ID,
-				"username":  result.User.Username,
+				"id":         result.User.ID,
+				"username":   result.User.Username,
 				"session_id": sessionID,
 			},
 		})
@@ -91,7 +91,7 @@ func RegisterManagementRoutes(r *gin.RouterGroup, authProcessor *processor.AuthP
 	// 需要认证的路由组
 	auth := r.Group("")
 	auth.Use(AuthRequired)
-	
+
 	// 获取当前用户信息
 	auth.GET("/me", func(c *gin.Context) {
 		userID := GetUserID(c)
@@ -128,15 +128,28 @@ func RegisterManagementRoutes(r *gin.RouterGroup, authProcessor *processor.AuthP
 		user.GET("", func(c *gin.Context) {
 			page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 			pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+			keyword := strings.TrimSpace(c.Query("keyword"))
+			enterpriseWechatStatus := strings.TrimSpace(c.DefaultQuery("enterprise_wechat_status", "all"))
 			if page < 1 {
 				page = 1
 			}
 			if pageSize < 1 {
 				pageSize = 20
 			}
+			if pageSize > 100 {
+				pageSize = 100
+			}
+			if enterpriseWechatStatus != "verified" && enterpriseWechatStatus != "pending" {
+				enterpriseWechatStatus = "all"
+			}
 			offset := (page - 1) * pageSize
 
-			users, err := userDBModel.GetAll(pageSize, offset)
+			filters := model.ManagementUserListFilters{
+				Keyword:                keyword,
+				EnterpriseWechatStatus: enterpriseWechatStatus,
+			}
+
+			users, err := userDBModel.ListManagementUsers(filters, pageSize, offset)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"code": 500,
@@ -145,7 +158,7 @@ func RegisterManagementRoutes(r *gin.RouterGroup, authProcessor *processor.AuthP
 				return
 			}
 
-			total, err := userDBModel.Count()
+			total, err := userDBModel.CountManagementUsers(filters)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"code": 500,
@@ -158,24 +171,21 @@ func RegisterManagementRoutes(r *gin.RouterGroup, authProcessor *processor.AuthP
 			var userList []gin.H
 			for _, u := range users {
 				stones, _ := userRedisModel.GetStones(u.ID)
-				var profileData *model.UserProfile
-				if userProfileModel != nil {
-					profileData, _ = userProfileModel.GetByUserID(u.ID)
-				}
 				verifiedAt := ""
-				if profileData != nil && profileData.EnterpriseWechatVerifiedAt != nil {
-					verifiedAt = profileData.EnterpriseWechatVerifiedAt.Format("2006-01-02 15:04:05")
+				if u.EnterpriseWechatVerifiedAt != nil {
+					verifiedAt = u.EnterpriseWechatVerifiedAt.Format("2006-01-02 15:04:05")
 				}
 				userList = append(userList, gin.H{
-					"id":            u.ID,
-					"username":      u.Username,
-					"user_type":     u.UserType,
-					"stones":        stones,
-					"enterprise_wechat_verified": func() bool { if profileData != nil { return profileData.EnterpriseWechatVerified }; return false }(),
-					"enterprise_wechat_contact": func() string { if profileData != nil { return strings.TrimSpace(profileData.EnterpriseWechatContact) }; return "" }(),
+					"id":                            u.ID,
+					"username":                      u.Username,
+					"user_type":                     u.UserType,
+					"stones":                        stones,
+					"nickname":                      strings.TrimSpace(u.Nickname),
+					"enterprise_wechat_verified":    u.EnterpriseWechatVerified,
+					"enterprise_wechat_contact":     strings.TrimSpace(u.EnterpriseWechatContact),
 					"enterprise_wechat_verified_at": verifiedAt,
-					"created_at":    u.CreatedAt,
-					"updated_at":    u.UpdatedAt,
+					"created_at":                    u.CreatedAt,
+					"updated_at":                    u.UpdatedAt,
 				})
 			}
 
@@ -223,16 +233,46 @@ func RegisterManagementRoutes(r *gin.RouterGroup, authProcessor *processor.AuthP
 				"code": 0,
 				"msg":  "success",
 				"data": gin.H{
-					"id":         u.ID,
-					"username":   u.Username,
-					"user_type":  u.UserType,
-					"stones":     stones,
-					"nickname":   func() string { if profileData != nil { return profileData.Nickname }; return "" }(),
-					"avatar":     func() string { if profileData != nil { return sanitizePublicImageURL(profileData.Avatar) }; return "" }(),
-					"designer_bio": func() string { if profileData != nil { return profileData.DesignerBio }; return "" }(),
-					"specialty_styles": func() string { if profileData != nil { return profileData.SpecialtyStyles }; return "" }(),
-					"designer_experience_years": func() int64 { if profileData != nil { return profileData.DesignerExperienceYears }; return 0 }(),
-					"service_title": func() string { if profileData != nil { return profileData.ServiceTitle }; return "" }(),
+					"id":        u.ID,
+					"username":  u.Username,
+					"user_type": u.UserType,
+					"stones":    stones,
+					"nickname": func() string {
+						if profileData != nil {
+							return profileData.Nickname
+						}
+						return ""
+					}(),
+					"avatar": func() string {
+						if profileData != nil {
+							return sanitizePublicImageURL(profileData.Avatar)
+						}
+						return ""
+					}(),
+					"designer_bio": func() string {
+						if profileData != nil {
+							return profileData.DesignerBio
+						}
+						return ""
+					}(),
+					"specialty_styles": func() string {
+						if profileData != nil {
+							return profileData.SpecialtyStyles
+						}
+						return ""
+					}(),
+					"designer_experience_years": func() int64 {
+						if profileData != nil {
+							return profileData.DesignerExperienceYears
+						}
+						return 0
+					}(),
+					"service_title": func() string {
+						if profileData != nil {
+							return profileData.ServiceTitle
+						}
+						return ""
+					}(),
 					"created_at": u.CreatedAt,
 					"updated_at": u.UpdatedAt,
 				},
@@ -267,10 +307,10 @@ func RegisterManagementRoutes(r *gin.RouterGroup, authProcessor *processor.AuthP
 				"code": 0,
 				"msg":  "success",
 				"data": gin.H{
-					"user_id": id,
-					"enterprise_wechat_verified": profile.EnterpriseWechatVerified,
+					"user_id":                       id,
+					"enterprise_wechat_verified":    profile.EnterpriseWechatVerified,
 					"enterprise_wechat_verified_at": verifiedAt,
-					"enterprise_wechat_contact": strings.TrimSpace(profile.EnterpriseWechatContact),
+					"enterprise_wechat_contact":     strings.TrimSpace(profile.EnterpriseWechatContact),
 				},
 			})
 		})
@@ -324,10 +364,10 @@ func RegisterManagementRoutes(r *gin.RouterGroup, authProcessor *processor.AuthP
 				"code": 0,
 				"msg":  "保存成功",
 				"data": gin.H{
-					"user_id": id,
-					"enterprise_wechat_verified": profile.EnterpriseWechatVerified,
+					"user_id":                       id,
+					"enterprise_wechat_verified":    profile.EnterpriseWechatVerified,
 					"enterprise_wechat_verified_at": verifiedAt,
-					"enterprise_wechat_contact": strings.TrimSpace(profile.EnterpriseWechatContact),
+					"enterprise_wechat_contact":     strings.TrimSpace(profile.EnterpriseWechatContact),
 				},
 			})
 		})
@@ -345,14 +385,14 @@ func RegisterManagementRoutes(r *gin.RouterGroup, authProcessor *processor.AuthP
 			}
 
 			var req struct {
-				Username *string `json:"username"` // 新用户名（可选）
-				Password *string `json:"password"` // 新密码（可选，留空则不修改）
-				Nickname *string `json:"nickname"` // 昵称（用户扩展信息，可选）
-				Avatar   *string `json:"avatar"`   // 头像URL（用户扩展信息，可选）
-				DesignerBio *string `json:"designer_bio"`
-				SpecialtyStyles *string `json:"specialty_styles"`
-				DesignerExperienceYears *int64 `json:"designer_experience_years"`
-				ServiceTitle *string `json:"service_title"`
+				Username                *string `json:"username"` // 新用户名（可选）
+				Password                *string `json:"password"` // 新密码（可选，留空则不修改）
+				Nickname                *string `json:"nickname"` // 昵称（用户扩展信息，可选）
+				Avatar                  *string `json:"avatar"`   // 头像URL（用户扩展信息，可选）
+				DesignerBio             *string `json:"designer_bio"`
+				SpecialtyStyles         *string `json:"specialty_styles"`
+				DesignerExperienceYears *int64  `json:"designer_experience_years"`
+				ServiceTitle            *string `json:"service_title"`
 			}
 			if err := c.ShouldBindJSON(&req); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{
@@ -1148,7 +1188,7 @@ func getFileTypeFromMIME(contentType string) string {
 	if strings.HasPrefix(contentType, "audio/") {
 		return "audio"
 	}
-	if strings.HasPrefix(contentType, "text/") || contentType == "application/pdf" || 
+	if strings.HasPrefix(contentType, "text/") || contentType == "application/pdf" ||
 		strings.Contains(contentType, "document") || strings.Contains(contentType, "word") ||
 		strings.Contains(contentType, "excel") || strings.Contains(contentType, "powerpoint") {
 		return "document"

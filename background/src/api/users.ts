@@ -33,6 +33,7 @@ export interface UserListParams {
     keyword?: string;
     status?: string;
     role?: string;
+    enterprise_wechat_status?: 'all' | 'verified' | 'pending';
     page?: number;
     page_size?: number;
 }

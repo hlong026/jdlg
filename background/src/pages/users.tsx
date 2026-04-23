@@ -10,6 +10,7 @@ import {
     getUserEnterpriseWechatVerification,
     updateUserEnterpriseWechatVerification,
     type User as ApiUser,
+    type UserListParams,
 } from '../api/users';
 import './users.scss';
 
@@ -29,6 +30,8 @@ interface User {
     serviceTitle?: string;
 }
 
+const pageSizeOptions = [20, 50, 100];
+
 const Users: React.FC = () => {
     const navigate = useNavigate();
     const [searchInput, setSearchInput] = useState('');
@@ -38,6 +41,10 @@ const Users: React.FC = () => {
     const [showStonesModal, setShowStonesModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [users, setUsers] = useState<User[]>([]);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(pageSizeOptions[0]);
+    const [total, setTotal] = useState(0);
+    const [reloadSeed, setReloadSeed] = useState(0);
     const [loading, setLoading] = useState(true);
     const [stonesLoading, setStonesLoading] = useState(false);
 
@@ -83,15 +90,32 @@ const Users: React.FC = () => {
         };
     };
 
-    const fetchUsers = async (keyword: string = searchKeyword) => {
-        const params: any = {
-            page: 1,
-            page_size: 100,
+    const fetchUsers = async ({
+        nextPage = page,
+        nextPageSize = pageSize,
+        nextKeyword = searchKeyword,
+        nextEnterpriseWechatFilter = enterpriseWechatFilter,
+    }: {
+        nextPage?: number;
+        nextPageSize?: number;
+        nextKeyword?: string;
+        nextEnterpriseWechatFilter?: 'all' | 'verified' | 'pending';
+    } = {}) => {
+        const params: UserListParams = {
+            page: nextPage,
+            page_size: nextPageSize,
         };
-        if (keyword) params.keyword = keyword;
+        if (nextKeyword) params.keyword = nextKeyword;
+        if (nextEnterpriseWechatFilter !== 'all') {
+            params.enterprise_wechat_status = nextEnterpriseWechatFilter;
+        }
         const response = await getUserList(params);
-        const convertedUsers = response.list.map(convertUser);
-        setUsers(convertedUsers);
+        setUsers(response.list.map(convertUser));
+        setTotal(response.total || 0);
+    };
+
+    const refreshUsers = () => {
+        setReloadSeed((value) => value + 1);
     };
 
     // 加载用户列表
@@ -99,7 +123,7 @@ const Users: React.FC = () => {
         const loadUsers = async () => {
             setLoading(true);
             try {
-                await fetchUsers(searchKeyword);
+                await fetchUsers();
             } catch (error) {
                 console.error('加载用户列表失败:', error);
                 alert('加载用户列表失败');
@@ -107,32 +131,61 @@ const Users: React.FC = () => {
                 setLoading(false);
             }
         };
-        loadUsers();
-    }, [searchKeyword]);
+        void loadUsers();
+    }, [page, pageSize, searchKeyword, enterpriseWechatFilter, reloadSeed]);
 
     const handleSearch = () => {
-        setSearchKeyword(searchInput.trim());
+        const nextKeyword = searchInput.trim();
+        if (page !== 1) {
+            setPage(1);
+        }
+        if (nextKeyword !== searchKeyword) {
+            setSearchKeyword(nextKeyword);
+            return;
+        }
+        if (page === 1) {
+            refreshUsers();
+        }
     };
 
     const handleResetFilters = () => {
         setSearchInput('');
         setSearchKeyword('');
         setEnterpriseWechatFilter('all');
+        setPage(1);
+        setPageSize(pageSizeOptions[0]);
+        if (searchKeyword === '' && enterpriseWechatFilter === 'all' && page === 1 && pageSize === pageSizeOptions[0]) {
+            refreshUsers();
+        }
     };
 
-    // 筛选用户（基于已加载的数据）
-    const filteredUsers = users.filter(user => {
-        const matchKeyword = !searchKeyword ||
-            user.username.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-            user.id.toString().includes(searchKeyword) ||
-            String(user.enterpriseWechatContact || '').includes(searchKeyword);
-        const matchWechat = enterpriseWechatFilter === 'all'
-            ? true
-            : enterpriseWechatFilter === 'verified'
-                ? !!user.enterpriseWechatVerified
-                : !user.enterpriseWechatVerified;
-        return matchKeyword && matchWechat;
-    });
+    const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
+    const currentStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
+    const currentEnd = total === 0 ? 0 : Math.min(page * pageSize, total);
+    const currentPageCount = users.length;
+    const currentPageVerifiedCount = users.filter((user) => !!user.enterpriseWechatVerified).length;
+    const currentPagePendingCount = users.filter((user) => !user.enterpriseWechatVerified).length;
+    const currentPageStones = users.reduce((sum, user) => sum + user.pointsBalance, 0);
+
+    const handleEnterpriseWechatFilterChange = (value: 'all' | 'verified' | 'pending') => {
+        setEnterpriseWechatFilter(value);
+        setPage(1);
+    };
+
+    const handlePageSizeChange = (value: number) => {
+        setPageSize(value);
+        setPage(1);
+    };
+
+    const handlePrevPage = () => {
+        if (page <= 1) return;
+        setPage(page - 1);
+    };
+
+    const handleNextPage = () => {
+        if (page >= totalPages) return;
+        setPage(page + 1);
+    };
 
     // 处理查看详情
     const handleViewDetail = (user: User) => {
@@ -205,7 +258,7 @@ const Users: React.FC = () => {
             setEnterpriseWechatContact(result?.enterprise_wechat_contact || contact);
             setEnterpriseWechatVerifiedAtText(result?.enterprise_wechat_verified_at || '');
             alert('手机号授权状态已保存');
-            await fetchUsers();
+            refreshUsers();
             setShowEnterpriseWechatModal(false);
         } catch (error: any) {
             console.error('保存手机号授权状态失败:', error);
@@ -253,7 +306,7 @@ const Users: React.FC = () => {
             setShowStonesModal(false);
 
             // 刷新用户列表
-            await fetchUsers();
+            refreshUsers();
         } catch (error: any) {
             console.error('修改灵石失败:', error);
             alert(error.message || '修改灵石失败');
@@ -280,7 +333,7 @@ const Users: React.FC = () => {
                             <p>这里主要负责找人、筛人和判断优先级。真正的订单、任务、灵石、认证与风控处理，请进入用户360工作台完成。</p>
                         </div>
                         <div className="toolbar-actions">
-                            <button className="btn-secondary" onClick={() => void fetchUsers(searchKeyword)} disabled={loading}>
+                            <button className="btn-secondary" onClick={refreshUsers} disabled={loading}>
                                 {loading ? '刷新中...' : '刷新数据'}
                             </button>
                             <button className="btn-secondary" onClick={handleResetFilters}>
@@ -308,7 +361,7 @@ const Users: React.FC = () => {
                             <select
                                 className="filter-select"
                                 value={enterpriseWechatFilter}
-                                onChange={(e) => setEnterpriseWechatFilter(e.target.value as 'all' | 'verified' | 'pending')}
+                                onChange={(e) => handleEnterpriseWechatFilterChange(e.target.value as 'all' | 'verified' | 'pending')}
                             >
                                 <option value="all">手机号授权：全部</option>
                                 <option value="verified">仅看已授权</option>
@@ -318,7 +371,8 @@ const Users: React.FC = () => {
                     </div>
                     <div className="toolbar-footer">
                         <div className="toolbar-summary">
-                            当前显示 <strong>{filteredUsers.length}</strong> / {users.length} 个用户
+                            <span className="summary-tag">第 {page} / {totalPages} 页 · 当前 {currentStart}-{currentEnd} / {total}</span>
+                            当前显示 <strong>{currentPageCount}</strong> 条，本页范围 {currentStart}-{currentEnd} / {total}
                             {searchKeyword ? <span className="summary-tag">关键词：{searchKeyword}</span> : null}
                             {enterpriseWechatFilter !== 'all' ? <span className="summary-tag">手机号授权：{enterpriseWechatFilter === 'verified' ? '已授权' : '待授权'}</span> : null}
                             <span className="summary-note">建议：确认目标用户后，优先进入用户360继续处理</span>
@@ -327,22 +381,24 @@ const Users: React.FC = () => {
                     </div>
                 </div>
 
+                <div className="users-stats-note">除总用户数外，其余统计按当前页计算。</div>
+
                 <div className="users-stats">
                     <div className="stat-item">
                         <span className="stat-label">用户总数</span>
-                        <span className="stat-value">{users.length}</span>
+                        <span className="stat-value">{total}</span>
                     </div>
                     <div className="stat-item">
                         <span className="stat-label">手机号已授权</span>
-                        <span className="stat-value">{users.filter((user) => !!user.enterpriseWechatVerified).length}</span>
+                        <span className="stat-value">{currentPageVerifiedCount}</span>
                     </div>
                     <div className="stat-item">
                         <span className="stat-label">手机号待授权验证</span>
-                        <span className="stat-value">{users.filter((user) => !user.enterpriseWechatVerified).length}</span>
+                        <span className="stat-value">{currentPagePendingCount}</span>
                     </div>
                     <div className="stat-item">
                         <span className="stat-label">总灵石</span>
-                        <span className="stat-value">{users.reduce((sum, u) => sum + u.pointsBalance, 0)}</span>
+                        <span className="stat-value">{currentPageStones}</span>
                     </div>
                 </div>
 
@@ -359,14 +415,14 @@ const Users: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredUsers.length === 0 ? (
+                            {users.length === 0 ? (
                                 <tr>
                                     <td colSpan={6} className="empty-state">
                                         暂无用户数据
                                     </td>
                                 </tr>
                             ) : (
-                                filteredUsers.map((user) => (
+                                users.map((user) => (
                                     <tr key={user.id}>
                                         <td>{user.id}</td>
                                         <td>
@@ -418,6 +474,27 @@ const Users: React.FC = () => {
                             )}
                         </tbody>
                     </table>
+                    <div className="users-pagination">
+                        <div className="users-pagination-left">
+                            <span className="users-pagination-label">每页显示</span>
+                            <select
+                                className="filter-select users-page-size-select"
+                                value={pageSize}
+                                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                                disabled={loading}
+                            >
+                                {pageSizeOptions.map((option) => (
+                                    <option key={option} value={option}>{option}</option>
+                                ))}
+                            </select>
+                            <span className="users-pagination-note">共 {total} 个用户</span>
+                        </div>
+                        <div className="users-pagination-right">
+                            <button className="users-page-button" disabled={page <= 1 || loading} onClick={handlePrevPage}>上一页</button>
+                            <span className="users-page-info">第 {page} 页，共 {totalPages} 页</span>
+                            <button className="users-page-button" disabled={page >= totalPages || loading} onClick={handleNextPage}>下一页</button>
+                        </div>
+                    </div>
                 </div>
 
                 {/* 用户详情弹窗 */}
@@ -608,7 +685,7 @@ const Users: React.FC = () => {
                                                 service_title: editServiceTitle.trim() || undefined,
                                             });
                                             // 更新本地列表展示的用户名
-                                            await fetchUsers();
+                                            refreshUsers();
                                             alert('保存成功');
                                             setShowEditUserModal(false);
                                         } catch (error: any) {
