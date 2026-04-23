@@ -1,4 +1,4 @@
-﻿<view class="aitoolworkbench-page">
+<view class="aitoolworkbench-page">
   <navigation-bar title="开始使用" background="#e6daca" />
 
   <view class="aitoolworkbench-loading" wx:if="{{loadingTool}}">
@@ -16,48 +16,32 @@
     </view>
 
     <view class="aitoolworkbench-panel">
-      <view class="aitoolworkbench-panel-title">图片上传区</view>
-      <view class="aitoolworkbench-upload-summary">图1固定为原图，图2开始依次为参考图；双击缩略图可预览，图1必传。</view>
-      <view class="aitoolworkbench-slot-grid">
-        <view
-          class="aitoolworkbench-slot-item {{item.imageUrl ? 'filled' : 'empty'}} {{item.isAddSlot ? 'add-slot' : ''}}"
-          wx:for="{{workbenchImageSlots}}"
-          wx:key="index"
-          bindtap="onImageSlotTap"
-          data-slot-index="{{item.slotIndex}}"
-          data-image-url="{{item.imageUrl}}"
-        >
-          <image
-            wx:if="{{item.imageUrl}}"
-            class="aitoolworkbench-slot-image"
-            src="{{item.imageUrl}}"
-            mode="aspectFit"
-          />
-          <view wx:elif="{{item.isAddSlot}}" class="aitoolworkbench-slot-empty add-only">
-            <text class="aitoolworkbench-slot-plus">+</text>
-          </view>
-          <view wx:else class="aitoolworkbench-slot-empty">
-            <text class="aitoolworkbench-slot-plus">+</text>
-            <text class="aitoolworkbench-slot-empty-text">上传{{item.roleLabel}}</text>
-          </view>
-          <view class="aitoolworkbench-slot-chip" wx:if="{{!item.isAddSlot}}">{{item.chipLabel}}</view>
-          <view class="aitoolworkbench-slot-role" wx:if="{{!item.isAddSlot}}">{{item.roleLabel}}</view>
-          <view class="aitoolworkbench-slot-preview-tip" wx:if="{{item.imageUrl}}">双击预览</view>
-          <view class="aitoolworkbench-slot-actions" wx:if="{{item.imageUrl}}">
-            <view class="aitoolworkbench-slot-action" catchtap="onReuploadImageSlot" data-slot-index="{{item.slotIndex}}">换图</view>
-            <view class="aitoolworkbench-slot-action danger" catchtap="onDeleteImageSlot" data-slot-index="{{item.slotIndex}}">删除</view>
-          </view>
+      <view class="aitoolworkbench-panel-title">上传待处理图片</view>
+      <view class="aitoolworkbench-upload-single">
+        <image
+          wx:if="{{uploadedOriginalImageUrl}}"
+          class="aitoolworkbench-upload-preview"
+          src="{{uploadedOriginalImageUrl}}"
+          mode="aspectFit"
+          bindtap="onPreviewOriginal"
+        />
+        <view wx:else class="aitoolworkbench-upload-empty" bindtap="onUploadOriginal">
+          <text class="aitoolworkbench-upload-plus">+</text>
+          <text class="aitoolworkbench-upload-hint">上传待处理图片</text>
+        </view>
+        <view class="aitoolworkbench-upload-actions" wx:if="{{uploadedOriginalImageUrl}}">
+          <view class="aitoolworkbench-upload-action" bindtap="onUploadOriginal">换图</view>
+          <view class="aitoolworkbench-upload-action danger" bindtap="onDeleteOriginal">删除</view>
         </view>
       </view>
-      <view class="aitoolworkbench-upload-status" wx:if="{{uploadingOriginal || uploadingReference}}">{{uploadingOriginal ? '正在上传原图，请稍候...' : '正在上传参考图，请稍候...'}}</view>
-    </view>
+      </view>
 
     <view class="aitoolworkbench-panel" wx:if="{{tool.presetReferences.length > 0}}">
-      <view class="aitoolworkbench-panel-title">推荐参考图（可选）</view>
-      <view class="aitoolworkbench-panel-desc">点一下即可补入上方参考图槽位，适合快速开始。</view>
+      <view class="aitoolworkbench-panel-title">风格参考（可选）</view>
+      <view class="aitoolworkbench-panel-desc">点选一张参考图，AI 会参考其风格来处理你的图片。</view>
       <view class="aitoolworkbench-reference-grid">
         <view
-          class="aitoolworkbench-reference-card {{item.imageUrl ? 'has-image' : ''}}"
+          class="aitoolworkbench-reference-card {{selectedReferencePresetId === item.id ? 'selected' : ''}}"
           wx:for="{{tool.presetReferences}}"
           wx:key="id"
           data-id="{{item.id}}"
@@ -69,9 +53,14 @@
             src="{{item.imageUrl}}"
             mode="aspectFit"
           />
+          <view wx:else class="aitoolworkbench-reference-image-fallback">
+            <text>{{item.name[0]}}</text>
+          </view>
           <view class="aitoolworkbench-reference-body">
             <view class="aitoolworkbench-reference-name">{{item.name}}</view>
+            <view class="aitoolworkbench-reference-desc" wx:if="{{item.description}}">{{item.description}}</view>
           </view>
+          <view class="aitoolworkbench-reference-check" wx:if="{{selectedReferencePresetId === item.id}}">&#10003;</view>
         </view>
       </view>
     </view>
@@ -157,7 +146,7 @@
     </view>
 
     <view class="aitoolworkbench-action-panel">
-      <button class="aitoolworkbench-primary-btn" bindtap="onStartCreate" loading="{{generating}}" disabled="{{generating || uploadingOriginal || uploadingReference}}">开始创作</button>
+      <button class="aitoolworkbench-primary-btn" bindtap="onStartCreate" loading="{{generating}}" disabled="{{generating || uploadingOriginal}}">开始创作</button>
       <view class="aitoolworkbench-bottom-tip">{{bottomTipText}}</view>
     </view>
   </view>

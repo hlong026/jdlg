@@ -8,12 +8,11 @@ import { shouldUseMinimalAIToolPresentation } from '../../utils/aiToolPresentati
 const API_BASE_URL = 'https://api.jiadilingguang.com'
 const DEFAULT_SERVICE_TYPE = 'normal'
 const DEFAULT_SERVICE = 'normal_style_change'
-const DEFAULT_QUALITY = 'uhd'
+const DEFAULT_QUALITY = 'hd'
 const DEFAULT_CANVAS = '1:1'
 const DEFAULT_GENERATE_COUNT = 1
 const DEFAULT_DRAW_SINGLE_COST = 0
 const DEFAULT_DRAW_MULTI_COST = 0
-const MAX_REFERENCE_IMAGE_COUNT = 5
 
 type PageOptions = {
   id?: string
@@ -33,26 +32,6 @@ type InputEvent = {
   }
 }
 
-type SlotTapEvent = {
-  currentTarget: {
-    dataset: {
-      slotIndex?: number | string
-      addSlot?: number | string
-      imageUrl?: string
-    }
-  }
-}
-
-type WorkbenchImageSlot = {
-  slotIndex: number
-  chipLabel: string
-  roleLabel: string
-  imageUrl: string
-  isOriginal: boolean
-  required: boolean
-  isAddSlot: boolean
-}
-
 function normalizeUploadedImageUrl(value: any): string {
   const text = String(value || '').trim()
   if (!text) {
@@ -64,90 +43,6 @@ function normalizeUploadedImageUrl(value: any): string {
   return text
 }
 
-function extractFileName(filePath: string, fallback: string): string {
-  const normalizedPath = String(filePath || '').trim()
-  if (!normalizedPath) {
-    return fallback
-  }
-  const segments = normalizedPath.split(/[\\/]/).filter(Boolean)
-  return segments[segments.length - 1] || fallback
-}
-
-function normalizeReferenceImageUrls(values: any[]): string[] {
-  return (Array.isArray(values) ? values : [])
-    .map((item) => normalizeUploadedImageUrl(item))
-    .filter((item, index, list) => !!item && list.indexOf(item) === index)
-    .slice(0, MAX_REFERENCE_IMAGE_COUNT)
-}
-
-function buildOrderedImageUrls(originalImageUrl: string, referenceImageUrls: any[]): string[] {
-  return [normalizeUploadedImageUrl(originalImageUrl), ...normalizeReferenceImageUrls(referenceImageUrls)].filter(Boolean)
-}
-
-function buildWorkbenchImageSlots(originalImageUrl: string, referenceImageUrls: any[]): WorkbenchImageSlot[] {
-  const safeOriginalImageUrl = normalizeUploadedImageUrl(originalImageUrl)
-  const safeReferenceImageUrls = normalizeReferenceImageUrls(referenceImageUrls)
-  const slots: WorkbenchImageSlot[] = [
-    {
-      slotIndex: 0,
-      chipLabel: '图1',
-      roleLabel: '原图',
-      imageUrl: safeOriginalImageUrl,
-      isOriginal: true,
-      required: true,
-      isAddSlot: false,
-    },
-  ]
-
-  if (safeReferenceImageUrls.length === 0) {
-    slots.push({
-      slotIndex: 1,
-      chipLabel: '图2',
-      roleLabel: '参考图1',
-      imageUrl: '',
-      isOriginal: false,
-      required: false,
-      isAddSlot: false,
-    })
-  } else {
-    safeReferenceImageUrls.forEach((imageUrl, index) => {
-      slots.push({
-        slotIndex: index + 1,
-        chipLabel: `图${index + 2}`,
-        roleLabel: `参考图${index + 1}`,
-        imageUrl,
-        isOriginal: false,
-        required: false,
-        isAddSlot: false,
-      })
-    })
-  }
-
-  if (safeReferenceImageUrls.length < MAX_REFERENCE_IMAGE_COUNT) {
-    slots.push({
-      slotIndex: Math.min(safeReferenceImageUrls.length + 1, MAX_REFERENCE_IMAGE_COUNT),
-      chipLabel: '',
-      roleLabel: '',
-      imageUrl: '',
-      isOriginal: false,
-      required: false,
-      isAddSlot: true,
-    })
-  }
-
-  return slots
-}
-
-function resolveReferenceSelectionType(selectedReferencePresetId: string, referenceImageUrls: string[]): 'none' | 'preset' | 'custom_upload' {
-  if (String(selectedReferencePresetId || '').trim()) {
-    return 'preset'
-  }
-  if (normalizeReferenceImageUrls(referenceImageUrls).length > 0) {
-    return 'custom_upload'
-  }
-  return 'none'
-}
-
 function normalizeToolId(value: any): number | string {
   const numericValue = Number(value)
   if (Number.isFinite(numericValue) && numericValue > 0) {
@@ -156,9 +51,6 @@ function normalizeToolId(value: any): number | string {
   return String(value || '').trim()
 }
 
-let lastPreviewTapAt = 0
-let lastPreviewTapIndex = -1
-
 Page({
   data: {
     tool: null as AIToolItem | null,
@@ -166,13 +58,10 @@ Page({
     useMinimalPresentation: false,
     selectedStyleId: '',
     selectedReferencePresetId: '',
+    selectedPresetReferenceImageUrl: '',
     promptText: '',
     uploadedOriginalImageUrl: '',
-    uploadedOriginalImageName: '',
-    uploadedReferenceImageUrls: [] as string[],
     uploadingOriginal: false,
-    uploadingReference: false,
-    workbenchImageSlots: buildWorkbenchImageSlots('', []),
     generating: false,
     qualityOptions: [
       { label: '2K', value: 'hd', desc: '适合展示' },
@@ -216,7 +105,6 @@ Page({
         categoryLabel: getCategoryLabel(tool.category),
         useMinimalPresentation: shouldUseMinimalAIToolPresentation(tool),
         selectedStyleId: tool.stylePresets[0]?.id || '',
-        workbenchImageSlots: buildWorkbenchImageSlots('', []),
       }, () => {
         this.loadAIPricing()
         this.loadStoneBalance()
@@ -233,6 +121,14 @@ Page({
 
   onShow() {
     this.loadStoneBalance()
+  },
+
+  onHide() {
+    wx.hideLoading()
+  },
+
+  onUnload() {
+    wx.hideLoading()
   },
 
   getToken(): string {
@@ -281,57 +177,13 @@ Page({
     return `本次预计生成 ${selectedGenerateCount} 张，预计消耗 ${currentCost} 灵石。`
   },
 
-  getReferenceImageUrls(): string[] {
-    return normalizeReferenceImageUrls(this.data.uploadedReferenceImageUrls || [])
-  },
-
-  getOrderedImageUrls(): string[] {
-    return buildOrderedImageUrls(this.data.uploadedOriginalImageUrl, this.getReferenceImageUrls())
-  },
-
-  applyWorkbenchImageState(nextValues: {
-    uploadedOriginalImageUrl?: string
-    uploadedOriginalImageName?: string
-    uploadedReferenceImageUrls?: string[]
-    selectedReferencePresetId?: string
-    [key: string]: any
-  }, callback?: () => void) {
-    const nextOriginalImageUrl = normalizeUploadedImageUrl(
-      Object.prototype.hasOwnProperty.call(nextValues, 'uploadedOriginalImageUrl')
-        ? nextValues.uploadedOriginalImageUrl
-        : this.data.uploadedOriginalImageUrl,
-    )
-    const nextReferenceImageUrls = normalizeReferenceImageUrls(
-      Object.prototype.hasOwnProperty.call(nextValues, 'uploadedReferenceImageUrls')
-        ? (nextValues.uploadedReferenceImageUrls || [])
-        : this.data.uploadedReferenceImageUrls,
-    )
-    let nextSelectedReferencePresetId = String(
-      Object.prototype.hasOwnProperty.call(nextValues, 'selectedReferencePresetId')
-        ? (nextValues.selectedReferencePresetId || '')
-        : (this.data.selectedReferencePresetId || ''),
-    ).trim()
-    if (nextSelectedReferencePresetId) {
-      const selectedPreset = this.data.tool?.presetReferences.find((item) => item.id === nextSelectedReferencePresetId)
-      const selectedPresetUrl = normalizeUploadedImageUrl(selectedPreset?.imageUrl || '')
-      if (!selectedPresetUrl || !nextReferenceImageUrls.includes(selectedPresetUrl)) {
-        nextSelectedReferencePresetId = ''
-      }
-    }
-
-    this.setData({
-      ...nextValues,
-      uploadedOriginalImageUrl: nextOriginalImageUrl,
-      uploadedReferenceImageUrls: nextReferenceImageUrls,
-      selectedReferencePresetId: nextSelectedReferencePresetId,
-      workbenchImageSlots: buildWorkbenchImageSlots(nextOriginalImageUrl, nextReferenceImageUrls),
-    }, () => {
-      this.syncCurrentCost(callback)
-    })
+  hasPresetReference(): boolean {
+    // 选了预设参考图（无论是否有图片URL）都视为多图场景
+    return !!this.data.selectedReferencePresetId
   },
 
   getCurrentScene(): 'ai_draw_single' | 'ai_draw_multi' {
-    return this.getReferenceImageUrls().length > 0 ? 'ai_draw_multi' : 'ai_draw_single'
+    return this.hasPresetReference() ? 'ai_draw_multi' : 'ai_draw_single'
   },
 
   getCurrentGenerateCount(): number {
@@ -492,32 +344,11 @@ Page({
     })
   },
 
-  chooseAndUploadImageSlot(slotIndex: number) {
+  onUploadOriginal() {
     const token = this.ensureToken()
     if (!token) {
       return
     }
-
-    if (!Number.isFinite(slotIndex) || slotIndex < 0 || slotIndex > MAX_REFERENCE_IMAGE_COUNT) {
-      return
-    }
-
-    const isOriginalSlot = slotIndex === 0
-    const currentReferenceImageUrls = this.getReferenceImageUrls()
-    if (!isOriginalSlot) {
-      const currentSlotUrl = currentReferenceImageUrls[slotIndex - 1] || ''
-      const nextAvailableSlotIndex = currentReferenceImageUrls.length + 1
-      if (!currentSlotUrl && slotIndex > nextAvailableSlotIndex) {
-        wx.showToast({
-          title: '请先按顺序补齐前面的参考图',
-          icon: 'none',
-        })
-        return
-      }
-    }
-
-    const loadingTitle = isOriginalSlot ? '上传原图中...' : '上传参考图中...'
-    const stateKey = isOriginalSlot ? 'uploadingOriginal' : 'uploadingReference'
 
     wx.chooseMedia({
       count: 1,
@@ -530,36 +361,18 @@ Page({
           return
         }
 
-        this.setData({ [stateKey]: true } as any)
-        wx.showLoading({ title: loadingTitle, mask: true })
+        this.setData({ uploadingOriginal: true })
+        wx.showLoading({ title: '上传原图中...', mask: true })
 
         try {
           const uploadedUrl = await this.uploadImageFile(tempFilePath, token)
-          const uploadedName = extractFileName(tempFilePath, isOriginalSlot ? '原图.jpg' : '参考图.jpg')
-          if (isOriginalSlot) {
-            this.applyWorkbenchImageState({
-              uploadedOriginalImageUrl: uploadedUrl,
-              uploadedOriginalImageName: uploadedName,
-            })
-          } else {
-            const nextReferenceImageUrls = [...currentReferenceImageUrls]
-            nextReferenceImageUrls[slotIndex - 1] = uploadedUrl
-            this.applyWorkbenchImageState({
-              uploadedReferenceImageUrls: nextReferenceImageUrls,
-            })
-          }
-          wx.showToast({
-            title: '上传成功',
-            icon: 'success',
-          })
+          this.setData({ uploadedOriginalImageUrl: uploadedUrl })
+          wx.showToast({ title: '上传成功', icon: 'success' })
         } catch (error: any) {
-          wx.showToast({
-            title: error?.message || '上传失败',
-            icon: 'none',
-          })
+          wx.showToast({ title: error?.message || '上传失败', icon: 'none' })
         } finally {
           wx.hideLoading()
-          this.setData({ [stateKey]: false } as any)
+          this.setData({ uploadingOriginal: false })
         }
       },
       fail: (err) => {
@@ -567,10 +380,25 @@ Page({
         if (message.indexOf('cancel') >= 0) {
           return
         }
-        wx.showToast({
-          title: '选择图片失败',
-          icon: 'none',
-        })
+        wx.showToast({ title: '选择图片失败', icon: 'none' })
+      },
+    })
+  },
+
+  onDeleteOriginal() {
+    this.setData({ uploadedOriginalImageUrl: '' })
+  },
+
+  onPreviewOriginal() {
+    const url = normalizeUploadedImageUrl(this.data.uploadedOriginalImageUrl)
+    if (!url) {
+      return
+    }
+    wx.previewImage({
+      current: url,
+      urls: [url],
+      fail: () => {
+        wx.showToast({ title: '预览失败', icon: 'none' })
       },
     })
   },
@@ -581,37 +409,32 @@ Page({
     if (!id || !tool) {
       return
     }
-    const targetReference = tool.presetReferences.find((item) => item.id === id)
-    const targetReferenceUrl = normalizeUploadedImageUrl(targetReference?.imageUrl || '')
-    if (!targetReferenceUrl) {
-      wx.showToast({
-        title: '当前预设参考图不可用',
-        icon: 'none',
-      })
-      return
-    }
 
-    const currentReferenceImageUrls = this.getReferenceImageUrls()
-    const existingIndex = currentReferenceImageUrls.indexOf(targetReferenceUrl)
-    if (existingIndex >= 0) {
+    // 再次点击同一个预设 → 取消选中
+    if (this.data.selectedReferencePresetId === id) {
       this.setData({
-        selectedReferencePresetId: id,
-      })
-      this.openImagePreview(existingIndex + 1)
-      return
-    }
-    if (currentReferenceImageUrls.length >= MAX_REFERENCE_IMAGE_COUNT) {
-      wx.showToast({
-        title: `最多添加 ${MAX_REFERENCE_IMAGE_COUNT} 张参考图`,
-        icon: 'none',
-      })
+        selectedReferencePresetId: '',
+        selectedPresetReferenceImageUrl: '',
+      }, () => this.syncCurrentCost())
       return
     }
 
-    this.applyWorkbenchImageState({
-      uploadedReferenceImageUrls: [...currentReferenceImageUrls, targetReferenceUrl],
+    // 选中新的预设
+    const targetReference = tool.presetReferences.find((item) => item.id === id)
+    const targetUrl = normalizeUploadedImageUrl(targetReference?.imageUrl || '')
+
+    this.setData({
       selectedReferencePresetId: id,
-    })
+      selectedPresetReferenceImageUrl: targetUrl,
+    }, () => this.syncCurrentCost())
+
+    // 如果预设没有图片，仅用文字提示词
+    if (!targetUrl) {
+      wx.showToast({
+        title: '已选择风格，将使用文字描述指导生成',
+        icon: 'none',
+      })
+    }
   },
 
   onSelectStyle(e: PresetTapEvent) {
@@ -664,85 +487,6 @@ Page({
     })
   },
 
-  onImageSlotTap(e: SlotTapEvent) {
-    const slotIndex = Number(e.currentTarget.dataset.slotIndex)
-    const imageUrl = normalizeUploadedImageUrl(e.currentTarget.dataset.imageUrl || '')
-    if (!Number.isFinite(slotIndex) || slotIndex < 0) {
-      return
-    }
-
-    if (imageUrl) {
-      const now = Date.now()
-      if (lastPreviewTapIndex === slotIndex && now - lastPreviewTapAt <= 320) {
-        lastPreviewTapAt = 0
-        lastPreviewTapIndex = -1
-        this.openImagePreview(slotIndex)
-        return
-      }
-      lastPreviewTapAt = now
-      lastPreviewTapIndex = slotIndex
-      return
-    }
-
-    this.chooseAndUploadImageSlot(slotIndex)
-  },
-
-  onReuploadImageSlot(e: SlotTapEvent) {
-    const slotIndex = Number(e.currentTarget.dataset.slotIndex)
-    if (!Number.isFinite(slotIndex) || slotIndex < 0) {
-      return
-    }
-    this.chooseAndUploadImageSlot(slotIndex)
-  },
-
-  onDeleteImageSlot(e: SlotTapEvent) {
-    const slotIndex = Number(e.currentTarget.dataset.slotIndex)
-    if (!Number.isFinite(slotIndex) || slotIndex < 0) {
-      return
-    }
-
-    if (slotIndex === 0) {
-      this.applyWorkbenchImageState({
-        uploadedOriginalImageUrl: '',
-        uploadedOriginalImageName: '',
-      })
-      return
-    }
-
-    const nextReferenceImageUrls = [...this.getReferenceImageUrls()]
-    nextReferenceImageUrls.splice(slotIndex - 1, 1)
-    this.applyWorkbenchImageState({
-      uploadedReferenceImageUrls: nextReferenceImageUrls,
-    })
-  },
-
-  openImagePreview(slotIndex: number) {
-    const orderedImageUrls = this.getOrderedImageUrls()
-    if (!orderedImageUrls.length) {
-      return
-    }
-
-    const hasOriginalImage = !!normalizeUploadedImageUrl(this.data.uploadedOriginalImageUrl)
-    let currentIndex = slotIndex
-    if (!hasOriginalImage && slotIndex > 0) {
-      currentIndex = slotIndex - 1
-    }
-    if (currentIndex < 0 || currentIndex >= orderedImageUrls.length) {
-      currentIndex = 0
-    }
-
-    wx.previewImage({
-      current: orderedImageUrls[currentIndex],
-      urls: orderedImageUrls,
-      fail: () => {
-        wx.showToast({
-          title: '预览失败',
-          icon: 'none',
-        })
-      },
-    })
-  },
-
   getSelectedStyle(): AIToolStylePreset | undefined {
     const tool = this.data.tool
     if (!tool) {
@@ -760,7 +504,7 @@ Page({
     const originalImageUrl = normalizeUploadedImageUrl(this.data.uploadedOriginalImageUrl)
     if (!originalImageUrl) {
       wx.showToast({
-        title: '请先上传原图',
+        title: '请先上传待处理图片',
         icon: 'none',
       })
       return
@@ -772,11 +516,16 @@ Page({
     }
 
     const selectedStyle = this.getSelectedStyle()
-    const referenceImageUrls = this.getReferenceImageUrls()
-    const orderedImageUrls = buildOrderedImageUrls(originalImageUrl, referenceImageUrls)
+    const presetImageUrl = normalizeUploadedImageUrl(this.data.selectedPresetReferenceImageUrl)
+    const hasPreset = this.hasPresetReference()
     const generateCount = this.getCurrentGenerateCount()
     const selectedReferencePresetId = String(this.data.selectedReferencePresetId || '').trim()
-    const referenceSelectionType = resolveReferenceSelectionType(selectedReferencePresetId, referenceImageUrls)
+
+    // 构建 images 数组：原图 + 预设参考图（如有）
+    const imageUrls: string[] = [originalImageUrl]
+    if (presetImageUrl) {
+      imageUrls.push(presetImageUrl)
+    }
 
     if (!this.data.pricingLoaded || this.data.currentUnitCost <= 0 || this.data.currentCost <= 0) {
       wx.showToast({
@@ -814,7 +563,7 @@ Page({
       return
     }
 
-    const scene = referenceImageUrls.length > 0 ? 'ai_draw_multi' : 'ai_draw_single'
+    const scene = hasPreset ? 'ai_draw_multi' : 'ai_draw_single'
     const promptText = String(this.data.promptText || '').trim()
     const payload: Record<string, any> = {
       service_type: DEFAULT_SERVICE_TYPE,
@@ -824,24 +573,19 @@ Page({
       generate_count: generateCount,
       tool_id: normalizeToolId(tool.id),
       user_prompt: promptText,
-      reference_selection_type: referenceSelectionType,
+      reference_selection_type: hasPreset ? 'preset' : 'none',
       reference_preset_id: selectedReferencePresetId,
       style_preset_id: selectedStyle?.id || '',
       original_image_url: originalImageUrl,
-      original_image_urls: [originalImageUrl],
-      ordered_image_urls: orderedImageUrls,
+      image_url: originalImageUrl,
+      images: imageUrls,
     }
 
     if (selectedStyle?.name) {
       payload.style = selectedStyle.name
     }
-    if (orderedImageUrls[0]) {
-      payload.image_url = orderedImageUrls[0]
-      payload.images = orderedImageUrls
-    }
-    if (referenceImageUrls.length > 0) {
-      payload.reference_image_url = referenceImageUrls[0]
-      payload.reference_image_urls = referenceImageUrls
+    if (presetImageUrl) {
+      payload.reference_image_url = presetImageUrl
     }
 
     const requestBody = { scene, payload }
@@ -887,7 +631,7 @@ Page({
       const safePrompt = encodeURIComponent(promptText || tool.name)
       const safeToolId = encodeURIComponent(tool.id)
       wx.navigateTo({
-        url: `/pages/generatedetails/generatedetails?task_no=${taskNo}&prompt=${safePrompt}&tool_id=${safeToolId}${referenceImageUrls[0] ? `&reference_image_url=${encodeURIComponent(referenceImageUrls[0])}` : ''}`,
+        url: `/pages/generatedetails/generatedetails?task_no=${taskNo}&prompt=${safePrompt}&tool_id=${safeToolId}`,
         success: (navRes) => {
           navRes.eventChannel.emit('taskData', {
             id: 0,
@@ -904,10 +648,8 @@ Page({
             task_type: 'ai_draw',
             prompt: promptText || tool.name,
             user_prompt: promptText || tool.name,
-            reference_image_url: referenceImageUrls[0] || '',
-            reference_image_urls: referenceImageUrls,
-            original_image_urls: [originalImageUrl],
-            ordered_image_urls: orderedImageUrls,
+            reference_image_url: presetImageUrl || '',
+            original_image_url: originalImageUrl,
             quality: this.data.selectedQuality,
             canvas: this.data.selectedCanvas,
             tool_id: tool.id,

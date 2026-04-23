@@ -14,7 +14,6 @@ const DEFAULT_CANVAS = '1:1';
 const DEFAULT_GENERATE_COUNT = 1;
 const DEFAULT_DRAW_SINGLE_COST = 0;
 const DEFAULT_DRAW_MULTI_COST = 0;
-const MAX_REFERENCE_IMAGE_COUNT = 5;
 function normalizeUploadedImageUrl(value) {
     const text = String(value || '').trim();
     if (!text) {
@@ -24,83 +23,6 @@ function normalizeUploadedImageUrl(value) {
         return '';
     }
     return text;
-}
-function extractFileName(filePath, fallback) {
-    const normalizedPath = String(filePath || '').trim();
-    if (!normalizedPath) {
-        return fallback;
-    }
-    const segments = normalizedPath.split(/[\\/]/).filter(Boolean);
-    return segments[segments.length - 1] || fallback;
-}
-function normalizeReferenceImageUrls(values) {
-    return (Array.isArray(values) ? values : [])
-        .map((item) => normalizeUploadedImageUrl(item))
-        .filter((item, index, list) => !!item && list.indexOf(item) === index)
-        .slice(0, MAX_REFERENCE_IMAGE_COUNT);
-}
-function buildOrderedImageUrls(originalImageUrl, referenceImageUrls) {
-    return [normalizeUploadedImageUrl(originalImageUrl), ...normalizeReferenceImageUrls(referenceImageUrls)].filter(Boolean);
-}
-function buildWorkbenchImageSlots(originalImageUrl, referenceImageUrls) {
-    const safeOriginalImageUrl = normalizeUploadedImageUrl(originalImageUrl);
-    const safeReferenceImageUrls = normalizeReferenceImageUrls(referenceImageUrls);
-    const slots = [
-        {
-            slotIndex: 0,
-            chipLabel: '图1',
-            roleLabel: '原图',
-            imageUrl: safeOriginalImageUrl,
-            isOriginal: true,
-            required: true,
-            isAddSlot: false,
-        },
-    ];
-    if (safeReferenceImageUrls.length === 0) {
-        slots.push({
-            slotIndex: 1,
-            chipLabel: '图2',
-            roleLabel: '参考图1',
-            imageUrl: '',
-            isOriginal: false,
-            required: false,
-            isAddSlot: false,
-        });
-    }
-    else {
-        safeReferenceImageUrls.forEach((imageUrl, index) => {
-            slots.push({
-                slotIndex: index + 1,
-                chipLabel: `图${index + 2}`,
-                roleLabel: `参考图${index + 1}`,
-                imageUrl,
-                isOriginal: false,
-                required: false,
-                isAddSlot: false,
-            });
-        });
-    }
-    if (safeReferenceImageUrls.length < MAX_REFERENCE_IMAGE_COUNT) {
-        slots.push({
-            slotIndex: Math.min(safeReferenceImageUrls.length + 1, MAX_REFERENCE_IMAGE_COUNT),
-            chipLabel: '',
-            roleLabel: '',
-            imageUrl: '',
-            isOriginal: false,
-            required: false,
-            isAddSlot: true,
-        });
-    }
-    return slots;
-}
-function resolveReferenceSelectionType(selectedReferencePresetId, referenceImageUrls) {
-    if (String(selectedReferencePresetId || '').trim()) {
-        return 'preset';
-    }
-    if (normalizeReferenceImageUrls(referenceImageUrls).length > 0) {
-        return 'custom_upload';
-    }
-    return 'none';
 }
 function normalizeToolId(value) {
     const numericValue = Number(value);
@@ -116,13 +38,10 @@ Page({
         useMinimalPresentation: false,
         selectedStyleId: '',
         selectedReferencePresetId: '',
+        selectedPresetReferenceImageUrl: '',
         promptText: '',
         uploadedOriginalImageUrl: '',
-        uploadedOriginalImageName: '',
-        uploadedReferenceImageUrls: [],
         uploadingOriginal: false,
-        uploadingReference: false,
-        workbenchImageSlots: buildWorkbenchImageSlots('', []),
         generating: false,
         qualityOptions: [
             { label: '2K', value: 'hd', desc: '适合展示' },
@@ -165,7 +84,6 @@ Page({
                 categoryLabel: (0, aiTools_1.getCategoryLabel)(tool.category),
                 useMinimalPresentation: (0, aiToolPresentation_1.shouldUseMinimalAIToolPresentation)(tool),
                 selectedStyleId: tool.stylePresets[0]?.id || '',
-                workbenchImageSlots: buildWorkbenchImageSlots('', []),
             }, () => {
                 this.loadAIPricing();
                 this.loadStoneBalance();
@@ -219,41 +137,11 @@ Page({
         }
         return `本次预计生成 ${selectedGenerateCount} 张，预计消耗 ${currentCost} 灵石。`;
     },
-    getReferenceImageUrls() {
-        return normalizeReferenceImageUrls(this.data.uploadedReferenceImageUrls || []);
-    },
-    getOrderedImageUrls() {
-        return buildOrderedImageUrls(this.data.uploadedOriginalImageUrl, this.getReferenceImageUrls());
-    },
-    applyWorkbenchImageState(nextValues, callback) {
-        const nextOriginalImageUrl = normalizeUploadedImageUrl(Object.prototype.hasOwnProperty.call(nextValues, 'uploadedOriginalImageUrl')
-            ? nextValues.uploadedOriginalImageUrl
-            : this.data.uploadedOriginalImageUrl);
-        const nextReferenceImageUrls = normalizeReferenceImageUrls(Object.prototype.hasOwnProperty.call(nextValues, 'uploadedReferenceImageUrls')
-            ? (nextValues.uploadedReferenceImageUrls || [])
-            : this.data.uploadedReferenceImageUrls);
-        let nextSelectedReferencePresetId = String(Object.prototype.hasOwnProperty.call(nextValues, 'selectedReferencePresetId')
-            ? (nextValues.selectedReferencePresetId || '')
-            : (this.data.selectedReferencePresetId || '')).trim();
-        if (nextSelectedReferencePresetId) {
-            const selectedPreset = this.data.tool?.presetReferences.find((item) => item.id === nextSelectedReferencePresetId);
-            const selectedPresetUrl = normalizeUploadedImageUrl(selectedPreset?.imageUrl || '');
-            if (!selectedPresetUrl || !nextReferenceImageUrls.includes(selectedPresetUrl)) {
-                nextSelectedReferencePresetId = '';
-            }
-        }
-        this.setData({
-            ...nextValues,
-            uploadedOriginalImageUrl: nextOriginalImageUrl,
-            uploadedReferenceImageUrls: nextReferenceImageUrls,
-            selectedReferencePresetId: nextSelectedReferencePresetId,
-            workbenchImageSlots: buildWorkbenchImageSlots(nextOriginalImageUrl, nextReferenceImageUrls),
-        }, () => {
-            this.syncCurrentCost(callback);
-        });
+    hasPresetReference() {
+        return !!normalizeUploadedImageUrl(this.data.selectedPresetReferenceImageUrl);
     },
     getCurrentScene() {
-        return this.getReferenceImageUrls().length > 0 ? 'ai_draw_multi' : 'ai_draw_single';
+        return this.hasPresetReference() ? 'ai_draw_multi' : 'ai_draw_single';
     },
     getCurrentGenerateCount() {
         const currentValue = Number(this.data.selectedGenerateCount || DEFAULT_GENERATE_COUNT);
@@ -412,29 +300,11 @@ Page({
             });
         });
     },
-    chooseAndUploadImageSlot(slotIndex) {
+    onUploadOriginal() {
         const token = this.ensureToken();
         if (!token) {
             return;
         }
-        if (!Number.isFinite(slotIndex) || slotIndex < 0 || slotIndex > MAX_REFERENCE_IMAGE_COUNT) {
-            return;
-        }
-        const isOriginalSlot = slotIndex === 0;
-        const currentReferenceImageUrls = this.getReferenceImageUrls();
-        if (!isOriginalSlot) {
-            const currentSlotUrl = currentReferenceImageUrls[slotIndex - 1] || '';
-            const nextAvailableSlotIndex = currentReferenceImageUrls.length + 1;
-            if (!currentSlotUrl && slotIndex > nextAvailableSlotIndex) {
-                wx.showToast({
-                    title: '请先按顺序补齐前面的参考图',
-                    icon: 'none',
-                });
-                return;
-            }
-        }
-        const loadingTitle = isOriginalSlot ? '上传原图中...' : '上传参考图中...';
-        const stateKey = isOriginalSlot ? 'uploadingOriginal' : 'uploadingReference';
         wx.chooseMedia({
             count: 1,
             mediaType: ['image'],
@@ -445,38 +315,19 @@ Page({
                 if (!tempFilePath) {
                     return;
                 }
-                this.setData({ [stateKey]: true });
-                wx.showLoading({ title: loadingTitle, mask: true });
+                this.setData({ uploadingOriginal: true });
+                wx.showLoading({ title: '上传原图中...', mask: true });
                 try {
                     const uploadedUrl = await this.uploadImageFile(tempFilePath, token);
-                    const uploadedName = extractFileName(tempFilePath, isOriginalSlot ? '原图.jpg' : '参考图.jpg');
-                    if (isOriginalSlot) {
-                        this.applyWorkbenchImageState({
-                            uploadedOriginalImageUrl: uploadedUrl,
-                            uploadedOriginalImageName: uploadedName,
-                        });
-                    }
-                    else {
-                        const nextReferenceImageUrls = [...currentReferenceImageUrls];
-                        nextReferenceImageUrls[slotIndex - 1] = uploadedUrl;
-                        this.applyWorkbenchImageState({
-                            uploadedReferenceImageUrls: nextReferenceImageUrls,
-                        });
-                    }
-                    wx.showToast({
-                        title: '上传成功',
-                        icon: 'success',
-                    });
+                    this.setData({ uploadedOriginalImageUrl: uploadedUrl });
+                    wx.showToast({ title: '上传成功', icon: 'success' });
                 }
                 catch (error) {
-                    wx.showToast({
-                        title: error?.message || '上传失败',
-                        icon: 'none',
-                    });
+                    wx.showToast({ title: error?.message || '上传失败', icon: 'none' });
                 }
                 finally {
                     wx.hideLoading();
-                    this.setData({ [stateKey]: false });
+                    this.setData({ uploadingOriginal: false });
                 }
             },
             fail: (err) => {
@@ -484,10 +335,23 @@ Page({
                 if (message.indexOf('cancel') >= 0) {
                     return;
                 }
-                wx.showToast({
-                    title: '选择图片失败',
-                    icon: 'none',
-                });
+                wx.showToast({ title: '选择图片失败', icon: 'none' });
+            },
+        });
+    },
+    onDeleteOriginal() {
+        this.setData({ uploadedOriginalImageUrl: '' });
+    },
+    onPreviewOriginal() {
+        const url = normalizeUploadedImageUrl(this.data.uploadedOriginalImageUrl);
+        if (!url) {
+            return;
+        }
+        wx.previewImage({
+            current: url,
+            urls: [url],
+            fail: () => {
+                wx.showToast({ title: '预览失败', icon: 'none' });
             },
         });
     },
@@ -497,35 +361,28 @@ Page({
         if (!id || !tool) {
             return;
         }
-        const targetReference = tool.presetReferences.find((item) => item.id === id);
-        const targetReferenceUrl = normalizeUploadedImageUrl(targetReference?.imageUrl || '');
-        if (!targetReferenceUrl) {
-            wx.showToast({
-                title: '当前预设参考图不可用',
-                icon: 'none',
-            });
-            return;
-        }
-        const currentReferenceImageUrls = this.getReferenceImageUrls();
-        const existingIndex = currentReferenceImageUrls.indexOf(targetReferenceUrl);
-        if (existingIndex >= 0) {
+        // 再次点击同一个预设 → 取消选中
+        if (this.data.selectedReferencePresetId === id) {
             this.setData({
-                selectedReferencePresetId: id,
-            });
-            this.openImagePreview(existingIndex + 1);
+                selectedReferencePresetId: '',
+                selectedPresetReferenceImageUrl: '',
+            }, () => this.syncCurrentCost());
             return;
         }
-        if (currentReferenceImageUrls.length >= MAX_REFERENCE_IMAGE_COUNT) {
+        // 选中新的预设
+        const targetReference = tool.presetReferences.find((item) => item.id === id);
+        const targetUrl = normalizeUploadedImageUrl(targetReference?.imageUrl || '');
+        this.setData({
+            selectedReferencePresetId: id,
+            selectedPresetReferenceImageUrl: targetUrl,
+        }, () => this.syncCurrentCost());
+        // 如果预设没有图片，仅用文字提示词
+        if (!targetUrl) {
             wx.showToast({
-                title: `最多添加 ${MAX_REFERENCE_IMAGE_COUNT} 张参考图`,
+                title: '已选择风格，将使用文字描述指导生成',
                 icon: 'none',
             });
-            return;
         }
-        this.applyWorkbenchImageState({
-            uploadedReferenceImageUrls: [...currentReferenceImageUrls, targetReferenceUrl],
-            selectedReferencePresetId: id,
-        });
     },
     onSelectStyle(e) {
         const id = String(e.currentTarget.dataset.id || '');
@@ -572,75 +429,6 @@ Page({
             promptText: String(e.detail.value || ''),
         });
     },
-    onImageSlotTap(e) {
-        const slotIndex = Number(e.currentTarget.dataset.slotIndex);
-        const imageUrl = normalizeUploadedImageUrl(e.currentTarget.dataset.imageUrl || '');
-        if (!Number.isFinite(slotIndex) || slotIndex < 0) {
-            return;
-        }
-        if (imageUrl) {
-            const now = Date.now();
-            if (this.lastPreviewTapIndex === slotIndex && now - this.lastPreviewTapAt <= 320) {
-                this.lastPreviewTapAt = 0;
-                this.lastPreviewTapIndex = -1;
-                this.openImagePreview(slotIndex);
-                return;
-            }
-            this.lastPreviewTapAt = now;
-            this.lastPreviewTapIndex = slotIndex;
-            return;
-        }
-        this.chooseAndUploadImageSlot(slotIndex);
-    },
-    onReuploadImageSlot(e) {
-        const slotIndex = Number(e.currentTarget.dataset.slotIndex);
-        if (!Number.isFinite(slotIndex) || slotIndex < 0) {
-            return;
-        }
-        this.chooseAndUploadImageSlot(slotIndex);
-    },
-    onDeleteImageSlot(e) {
-        const slotIndex = Number(e.currentTarget.dataset.slotIndex);
-        if (!Number.isFinite(slotIndex) || slotIndex < 0) {
-            return;
-        }
-        if (slotIndex === 0) {
-            this.applyWorkbenchImageState({
-                uploadedOriginalImageUrl: '',
-                uploadedOriginalImageName: '',
-            });
-            return;
-        }
-        const nextReferenceImageUrls = [...this.getReferenceImageUrls()];
-        nextReferenceImageUrls.splice(slotIndex - 1, 1);
-        this.applyWorkbenchImageState({
-            uploadedReferenceImageUrls: nextReferenceImageUrls,
-        });
-    },
-    openImagePreview(slotIndex) {
-        const orderedImageUrls = this.getOrderedImageUrls();
-        if (!orderedImageUrls.length) {
-            return;
-        }
-        const hasOriginalImage = !!normalizeUploadedImageUrl(this.data.uploadedOriginalImageUrl);
-        let currentIndex = slotIndex;
-        if (!hasOriginalImage && slotIndex > 0) {
-            currentIndex = slotIndex - 1;
-        }
-        if (currentIndex < 0 || currentIndex >= orderedImageUrls.length) {
-            currentIndex = 0;
-        }
-        wx.previewImage({
-            current: orderedImageUrls[currentIndex],
-            urls: orderedImageUrls,
-            fail: () => {
-                wx.showToast({
-                    title: '预览失败',
-                    icon: 'none',
-                });
-            },
-        });
-    },
     getSelectedStyle() {
         const tool = this.data.tool;
         if (!tool) {
@@ -656,7 +444,7 @@ Page({
         const originalImageUrl = normalizeUploadedImageUrl(this.data.uploadedOriginalImageUrl);
         if (!originalImageUrl) {
             wx.showToast({
-                title: '请先上传原图',
+                title: '请先上传待处理图片',
                 icon: 'none',
             });
             return;
@@ -666,11 +454,15 @@ Page({
             return;
         }
         const selectedStyle = this.getSelectedStyle();
-        const referenceImageUrls = this.getReferenceImageUrls();
-        const orderedImageUrls = buildOrderedImageUrls(originalImageUrl, referenceImageUrls);
+        const presetImageUrl = normalizeUploadedImageUrl(this.data.selectedPresetReferenceImageUrl);
+        const hasPreset = !!presetImageUrl || !!this.data.selectedReferencePresetId;
         const generateCount = this.getCurrentGenerateCount();
         const selectedReferencePresetId = String(this.data.selectedReferencePresetId || '').trim();
-        const referenceSelectionType = resolveReferenceSelectionType(selectedReferencePresetId, referenceImageUrls);
+        // 构建 images 数组：原图 + 预设参考图（如有）
+        const imageUrls = [originalImageUrl];
+        if (presetImageUrl) {
+            imageUrls.push(presetImageUrl);
+        }
         if (!this.data.pricingLoaded || this.data.currentUnitCost <= 0 || this.data.currentCost <= 0) {
             wx.showToast({
                 title: '计费信息加载中，请稍后再试',
@@ -706,7 +498,7 @@ Page({
             });
             return;
         }
-        const scene = referenceImageUrls.length > 0 ? 'ai_draw_multi' : 'ai_draw_single';
+        const scene = hasPreset ? 'ai_draw_multi' : 'ai_draw_single';
         const promptText = String(this.data.promptText || '').trim();
         const payload = {
             service_type: DEFAULT_SERVICE_TYPE,
@@ -716,23 +508,18 @@ Page({
             generate_count: generateCount,
             tool_id: normalizeToolId(tool.id),
             user_prompt: promptText,
-            reference_selection_type: referenceSelectionType,
+            reference_selection_type: hasPreset ? 'preset' : 'none',
             reference_preset_id: selectedReferencePresetId,
             style_preset_id: selectedStyle?.id || '',
             original_image_url: originalImageUrl,
-            original_image_urls: [originalImageUrl],
-            ordered_image_urls: orderedImageUrls,
+            image_url: originalImageUrl,
+            images: imageUrls,
         };
         if (selectedStyle?.name) {
             payload.style = selectedStyle.name;
         }
-        if (orderedImageUrls[0]) {
-            payload.image_url = orderedImageUrls[0];
-            payload.images = orderedImageUrls;
-        }
-        if (referenceImageUrls.length > 0) {
-            payload.reference_image_url = referenceImageUrls[0];
-            payload.reference_image_urls = referenceImageUrls;
+        if (presetImageUrl) {
+            payload.reference_image_url = presetImageUrl;
         }
         const requestBody = { scene, payload };
         const apiPath = '/api/v1/miniprogram/ai/draw';
@@ -775,7 +562,7 @@ Page({
             const safePrompt = encodeURIComponent(promptText || tool.name);
             const safeToolId = encodeURIComponent(tool.id);
             wx.navigateTo({
-                url: `/pages/generatedetails/generatedetails?task_no=${taskNo}&prompt=${safePrompt}&tool_id=${safeToolId}${referenceImageUrls[0] ? `&reference_image_url=${encodeURIComponent(referenceImageUrls[0])}` : ''}`,
+                url: `/pages/generatedetails/generatedetails?task_no=${taskNo}&prompt=${safePrompt}&tool_id=${safeToolId}`,
                 success: (navRes) => {
                     navRes.eventChannel.emit('taskData', {
                         id: 0,
@@ -792,10 +579,8 @@ Page({
                         task_type: 'ai_draw',
                         prompt: promptText || tool.name,
                         user_prompt: promptText || tool.name,
-                        reference_image_url: referenceImageUrls[0] || '',
-                        reference_image_urls: referenceImageUrls,
-                        original_image_urls: [originalImageUrl],
-                        ordered_image_urls: orderedImageUrls,
+                        reference_image_url: presetImageUrl || '',
+                        original_image_url: originalImageUrl,
                         quality: this.data.selectedQuality,
                         canvas: this.data.selectedCanvas,
                         tool_id: tool.id,

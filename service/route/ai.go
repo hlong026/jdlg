@@ -166,6 +166,27 @@ func joinPromptSegments(parts ...string) string {
 	return strings.Join(result, "，")
 }
 
+// extractStringArrayFromPayload 从 payload 中提取字符串数组
+func extractStringArrayFromPayload(payload map[string]interface{}, key string) []string {
+	value, ok := payload[key]
+	if !ok {
+		return nil
+	}
+	switch arr := value.(type) {
+	case []string:
+		return arr
+	case []interface{}:
+		result := make([]string, 0, len(arr))
+		for _, item := range arr {
+			if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
+				result = append(result, strings.TrimSpace(s))
+			}
+		}
+		return result
+	}
+	return nil
+}
+
 func enrichAIToolPayload(payload map[string]interface{}, aiToolModel *model.AIToolModel) (int64, error) {
 	if payload == nil || aiToolModel == nil {
 		return 0, nil
@@ -193,6 +214,24 @@ func enrichAIToolPayload(payload map[string]interface{}, aiToolModel *model.AITo
 		payload["reference_preset_id"] = selectedReference.ID
 		payload["reference_preset_name"] = selectedReference.Name
 		payload["reference_prompt_suffix"] = selectedReference.PromptSuffix
+		// 将预设参考图 URL 补充到 images 数组（仅在前端未传时补充，避免覆盖）
+		refImageURL := strings.TrimSpace(selectedReference.ImageURL)
+		if refImageURL != "" {
+			existingImages := extractStringArrayFromPayload(payload, "images")
+			alreadyHasRef := false
+			for _, u := range existingImages {
+				if strings.TrimSpace(u) == refImageURL {
+					alreadyHasRef = true
+					break
+				}
+			}
+			if !alreadyHasRef {
+				origURL := getStringFromPayload(payload, "original_image_url")
+				if origURL != "" {
+					payload["images"] = append(existingImages, refImageURL)
+				}
+			}
+		}
 	}
 	if selectedStyle != nil {
 		payload["style_preset_id"] = selectedStyle.ID
