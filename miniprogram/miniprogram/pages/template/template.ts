@@ -366,6 +366,11 @@ function matchesThirdTab(item: TemplateApiListItem, thirdTab?: SubTabItem): bool
   return String(item?.third_tab || '').trim() === String(thirdTab.value || '').trim();
 }
 
+void TEMPLATE_SUB_TAB_MAP;
+void getTemplateFilterText;
+void matchesMainTabKeywords;
+void matchesThirdTab;
+
 function isInspirationMainTab(mainTab: MainTabItem | undefined): boolean {
   if (!mainTab) {
     return false;
@@ -697,8 +702,8 @@ Page({
     };
   },
 
-  getCurrentMainTab(): MainTabItem | undefined {
-    return this.data.mainTabs[this.data.currentMainTabIndex] || this.data.mainTabs[0];
+  getCurrentMainTab(): MainTabItem {
+    return this.data.mainTabs[this.data.currentMainTabIndex] || this.data.mainTabs[0] || TEMPLATE_MAIN_TABS[0];
   },
 
   getCurrentSubTab(): SubTabItem | undefined {

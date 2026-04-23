@@ -38,6 +38,9 @@ const DEFAULT_SUB_TABS: TabItem[] = [
   { label: '案例精选', value: 'selected_cases', parent: 'inspiration' },
 ];
 
+void DEFAULT_MAIN_TABS;
+void DEFAULT_SUB_TABS;
+
 function normalizeMainTabs(raw: any): TabItem[] {
   if (!Array.isArray(raw)) {
     return [];

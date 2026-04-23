@@ -173,6 +173,9 @@ const PUBLISH_TEMPLATE_SUB_TOPICS: PublishTabItem[] = [
   { label: '案例精选', value: 'selected_cases', parent: 'inspiration' },
 ];
 
+void PUBLISH_TEMPLATE_TOPICS;
+void PUBLISH_TEMPLATE_SUB_TOPICS;
+
 function normalizePublishMainTabs(list: any): PublishTabItem[] {
   const normalized = (Array.isArray(list) ? list : [])
     .map((item) => ({
