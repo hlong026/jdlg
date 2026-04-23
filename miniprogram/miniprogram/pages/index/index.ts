@@ -1,6 +1,6 @@
 // index.ts
 // 获取应用实例
-import { resolveAssetPath } from '../../utils/asset'
+import { resolveAssetPath, normalizeCosUrl } from '../../utils/asset'
 import { getPageCache, prefetchImages, setPageCache } from '../../utils/perf'
 import {
   DEFAULT_ENTERPRISE_SERVICE_PHONE,
@@ -140,7 +140,7 @@ Page({
       return id > 0 && list.findIndex((candidate) => Number(candidate?.id || 0) === id) === index;
     });
 
-    void prefetchImages(uniqueCases.map((item) => item.thumbnail || item.preview_url || ''), 2);
+    void prefetchImages(uniqueCases.map((item) => normalizeCosUrl(item.thumbnail || item.preview_url || '')), 2);
     uniqueCases.slice(0, 2).forEach((item) => {
       const templateId = Number(item?.id || 0);
       const cacheKey = buildTemplateDetailCacheKey(templateId);
@@ -156,7 +156,7 @@ Page({
           const body = response?.data || {};
           if (response?.statusCode === 200 && body.code === 0 && body.data) {
             setPageCache(cacheKey, body.data, TEMPLATE_DETAIL_CACHE_TTL);
-            void prefetchImages([body.data.preview_url || '', body.data.thumbnail || ''], 2);
+            void prefetchImages([normalizeCosUrl(body.data.preview_url || ''), normalizeCosUrl(body.data.thumbnail || '')], 2);
           }
         },
         complete: () => {

@@ -1,4 +1,5 @@
 import { getPageCache, prefetchImages, setPageCache } from '../../utils/perf';
+import { normalizeCosUrl } from '../../utils/asset';
 
 const API_BASE_URL = 'https://api.jiadilingguang.com';
 
@@ -140,12 +141,14 @@ Page({
   },
 
   applyDetail(detail: InspirationDetail) {
+    const normalizedImages = (Array.isArray(detail.images) ? detail.images : []).map((img: string) => normalizeCosUrl(img));
+    const normalizedCover = normalizeCosUrl(detail.cover_image || '');
     this.setData({
       detail,
-      currentImage: detail.images?.[0] || detail.cover_image || '',
+      currentImage: normalizedImages[0] || normalizedCover || '',
       loading: false,
     });
-    void prefetchImages([detail.cover_image || '', ...(Array.isArray(detail.images) ? detail.images : [])], 2);
+    void prefetchImages([normalizedCover, ...normalizedImages], 2);
   },
 
   async loadDetail(silent = false) {

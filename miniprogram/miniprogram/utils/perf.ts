@@ -18,8 +18,13 @@ function trimMap<K, V>(map: Map<K, V>, maxSize: number) {
   }
 }
 
+import { normalizeCosUrl } from './asset';
+
 function normalizeUrl(url: unknown): string {
-  return typeof url === 'string' ? url.trim() : '';
+  if (typeof url !== 'string') {
+    return '';
+  }
+  return normalizeCosUrl(url.trim());
 }
 
 export function getPageCache<T>(key: string): T | null {

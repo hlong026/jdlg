@@ -1,7 +1,7 @@
 ﻿// pages/templatesquaredetails/templatesquaredetails.ts
 import { generateRequestParams, paramsToHeaders } from '../../utils/parameter';
 import { getCachedDeviceFingerprint } from '../../utils/deviceFingerprint';
-import { resolveAssetPath } from '../../utils/asset';
+import { resolveAssetPath, normalizeCosUrl } from '../../utils/asset';
 import { getPageCache, prefetchImages, setPageCache } from '../../utils/perf';
 
 // API基础地址
@@ -878,7 +878,7 @@ Page({
                 return;
               }
               if (img && typeof img === 'object') {
-                const imageUrl = img.image || img.url || img.preview_url || '';
+                const imageUrl = normalizeCosUrl(img.image || img.url || img.preview_url || '');
                 if (typeof imageUrl === 'string' && imageUrl) {
                   imageList.push(imageUrl);
                 }
@@ -890,7 +890,7 @@ Page({
         }
       }
 
-      let mainImage = res.preview_url || res.thumbnail || '';
+      let mainImage = normalizeCosUrl(res.preview_url || res.thumbnail || '');
       if (!mainImage && imageList.length > 0) {
         mainImage = imageList[0];
       }
