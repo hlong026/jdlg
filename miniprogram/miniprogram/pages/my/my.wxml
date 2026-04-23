@@ -6,7 +6,7 @@
     type="2d" 
     style="position: fixed; left: -9999px; width: 100px; height: 100px;"
   ></canvas>
-  <image class="page-background" src="{{pageBgImage}}" mode="widthFix" />
+  <image class="page-background" src="{{pageBgImage}}" mode="widthFix" lazy-load />
 
   <!-- 统一导航栏（Tab页不显示返回按钮） -->
   <navigation-bar back="{{false}}" background="#e6daca" />

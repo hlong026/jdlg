@@ -6,6 +6,9 @@ const deviceFingerprint_1 = require("../../utils/deviceFingerprint");
 const asset_1 = require("../../utils/asset");
 // API基础地址
 const API_BASE_URL = 'https://api.jiadilingguang.com'; // 根据实际情况修改
+const PAGE_BACKGROUND_TOP = '#e6daca';
+const PAGE_BACKGROUND_BOTTOM = '#ece4d9';
+const CERTIFICATION_REFRESH_INTERVAL = 10000;
 function hasDesignerWorkbenchAccess(options) {
     return !!options.hasLoginToken
         && String(options.certStatus || '') === 'approved'
@@ -136,11 +139,15 @@ Page({
         lastProfileRefreshTime: 0,
         lastProfileRefreshToken: '',
         lastProfileRefreshInterval: 60000, // 1分钟
+        lastCertificationRefreshTime: 0,
+        lastCertificationRefreshToken: '',
+        certificationRefreshInterval: CERTIFICATION_REFRESH_INTERVAL,
     },
     /**
      * 生命周期函数--监听页面加载
      */
     onLoad() {
+        this.syncWindowBackground();
         this.initDeviceId();
         this.loadUserData(true);
     },
@@ -153,7 +160,18 @@ Page({
             tabBar.setCurrent(3);
         }
     },
+    syncWindowBackground() {
+        if (typeof wx.setBackgroundColor !== 'function') {
+            return;
+        }
+        wx.setBackgroundColor({
+            backgroundColor: PAGE_BACKGROUND_BOTTOM,
+            backgroundColorTop: PAGE_BACKGROUND_TOP,
+            backgroundColorBottom: PAGE_BACKGROUND_BOTTOM,
+        });
+    },
     onShow() {
+        this.syncWindowBackground();
         this.syncTabBar();
         this.loadUserData();
         if (this.isLoggedIn()) {
@@ -244,7 +262,7 @@ Page({
                 this.loadStones();
                 this.loadTaskHistory();
                 this.loadUserProfile();
-                this.loadCertificationStatus();
+                this.loadCertificationStatus(true);
             }
         }
         else {
@@ -269,16 +287,29 @@ Page({
                 vipLevelText: 'VIP --',
                 lastProfileRefreshTime: 0,
                 lastProfileRefreshToken: '',
+                lastCertificationRefreshTime: 0,
+                lastCertificationRefreshToken: '',
             });
         }
     },
     /**
      * 加载认证状态与实名信息
      */
-    async loadCertificationStatus() {
+    async loadCertificationStatus(force = false) {
         const token = this.data.token;
         if (!token)
             return;
+        const lastRefreshTime = Number(this.data.lastCertificationRefreshTime || 0);
+        const refreshInterval = Number(this.data.certificationRefreshInterval || CERTIFICATION_REFRESH_INTERVAL);
+        if (!force
+            && this.data.lastCertificationRefreshToken === token
+            && Date.now() - lastRefreshTime < refreshInterval) {
+            return;
+        }
+        this.setData({
+            lastCertificationRefreshTime: Date.now(),
+            lastCertificationRefreshToken: token,
+        });
         try {
             const apiPath = '/api/v1/miniprogram/certification/status';
             const headers = this.getAuthHeaders(apiPath);
