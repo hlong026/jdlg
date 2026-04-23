@@ -391,13 +391,13 @@ const Templates: React.FC = () => {
             await putTemplateTabConfig(payload);
             lastSavedTabConfigRef.current = serializeTabConfig(mainTabs, subTabs, thirdTabs);
             setTabConfigSaveState('saved');
-            setTabConfigSaveMessage(options?.silent ? '宸茶嚜鍔ㄤ繚瀛? : '淇濆瓨鎴愬姛');
+            setTabConfigSaveMessage(options?.silent ? '已自动保存' : '保存成功');
             if (!options?.silent) {
-                alert('淇濆瓨鎴愬姛');
+                alert('保存成功');
             }
             return true;
         } catch (e: any) {
-            const message = e?.message || '淇濆瓨澶辫触';
+            const message = e?.message || '保存失败';
             setTabConfigSaveState('error');
             setTabConfigSaveMessage(message);
             if (!options?.silent) {
@@ -478,17 +478,17 @@ const Templates: React.FC = () => {
 
     const getStatusLabel = (status: string) => {
         const statusMap: Record<string, { label: string; className: string }> = {
-            published: { label: '宸插彂甯?, className: 'status-published' },
-            pending: { label: '寰呭鏍?, className: 'status-pending' },
+            published: { label: '已发布', className: 'status-published' },
+            pending: { label: '待审核', className: 'status-pending' },
             draft: { label: '鑽夌', className: 'status-draft' },
-            rejected: { label: '宸叉嫆缁?, className: 'status-draft' },
-            archived: { label: '宸插綊妗?, className: 'status-archived' },
+            rejected: { label: '已拒绝', className: 'status-draft' },
+            archived: { label: '已归档', className: 'status-archived' },
         };
         return statusMap[status] || { label: status, className: '' };
     };
 
     const getPublishScopeLabel = (publishScope?: string) => {
-        return publishScope === 'homepage_only' ? '浠呬富椤靛睍绀? : '涓婚〉 + 妯℃澘骞垮満';
+        return publishScope === 'homepage_only' ? '仅首页展示' : '首页 + 模板广场';
     };
 
     const getSourceTypeLabel = (sourceType?: string) => {
@@ -575,7 +575,7 @@ const Templates: React.FC = () => {
     const handleSaveEdit = async () => {
         if (!selectedTemplate) return;
         if (!formData.name.trim()) {
-            alert('璇峰～鍐欏悕绉?);
+            alert('请填写名称');
             return;
         }
         setActionLoading(selectedTemplate.id);
@@ -601,7 +601,7 @@ const Templates: React.FC = () => {
             setShowEditModal(false);
             setSelectedTemplate(null);
         } catch (e: any) {
-            alert(e?.message || '鏇存柊澶辫触');
+            alert(e?.message || '更新失败');
         } finally {
             setActionLoading(null);
         }
@@ -609,7 +609,7 @@ const Templates: React.FC = () => {
 
     const handleAddTemplate = async () => {
         if (!formData.name.trim()) {
-            alert('璇峰～鍐欏悕绉?);
+            alert('请填写名称');
             return;
         }
         setActionLoading('add');
@@ -635,21 +635,21 @@ const Templates: React.FC = () => {
             setFormData(defaultForm);
             loadTemplates();
         } catch (e: any) {
-            alert(e?.message || '鍒涘缓澶辫触');
+            alert(e?.message || '创建失败');
         } finally {
             setActionLoading(null);
         }
     };
 
     const handleDelete = async (templateId: string) => {
-        if (!window.confirm('纭畾瑕佸垹闄よ繖涓ā鏉垮悧锛熸鎿嶄綔涓嶅彲鎭㈠锛?)) return;
+        if (!window.confirm('确定要删除这个模板吗？此操作不可恢复。')) return;
         setActionLoading(templateId);
         try {
             await deleteTemplate(templateId);
             setTemplates(templates.filter(t => t.id !== templateId));
         } catch (error) {
             console.error('鍒犻櫎澶辫触:', error);
-            alert('鍒犻櫎澶辫触');
+            alert('删除失败');
         } finally {
             setActionLoading(null);
         }
@@ -663,14 +663,14 @@ const Templates: React.FC = () => {
             if (selectedTemplate?.id === template.id) setSelectedTemplate({ ...selectedTemplate, status: 'published', rejectReason: '' });
         } catch (error) {
             console.error('瀹℃牳閫氳繃澶辫触:', error);
-            alert('鎿嶄綔澶辫触');
+            alert('操作失败');
         } finally {
             setActionLoading(null);
         }
     };
 
     const handleReject = async (template: Template) => {
-        const rejectReason = window.prompt('璇疯緭鍏ユ嫆缁濆師鍥狅紙浼氬洖浼犵粰璁捐甯堬級', template.rejectReason || '');
+        const rejectReason = window.prompt('请输入拒绝原因（会回传给设计师）', template.rejectReason || '');
         if (rejectReason === null) {
             return;
         }
@@ -681,7 +681,7 @@ const Templates: React.FC = () => {
             if (selectedTemplate?.id === template.id) setSelectedTemplate({ ...selectedTemplate, status: 'rejected', rejectReason });
         } catch (error) {
             console.error('瀹℃牳鎷掔粷澶辫触:', error);
-            alert('鎿嶄綔澶辫触');
+            alert('操作失败');
         } finally {
             setActionLoading(null);
         }
@@ -701,7 +701,7 @@ const Templates: React.FC = () => {
             setShowMoveCategoryModal(false);
             setMoveTargetTemplate(null);
         } catch (e: any) {
-            alert(e?.message || '绉诲姩澶辫触');
+            alert(e?.message || '移动失败');
         } finally {
             setActionLoading(null);
         }
@@ -709,7 +709,7 @@ const Templates: React.FC = () => {
 
     const handleAddCategory = async () => {
         if (!categoryForm.id.trim() || !categoryForm.name.trim()) {
-            alert('璇峰～鍐欏垎绫籌D鍜屽悕绉帮紙ID 寤鸿鑻辨枃锛屽 villa銆乽rban锛?);
+            alert('请填写分类 ID 和名称（ID 建议英文，例如 villa、urban）');
             return;
         }
         try {
@@ -721,17 +721,17 @@ const Templates: React.FC = () => {
             setCategoryForm({ id: '', name: '', sort_order: categories.length + 1 });
             loadCategories();
         } catch (e: any) {
-            alert(e?.message || '鍒涘缓鍒嗙被澶辫触');
+            alert(e?.message || '创建分类失败');
         }
     };
 
     const handleDeleteCategory = async (id: string) => {
-        if (!window.confirm('纭畾鍒犻櫎璇ュ垎绫伙紵鑻ヨ鍒嗙被涓嬫湁妯℃澘锛屽皢鏃犳硶鍒犻櫎銆?)) return;
+        if (!window.confirm('确定删除该分类？如果该分类下还有模板，将无法删除。')) return;
         try {
             await deleteTemplateCategory(id);
             loadCategories();
         } catch (e: any) {
-            alert(e?.message || '鍒犻櫎澶辫触');
+            alert(e?.message || '删除失败');
         }
     };
 
@@ -741,7 +741,7 @@ const Templates: React.FC = () => {
             await setTemplateFeatured(template.id, isFeatured);
             await loadTemplates();
         } catch (e: any) {
-            alert(e?.message || '鎿嶄綔澶辫触');
+            alert(e?.message || '操作失败');
         } finally {
             setActionLoading(null);
         }
@@ -763,11 +763,11 @@ const Templates: React.FC = () => {
 
     const handleCreateFeaturedGroup = async () => {
         if (!featuredGroupForm.name.trim() || !featuredGroupForm.case1_id) {
-            alert('璇峰～鍐欑粍鍚嶇О鍜岄€夋嫨绗竴涓渚?);
+            alert('请填写组名称并选择第一个案例');
             return;
         }
         if (featuredGroupForm.display_mode !== 'normal' && !featuredGroupForm.case2_id) {
-            alert('瀵规瘮妯″紡鍜屽苟鎺掓ā寮忛渶瑕侀€夋嫨涓や釜妗堜緥');
+            alert('对比模式和并排模式需要选择两个案例');
             return;
         }
         setActionLoading('create-group');
@@ -793,7 +793,7 @@ const Templates: React.FC = () => {
             });
             await loadFeaturedGroups();
         } catch (e: any) {
-            alert(e?.message || '鍒涘缓澶辫触');
+            alert(e?.message || '创建失败');
         } finally {
             setActionLoading(null);
         }
@@ -802,11 +802,11 @@ const Templates: React.FC = () => {
     const handleUpdateFeaturedGroup = async () => {
         if (!selectedFeaturedGroup) return;
         if (!featuredGroupForm.name.trim() || !featuredGroupForm.case1_id) {
-            alert('璇峰～鍐欑粍鍚嶇О鍜岄€夋嫨绗竴涓渚?);
+            alert('请填写组名称并选择第一个案例');
             return;
         }
         if (featuredGroupForm.display_mode !== 'normal' && !featuredGroupForm.case2_id) {
-            alert('瀵规瘮妯″紡鍜屽苟鎺掓ā寮忛渶瑕侀€夋嫨涓や釜妗堜緥');
+            alert('对比模式和并排模式需要选择两个案例');
             return;
         }
         setActionLoading('update-group');
@@ -824,20 +824,20 @@ const Templates: React.FC = () => {
             setSelectedFeaturedGroup(null);
             await loadFeaturedGroups();
         } catch (e: any) {
-            alert(e?.message || '鏇存柊澶辫触');
+            alert(e?.message || '更新失败');
         } finally {
             setActionLoading(null);
         }
     };
 
     const handleDeleteFeaturedGroup = async (groupId: number) => {
-        if (!window.confirm('纭畾瑕佸垹闄よ繖涓簿閫夋渚嬬粍鍚楋紵')) return;
+        if (!window.confirm('确定要删除这个精选案例组吗？')) return;
         setActionLoading(`group-${groupId}`);
         try {
             await deleteFeaturedCaseGroup(String(groupId));
             await loadFeaturedGroups();
         } catch (e: any) {
-            alert(e?.message || '鍒犻櫎澶辫触');
+            alert(e?.message || '删除失败');
         } finally {
             setActionLoading(null);
         }
@@ -864,15 +864,15 @@ const Templates: React.FC = () => {
                 <div className="templates-toolbar section-card">
                     <div className="templates-toolbar-top">
                         <div className="toolbar-title-block">
-                            <h3>妯℃澘妫€绱笌鍐呭杩愯惀</h3>
-                            <p>鍏堟寜鍏抽敭璇嶃€佸垎绫诲拰鐘舵€佺缉灏忚寖鍥达紝鍐嶅喅瀹氭槸鍋氭ā鏉垮鏍搞€佸垎绫绘暣鐞嗭紝杩樻槸璋冩暣棣栭〉绮鹃€夋渚嬩笌鍙岄噸 Tab 缁撴瀯銆?/p>
+                            <h3>模板检索与内容运营</h3>
+                            <p>先按关键词、分类和状态缩小范围，再决定是做模板审核、分类整理，还是调整首页精选案例与标签结构。</p>
                         </div>
                         <div className="toolbar-actions management-actions">
                             <button className="btn-secondary" onClick={() => { setFeaturedGroupSectionOpen(!featuredGroupSectionOpen); if (!featuredGroupSectionOpen) loadFeaturedGroups(); }}>
-                                馃搵 绮鹃€夋渚嬬粍绠＄悊
+                                精选案例组管理
                             </button>
                             <button className="btn-secondary" onClick={() => { setTabConfigSectionOpen(!tabConfigSectionOpen); if (!tabConfigSectionOpen) loadTabConfig(); }}>
-                                鍙岄噸 Tab 璁剧疆
+                                标签配置
                             </button>
                             <button className="btn-secondary" onClick={() => setCategorySectionOpen(!categorySectionOpen)}>
                                 <FiFolderIcon /> 鍒嗙被绠＄悊
@@ -887,7 +887,7 @@ const Templates: React.FC = () => {
                                     setShowAddModal(true);
                                 }}
                             >
-                                <FiPlusIcon /> 娣诲姞妯℃澘
+                                <FiPlusIcon /> 添加模板
                             </button>
                         </div>
                     </div>
@@ -923,12 +923,12 @@ const Templates: React.FC = () => {
                                 value={statusFilter}
                                 onChange={(e) => setStatusFilter(e.target.value)}
                             >
-                                <option value="all">鍏ㄩ儴鐘舵€?/option>
-                                <option value="pending">寰呭鏍?/option>
-                                <option value="published">宸插彂甯?/option>
+                                <option value="all">全部状态</option>
+                                <option value="pending">待审核</option>
+                                <option value="published">已发布</option>
                                 <option value="draft">鑽夌</option>
-                                <option value="rejected">宸叉嫆缁?/option>
-                                <option value="archived">宸插綊妗?/option>
+                                <option value="rejected">已拒绝</option>
+                                <option value="archived">已归档</option>
                             </select>
                         </div>
                     </div>
@@ -936,27 +936,27 @@ const Templates: React.FC = () => {
                         <div className="toolbar-summary">
                             褰撳墠鏄剧ず <strong>{filteredTemplates.length}</strong> / {templates.length} 涓ā鏉?
                             {searchKeyword ? <span className="summary-tag">鍏抽敭璇嶏細{searchKeyword}</span> : null}
-                            {categoryFilter !== 'all' ? <span className="summary-tag">鍒嗙被锛歿getCategoryLabel(categoryFilter)}</span> : null}
-                            {statusFilter !== 'all' ? <span className="summary-tag">鐘舵€侊細{getStatusLabel(statusFilter).label}</span> : null}
+                            {categoryFilter !== 'all' ? <span className="summary-tag">分类：{getCategoryLabel(categoryFilter)}</span> : null}
+                            {statusFilter !== 'all' ? <span className="summary-tag">状态：{getStatusLabel(statusFilter).label}</span> : null}
                         </div>
                         <div className="toolbar-actions search-actions">
-                            <button className="btn-secondary" onClick={handleResetSearch}>閲嶇疆绛涢€?/button>
-                            <button className="btn-primary" onClick={handleSearch}>鎼滅储妯℃澘</button>
+                            <button className="btn-secondary" onClick={handleResetSearch}>重置筛选</button>
+                            <button className="btn-primary" onClick={handleSearch}>搜索模板</button>
                         </div>
                     </div>
                 </div>
 
                 {tabConfigSectionOpen && (
                     <div className="section-card tab-config-management">
-                        <h4>妯℃澘骞垮満鍙岄噸 Tab锛堝皬绋嬪簭绔粠鎺ュ彛鑾峰彇锛?/h4>
+                        <h4>模板广场标签配置（小程序与发布页统一读取）</h4>
                         <div className="tab-config-grid">
                             <div className="tab-config-block">
-                                <h5>涓€绾?Tab锛坢ain_tabs锛?/h5>
+                                <h5>一级标签（main_tabs）</h5>
                                 {mainTabs.map((t, i) => (
                                     <div key={i} className="tab-config-row">
                                         <input
                                             className="form-input small"
-                                            placeholder="灞曠ず鍚?
+                                            placeholder="显示名"
                                             value={t.label}
                                             onChange={(e) => updateMainTabLabel(i, e.target.value)}
                                         />
@@ -966,22 +966,22 @@ const Templates: React.FC = () => {
                                             value={t.value}
                                             onChange={(e) => updateMainTabValue(i, e.target.value)}
                                         />
-                                        <button type="button" className="btn-action btn-delete" onClick={() => removeMainTab(i)} title="鍒犻櫎">
+                                        <button type="button" className="btn-action btn-delete" onClick={() => removeMainTab(i)} title="删除">
                                             <FiTrash2Icon size={14} />
                                         </button>
                                     </div>
                                 ))}
                                 <button type="button" className="btn-secondary btn-sm" onClick={addMainTab}>
-                                    鏂板涓€绾?Tab
+                                    新增一级标签
                                 </button>
                             </div>
                             <div className="tab-config-block">
-                                <h5>浜岀骇 Tab锛坰ub_tabs锛屽繀椤婚毝灞炰簬鐖禩ab锛?/h5>
+                                <h5>二级标签（sub_tabs，必须隶属于一级标签）</h5>
                                 {subTabs.map((t, i) => (
                                     <div key={i} className="tab-config-row">
                                         <input
                                             className="form-input small"
-                                            placeholder="灞曠ず鍚?
+                                            placeholder="显示名"
                                             value={t.label}
                                             onChange={(e) => updateSubTab(i, { label: e.target.value })}
                                         />
@@ -993,12 +993,11 @@ const Templates: React.FC = () => {
                                         />
                                         <select
                                             className="form-input small"
-                                            placeholder="鐖禩ab"
                                             value={t.parent || ''}
                                             onChange={(e) => updateSubTab(i, { parent: e.target.value })}
                                         >
-                                            <option value="">璇烽€夋嫨鐖禩ab</option>
-                                            {mainTabs.map((mt, mtIndex) => <option key={`${mt.value || 'empty'}-${mtIndex}`} value={mt.value}>{mt.label || '鏈懡鍚嶄竴绾ab'}</option>)}
+                                            <option value="">请选择父标签</option>
+                                            {mainTabs.map((mt, mtIndex) => <option key={`${mt.value || 'empty'}-${mtIndex}`} value={mt.value}>{mt.label || '未命名一级标签'}</option>)}
                                         </select>
                                         <button type="button" className="btn-action btn-delete" onClick={() => {
                                             const removedValue = (subTabs[i]?.value || '').trim();
@@ -1006,22 +1005,22 @@ const Templates: React.FC = () => {
                                             if (removedValue) {
                                                 setThirdTabs(thirdTabs.filter(item => (item.parent || '').trim() !== removedValue));
                                             }
-                                        }} title="鍒犻櫎">
+                                        }} title="删除">
                                             <FiTrash2Icon size={14} />
                                         </button>
                                     </div>
                                 ))}
                                 <button type="button" className="btn-secondary btn-sm" onClick={addSubTab}>
-                                    鏂板浜岀骇 Tab
+                                    新增二级标签
                                 </button>
                             </div>
                             <div className="tab-config-block">
-                                <h5>娑撳楠?Tab閿涘澅hird_tabs閿涘苯绻€妞ゅ姣濈仦鐐扮艾娴滃瞼楠嘥ab閿?/h5>
+                                <h5>三级标签（third_tabs，必须隶属于二级标签）</h5>
                                 {thirdTabs.map((t, i) => (
                                     <div key={i} className="tab-config-row">
                                         <input
                                             className="form-input small"
-                                            placeholder="鐏炴洜銇氶崥?
+                                            placeholder="显示名"
                                             value={t.label}
                                             onChange={(e) => setThirdTabs(thirdTabs.map((item, itemIndex) => itemIndex === i ? { ...item, label: e.target.value } : item))}
                                         />
@@ -1033,29 +1032,28 @@ const Templates: React.FC = () => {
                                         />
                                         <select
                                             className="form-input small"
-                                            placeholder="閻栫Ιab"
                                             value={t.parent || ''}
                                             onChange={(e) => setThirdTabs(thirdTabs.map((item, itemIndex) => itemIndex === i ? { ...item, parent: e.target.value } : item))}
                                         >
-                                            <option value="">鐠囩兘鈧瀚ㄩ悥绂゛b</option>
-                                            {subTabs.map((st, stIndex) => <option key={`${st.value || 'empty'}-${stIndex}`} value={st.value}>{st.label || '閺堫亜鎳￠崥宥勭癌缁绢湚ab'}</option>)}
+                                            <option value="">请选择父标签</option>
+                                            {subTabs.map((st, stIndex) => <option key={`${st.value || 'empty'}-${stIndex}`} value={st.value}>{st.label || '未命名二级标签'}</option>)}
                                         </select>
-                                        <button type="button" className="btn-action btn-delete" onClick={() => setThirdTabs(thirdTabs.filter((_, j) => j !== i))} title="閸掔娀娅?>
+                                        <button type="button" className="btn-action btn-delete" onClick={() => setThirdTabs(thirdTabs.filter((_, j) => j !== i))} title="删除">
                                             <FiTrash2Icon size={14} />
                                         </button>
                                     </div>
                                 ))}
                                 <button type="button" className="btn-secondary btn-sm" onClick={addThirdTab}>
-                                    閺傛澘顤冩稉澶岄獓 Tab
+                                    新增三级标签
                                 </button>
                             </div>
                         </div>
                         <div className="tab-config-footer">
                             <span style={{ fontSize: 12, color: tabConfigSaveState === 'error' || tabConfigSaveState === 'invalid' ? '#d14343' : tabConfigSaveState === 'saved' ? '#2f7a4d' : '#666' }}>
-                                {tabConfigSaveMessage || '淇敼鍚庡皢鑷姩淇濆瓨'}
+                                {tabConfigSaveMessage || '修改后将自动保存'}
                             </span>
                             <button className="btn-primary" onClick={() => { void handleSaveTabConfig(); }} disabled={tabConfigSaving}>
-                                {tabConfigSaving ? '淇濆瓨涓?..' : '淇濆瓨 Tab 閰嶇疆'}
+                                {tabConfigSaving ? '保存中...' : '保存标签配置'}
                             </button>
                         </div>
                     </div>
@@ -1065,11 +1063,11 @@ const Templates: React.FC = () => {
                     <div className="section-card featured-group-management">
                         <div className="section-header">
                             <h4>棣栭〉绮鹃€夋渚嬬粍绠＄悊</h4>
-                            <button className="btn-primary btn-sm" onClick={() => { setSelectedFeaturedGroup(null); setFeaturedGroupForm({ name: '', display_mode: 'comparison', case1_id: '', case2_id: '', case1_label: '鐪熷疄', case2_label: 'AI', sort_order: 0 }); setShowFeaturedGroupModal(true); }}>
-                                <FiPlusIcon /> 鏂板缓妗堜緥缁?
+                            <button className="btn-primary btn-sm" onClick={() => { setSelectedFeaturedGroup(null); setFeaturedGroupForm({ name: '', display_mode: 'comparison', case1_id: '', case2_id: '', case1_label: '真实', case2_label: 'AI', sort_order: 0 }); setShowFeaturedGroupModal(true); }}>
+                                <FiPlusIcon /> 新建案例组
                             </button>
                         </div>
-                        <p className="section-desc">妗堜緥缁勫皢鏄剧ず鍦ㄥ皬绋嬪簭棣栭〉鐨?绮鹃€夋渚嬪姣?鍖哄煙锛屾瘡缁勫寘鍚?-2涓渚嬶紝鏀寔瀵规瘮妯″紡銆佸苟鎺掓ā寮忓拰鏅€氭ā寮?/p>
+                        <p className="section-desc">案例组会显示在小程序首页的精选案例区域，每组可配置 1-2 个案例，支持对比、并排和普通模式。</p>
                         {loadingFeaturedGroups ? (
                             <div className="loading-state">鍔犺浇涓?..</div>
                         ) : (
@@ -1083,51 +1081,51 @@ const Templates: React.FC = () => {
                                             <div key={group.id} className="featured-group-item">
                                                 <div className="featured-group-content">
                                                     <div className="featured-group-header">
-                                                        <h5>{group.name || '鏈懡鍚?}</h5>
-                                                        <span className="group-mode-badge">{group.display_mode === 'comparison' ? '瀵规瘮妯″紡' : group.display_mode === 'side_by_side' ? '骞舵帓妯″紡' : '鏅€氭ā寮?}</span>
+                                                        <h5>{group.name || '未命名案例组'}</h5>
+                                                        <span className="group-mode-badge">{group.display_mode === 'comparison' ? '对比模式' : group.display_mode === 'side_by_side' ? '并排模式' : '普通模式'}</span>
                                                     </div>
                                                     <div className="featured-group-cases">
                                                         <div className="case-item">
-                                                            <div className="case-label">{group.case1_label || '妗堜緥1'}</div>
+                                                            <div className="case-label">{group.case1_label || '案例1'}</div>
                                                             {group.case1 ? (
                                                                 <div className="case-info">
-                                                                    <img src={group.case1.thumbnail || group.case1.preview_url || '/placeholder.png'} alt={group.case1.name || '妗堜緥'} className="case-thumbnail" />
-                                                                    <span>{group.case1.name || '鏈懡鍚嶆渚?}</span>
+                                                                    <img src={group.case1.thumbnail || group.case1.preview_url || '/placeholder.png'} alt={group.case1.name || '案例'} className="case-thumbnail" />
+                                                                    <span>{group.case1.name || '未命名案例'}</span>
                                                                 </div>
                                                             ) : (
-                                                                <span className="case-missing">妗堜緥涓嶅瓨鍦?/span>
+                                                                <span className="case-missing">案例不存在</span>
                                                             )}
                                                         </div>
                                                         {group.case2_id > 0 && (
                                                             <>
                                                                 <div className="case-divider">VS</div>
                                                                 <div className="case-item">
-                                                                    <div className="case-label">{group.case2_label || '妗堜緥2'}</div>
+                                                                    <div className="case-label">{group.case2_label || '案例2'}</div>
                                                                     {group.case2 ? (
                                                                         <div className="case-info">
-                                                                            <img src={group.case2.thumbnail || group.case2.preview_url || '/placeholder.png'} alt={group.case2.name || '妗堜緥'} className="case-thumbnail" />
-                                                                            <span>{group.case2.name || '鏈懡鍚嶆渚?}</span>
+                                                                            <img src={group.case2.thumbnail || group.case2.preview_url || '/placeholder.png'} alt={group.case2.name || '案例'} className="case-thumbnail" />
+                                                                            <span>{group.case2.name || '未命名案例'}</span>
                                                                         </div>
                                                                     ) : (
-                                                                        <span className="case-missing">妗堜緥涓嶅瓨鍦?/span>
+                                                                        <span className="case-missing">案例不存在</span>
                                                                     )}
                                                                 </div>
                                                             </>
                                                         )}
                                                     </div>
                                                     <div className="featured-group-meta">
-                                                        <span>鎺掑簭: {group.sort_order ?? 0}</span>
+                                                        <span>排序: {group.sort_order ?? 0}</span>
                                                     </div>
                                                 </div>
                                                 <div className="featured-group-actions">
-                                                    <button className="btn-action btn-edit" onClick={() => openEditFeaturedGroup(group)} title="缂栬緫">
+                                                    <button className="btn-action btn-edit" onClick={() => openEditFeaturedGroup(group)} title="编辑">
                                                         <FiEditIcon size={14} />
                                                     </button>
                                                     <button
                                                         className="btn-action btn-delete"
                                                         onClick={() => handleDeleteFeaturedGroup(group.id)}
                                                         disabled={actionLoading === `group-${group.id}`}
-                                                        title="鍒犻櫎"
+                                                        title="删除"
                                                     >
                                                         <FiTrash2Icon size={14} />
                                                     </button>
@@ -1143,7 +1141,7 @@ const Templates: React.FC = () => {
 
                 {categorySectionOpen && (
                     <div className="category-management section-card">
-                        <h4>鍒嗙被鍒楄〃</h4>
+                        <h4>分类列表</h4>
                         <div className="category-list">
                             {categories.map((c) => (
                                 <div key={c.id} className="category-row">
@@ -1175,32 +1173,32 @@ const Templates: React.FC = () => {
                                 className="form-input small"
                                 style={{ width: 80 }}
                             />
-                            <button className="btn-primary" onClick={handleAddCategory}>鏂板鍒嗙被</button>
+                            <button className="btn-primary" onClick={handleAddCategory}>新增分类</button>
                         </div>
                     </div>
                 )}
 
                 <div className="templates-stats">
                     <div className="stat-item">
-                        <span className="stat-label">妯℃澘鎬绘暟</span>
+                        <span className="stat-label">模板总数</span>
                         <span className="stat-value">{templates.length}</span>
                     </div>
                     <div className="stat-item">
-                        <span className="stat-label">寰呭鏍?/span>
+                        <span className="stat-label">待审核</span>
                         <span className="stat-value">{templates.filter(t => t.status === 'pending').length}</span>
                     </div>
                     <div className="stat-item">
-                        <span className="stat-label">宸插彂甯?/span>
+                        <span className="stat-label">已发布</span>
                         <span className="stat-value">{templates.filter(t => t.status === 'published').length}</span>
                     </div>
                     <div className="stat-item">
-                        <span className="stat-label">鎬讳笅杞介噺</span>
+                        <span className="stat-label">总下载量</span>
                         <span className="stat-value">{templates.reduce((sum, t) => sum + t.downloadCount, 0)}</span>
                     </div>
                 </div>
 
                 {loading ? (
-                    <div className="loading-state">鍔犺浇涓?..</div>
+                    <div className="loading-state">加载中...</div>
                 ) : (
                     <div className="templates-grid">
                         {filteredTemplates.length === 0 ? (
@@ -1248,7 +1246,7 @@ const Templates: React.FC = () => {
                                             </span>
                                         </div>
                                         {template.rejectReason ? (
-                                            <p className="template-description">鎷掔粷鍘熷洜锛歿template.rejectReason}</p>
+                                            <p className="template-description">拒绝原因：{template.rejectReason}</p>
                                         ) : null}
                                         <div className="template-footer">
                                             <span className="template-creator">鍒涘缓鑰? {template.creator}</span>
@@ -1268,9 +1266,9 @@ const Templates: React.FC = () => {
                                                         className={`btn-action ${template.isFeatured ? 'btn-featured-active' : 'btn-featured'}`}
                                                         onClick={() => handleSetFeatured(template, !template.isFeatured)}
                                                         disabled={actionLoading === template.id}
-                                                        title={template.isFeatured ? '鍙栨秷绮鹃€? : '璁句负绮鹃€?}
+                                                        title={template.isFeatured ? '取消精选' : '设为精选'}
                                                     >
-                                                        {template.isFeatured ? '猸?宸茬簿閫? : '猸?璁句负绮鹃€?}
+                                                        {template.isFeatured ? '已精选' : '设为精选'}
                                                     </button>
                                                 )}
                                                 <button className="btn-action btn-move" onClick={() => handleMoveCategory(template)} title="绉诲姩鍒嗙被">
@@ -1296,30 +1294,30 @@ const Templates: React.FC = () => {
                     <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
                         <div className="modal-content modal-form" onClick={(e) => e.stopPropagation()}>
                             <div className="modal-header">
-                                <h3>娣诲姞妯℃澘</h3>
-                                <button className="modal-close" onClick={() => setShowAddModal(false)}>鉁?/button>
+                                <h3>添加模板</h3>
+                                <button className="modal-close" onClick={() => setShowAddModal(false)}>×</button>
                             </div>
                             <div className="modal-body">
                                 <div className="form-group">
-                                    <label>鍚嶇О *</label>
-                                    <input className="form-input" value={formData.name} onChange={(e) => setFormData(f => ({ ...f, name: e.target.value }))} placeholder="妯℃澘鍚嶇О" />
+                                    <label>名称 *</label>
+                                    <input className="form-input" value={formData.name} onChange={(e) => setFormData(f => ({ ...f, name: e.target.value }))} placeholder="模板名称" />
                                 </div>
-                                {/* 鍒嗙被鐢辩郴缁熸牴鎹厤缃嚜鍔ㄥ鐞嗭紝杩欓噷涓嶅啀鍗曠嫭閫夋嫨 */}
+                                {/* 分类由系统根据配置自动处理，这里不再单独选择 */}
                                 <div className="form-row">
                                     <div className="form-group">
-                                        <label>涓€绾ab锛堝彲閫夛級</label>
+                                        <label>一级标签（可选）</label>
                                         <select className="form-input" value={formData.mainTab} onChange={(e) => {
                                             const mainTabValue = e.target.value;
-                                            setFormData(f => ({ ...f, mainTab: mainTabValue, subTab: '', thirdTab: '' })); // 鍒囨崲鐖秚ab鏃舵竻绌哄瓙tab
+                                            setFormData(f => ({ ...f, mainTab: mainTabValue, subTab: '', thirdTab: '' }));
                                         }}>
-                                            <option value="">涓嶈缃紙浠呭垎绫伙級</option>
+                                            <option value="">不设置（仅分类）</option>
                                             {mainTabs.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                                         </select>
                                     </div>
                                     <div className="form-group">
-                                        <label>浜岀骇Tab锛堝彲閫夛級</label>
+                                        <label>二级标签（可选）</label>
                                         <select className="form-input" value={formData.subTab} onChange={(e) => setFormData(f => ({ ...f, subTab: e.target.value, thirdTab: '' }))} disabled={!formData.mainTab}>
-                                            <option value="">涓嶈缃紙浠呯埗Tab锛?/option>
+                                            <option value="">不设置（仅父标签）</option>
                                             {formData.mainTab && getChildTabsByParent(subTabs, formData.mainTab).map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                                         </select>
                                     </div>
@@ -1332,11 +1330,11 @@ const Templates: React.FC = () => {
                                     </select>
                                 </div>
                                 <div className="form-group">
-                                    <label>鎻忚堪</label>
-                                    <textarea className="form-input" rows={3} value={formData.description} onChange={(e) => setFormData(f => ({ ...f, description: e.target.value }))} placeholder="妯℃澘鎻忚堪" />
+                                    <label>描述</label>
+                                    <textarea className="form-input" rows={3} value={formData.description} onChange={(e) => setFormData(f => ({ ...f, description: e.target.value }))} placeholder="模板描述" />
                                 </div>
                                 <div className="form-group">
-                                    <label>妯℃澘鍥剧墖锛堟敮鎸佸鍥撅級</label>
+                                    <label>模板图片（支持多图）</label>
                                     <div className="image-upload-group">
                                         <input
                                             id="template-images-upload"
@@ -1361,10 +1359,10 @@ const Templates: React.FC = () => {
                                                         if (resp.ok && result.code === 0 && result.data?.url) {
                                                             uploaded.push(result.data.url);
                                                         } else {
-                                                            alert(result.msg || '涓婁紶澶辫触');
+                                                            alert(result.msg || '上传失败');
                                                         }
                                                     } catch (err: any) {
-                                                        alert('涓婁紶澶辫触: ' + (err?.message || '鏈煡閿欒'));
+                                                        alert('上传失败: ' + (err?.message || '未知错误'));
                                                     }
                                                 }
                                                 if (uploaded.length) {
@@ -1373,7 +1371,7 @@ const Templates: React.FC = () => {
                                                         imageUrls: [...(f.imageUrls || []), ...uploaded],
                                                     }));
                                                 }
-                                                // 娓呯┖ input锛岄伩鍏嶅悓涓€鏂囦欢涓嶈Е鍙?change
+                                                // 清空 input，避免同一文件不触发 change
                                                 e.target.value = '';
                                             }}
                                         />
@@ -1385,7 +1383,7 @@ const Templates: React.FC = () => {
                                                 input?.click();
                                             }}
                                         >
-                                            閫夋嫨鍥剧墖骞朵笂浼?
+                                            选择图片并上传
                                         </button>
                                     </div>
                                     {selectedTemplate && (
@@ -1399,12 +1397,12 @@ const Templates: React.FC = () => {
                                                 <div key={url + idx} className="image-preview-item">
                                                     <img
                                                         src={url}
-                                                        alt={`鍥?{idx + 1}`}
+                                                        alt={`图片${idx + 1}`}
                                                         className="image-preview-thumb"
                                                         onClick={() => window.open(url, '_blank')}
                                                     />
                                                     <div className="image-preview-meta">
-                                                        {idx === 0 && <span className="badge-primary">棣栧浘锛堢缉鐣ュ浘/涓诲浘锛?/span>}
+                                                        {idx === 0 && <span className="badge-primary">首图（缩略图/主图）</span>}
                                                         <button
                                                             type="button"
                                                             className="btn-action btn-delete"
@@ -1415,7 +1413,7 @@ const Templates: React.FC = () => {
                                                                 }))
                                                             }
                                                         >
-                                                            鍒犻櫎
+                                                            删除
                                                         </button>
                                                     </div>
                                                 </div>
@@ -1425,62 +1423,62 @@ const Templates: React.FC = () => {
                                 </div>
                                 <div className="form-row">
                                     <div className="form-group">
-                                        <label>浠锋牸锛堢伒鐭筹級</label>
+                                        <label>价格（灵石）</label>
                                         <input type="number" className="form-input" value={formData.price || ''} onChange={(e) => setFormData(f => ({ ...f, price: parseInt(e.target.value, 10) || 0 }))} />
                                     </div>
                                     <div className="form-group form-group-inline">
                                         <label>
                                             <input type="checkbox" checked={formData.isFree} onChange={(e) => setFormData(f => ({ ...f, isFree: e.target.checked }))} />
-                                            鍏嶈垂
+                                            免费
                                         </label>
                                     </div>
                                     <div className="form-group">
-                                        <label>鐘舵€?/label>
+                                        <label>状态</label>
                                         <select className="form-input" value={formData.status} onChange={(e) => setFormData(f => ({ ...f, status: e.target.value }))}>
                                             <option value="draft">鑽夌</option>
-                                            <option value="published">宸插彂甯?/option>
-                                            <option value="archived">宸插綊妗?/option>
+                                            <option value="published">已发布</option>
+                                            <option value="archived">已归档</option>
                                         </select>
                                     </div>
                                 </div>
                             </div>
                             <div className="modal-footer">
-                                <button className="btn-secondary" onClick={() => setShowAddModal(false)}>鍙栨秷</button>
-                                <button className="btn-primary" onClick={handleAddTemplate} disabled={actionLoading === 'add'}>淇濆瓨</button>
+                                <button className="btn-secondary" onClick={() => setShowAddModal(false)}>取消</button>
+                                <button className="btn-primary" onClick={handleAddTemplate} disabled={actionLoading === 'add'}>保存</button>
                             </div>
                         </div>
                     </div>
                 )}
 
-                {/* 缂栬緫妯℃澘寮圭獥 */}
+                {/* 编辑模板弹窗 */}
                 {showEditModal && selectedTemplate && (
                     <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
                         <div className="modal-content modal-form" onClick={(e) => e.stopPropagation()}>
                             <div className="modal-header">
-                                <h3>缂栬緫妯℃澘</h3>
-                                <button className="modal-close" onClick={() => setShowEditModal(false)}>鉁?/button>
+                                <h3>编辑模板</h3>
+                                <button className="modal-close" onClick={() => setShowEditModal(false)}>×</button>
                             </div>
                             <div className="modal-body">
                                 <div className="form-group">
-                                    <label>鍚嶇О *</label>
-                                    <input className="form-input" value={formData.name} onChange={(e) => setFormData(f => ({ ...f, name: e.target.value }))} placeholder="妯℃澘鍚嶇О" />
+                                    <label>名称 *</label>
+                                    <input className="form-input" value={formData.name} onChange={(e) => setFormData(f => ({ ...f, name: e.target.value }))} placeholder="模板名称" />
                                 </div>
-                                {/* 鍒嗙被鐢辩郴缁熸牴鎹厤缃嚜鍔ㄥ鐞嗭紝杩欓噷涓嶅啀鍗曠嫭閫夋嫨 */}
+                                {/* 分类由系统根据配置自动处理，这里不再单独选择 */}
                                 <div className="form-row">
                                     <div className="form-group">
-                                        <label>涓€绾ab锛堝彲閫夛級</label>
+                                        <label>一级标签（可选）</label>
                                         <select className="form-input" value={formData.mainTab} onChange={(e) => {
                                             const mainTabValue = e.target.value;
-                                            setFormData(f => ({ ...f, mainTab: mainTabValue, subTab: '', thirdTab: '' })); // 鍒囨崲鐖秚ab鏃舵竻绌哄瓙tab
+                                            setFormData(f => ({ ...f, mainTab: mainTabValue, subTab: '', thirdTab: '' }));
                                         }}>
-                                            <option value="">涓嶈缃紙浠呭垎绫伙級</option>
+                                            <option value="">不设置（仅分类）</option>
                                             {mainTabs.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                                         </select>
                                     </div>
                                     <div className="form-group">
-                                        <label>浜岀骇Tab锛堝彲閫夛級</label>
+                                        <label>二级标签（可选）</label>
                                         <select className="form-input" value={formData.subTab} onChange={(e) => setFormData(f => ({ ...f, subTab: e.target.value, thirdTab: '' }))} disabled={!formData.mainTab}>
-                                            <option value="">涓嶈缃紙浠呯埗Tab锛?/option>
+                                            <option value="">不设置（仅父标签）</option>
                                             {formData.mainTab && getChildTabsByParent(subTabs, formData.mainTab).map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                                         </select>
                                     </div>
@@ -1493,13 +1491,13 @@ const Templates: React.FC = () => {
                                     </select>
                                 </div>
                                 <div className="form-group">
-                                    <label>鎻忚堪</label>
-                                    <textarea className="form-input" rows={3} value={formData.description} onChange={(e) => setFormData(f => ({ ...f, description: e.target.value }))} placeholder="妯℃澘鎻忚堪" />
+                                    <label>描述</label>
+                                    <textarea className="form-input" rows={3} value={formData.description} onChange={(e) => setFormData(f => ({ ...f, description: e.target.value }))} placeholder="模板描述" />
                                 </div>
                                 <div className="form-group">
-                                    <label>妯℃澘鍥剧墖锛堟敮鎸佸鍥撅級</label>
+                                    <label>模板图片（支持多图）</label>
                                     <div className="image-upload-group">
-                                        {/* 澶嶇敤鍚屼竴涓?input锛岀紪杈戝脊绐椾粎瑙﹀彂 click */}
+                                        {/* 复用同一个 input，编辑弹窗仅触发 click */}
                                         <button
                                             type="button"
                                             className="btn-secondary"
@@ -1508,7 +1506,7 @@ const Templates: React.FC = () => {
                                                 input?.click();
                                             }}
                                         >
-                                            閫夋嫨鍥剧墖骞朵笂浼?
+                                            选择图片并上传
                                         </button>
                                     </div>
                                     {formData.imageUrls && formData.imageUrls.length > 0 && (
@@ -1517,12 +1515,12 @@ const Templates: React.FC = () => {
                                                 <div key={url + idx} className="image-preview-item">
                                                     <img
                                                         src={url}
-                                                        alt={`鍥?{idx + 1}`}
+                                                        alt={`图片${idx + 1}`}
                                                         className="image-preview-thumb"
                                                         onClick={() => window.open(url, '_blank')}
                                                     />
                                                     <div className="image-preview-meta">
-                                                        {idx === 0 && <span className="badge-primary">棣栧浘锛堢缉鐣ュ浘/涓诲浘锛?/span>}
+                                                        {idx === 0 && <span className="badge-primary">首图（缩略图/主图）</span>}
                                                         <button
                                                             type="button"
                                                             className="btn-action btn-delete"
@@ -1533,7 +1531,7 @@ const Templates: React.FC = () => {
                                                                 }))
                                                             }
                                                         >
-                                                            鍒犻櫎
+                                                            删除
                                                         </button>
                                                     </div>
                                                 </div>
@@ -1543,29 +1541,29 @@ const Templates: React.FC = () => {
                                 </div>
                                 <div className="form-row">
                                     <div className="form-group">
-                                        <label>浠锋牸锛堢伒鐭筹級</label>
+                                        <label>价格（灵石）</label>
                                         <input type="number" className="form-input" value={formData.price || ''} onChange={(e) => setFormData(f => ({ ...f, price: parseInt(e.target.value, 10) || 0 }))} />
                                     </div>
                                     <div className="form-group form-group-inline">
                                         <label>
                                             <input type="checkbox" checked={formData.isFree} onChange={(e) => setFormData(f => ({ ...f, isFree: e.target.checked }))} />
-                                            鍏嶈垂
+                                            免费
                                         </label>
                                     </div>
                                     <div className="form-group">
-                                        <label>鐘舵€?/label>
+                                        <label>状态</label>
                                         <select className="form-input" value={formData.status} onChange={(e) => setFormData(f => ({ ...f, status: e.target.value }))}>
                                             <option value="draft">鑽夌</option>
-                                            <option value="pending">寰呭鏍?/option>
-                                            <option value="published">宸插彂甯?/option>
-                                            <option value="archived">宸插綊妗?/option>
+                                            <option value="pending">待审核</option>
+                                            <option value="published">已发布</option>
+                                            <option value="archived">已归档</option>
                                         </select>
                                     </div>
                                 </div>
                             </div>
                             <div className="modal-footer">
-                                <button className="btn-secondary" onClick={() => setShowEditModal(false)}>鍙栨秷</button>
-                                <button className="btn-primary" onClick={handleSaveEdit} disabled={actionLoading === selectedTemplate.id}>淇濆瓨</button>
+                                <button className="btn-secondary" onClick={() => setShowEditModal(false)}>取消</button>
+                                <button className="btn-primary" onClick={handleSaveEdit} disabled={actionLoading === selectedTemplate.id}>保存</button>
                             </div>
                         </div>
                     </div>
@@ -1576,11 +1574,11 @@ const Templates: React.FC = () => {
                     <div className="modal-overlay" onClick={() => setShowMoveCategoryModal(false)}>
                         <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                             <div className="modal-header">
-                                <h3>绉诲姩銆寋moveTargetTemplate.name}銆嶅埌鍒嗙被</h3>
-                                <button className="modal-close" onClick={() => setShowMoveCategoryModal(false)}>鉁?/button>
+                                <h3>移动“{moveTargetTemplate.name}”到分类</h3>
+                                <button className="modal-close" onClick={() => setShowMoveCategoryModal(false)}>×</button>
                             </div>
                             <div className="modal-body">
-                                <p className="modal-hint">鐐瑰嚮鐩爣鍒嗙被瀹屾垚绉诲姩锛?/p>
+                                <p className="modal-hint">点击目标分类完成移动。</p>
                                 <div className="move-category-btns">
                                     {categories.filter(c => c.id !== moveTargetTemplate.category).map(c => (
                                         <button
@@ -1593,7 +1591,7 @@ const Templates: React.FC = () => {
                                         </button>
                                     ))}
                                     {categories.filter(c => c.id !== moveTargetTemplate.category).length === 0 && (
-                                        <span className="text-muted">鏆傛棤鍏朵粬鍒嗙被</span>
+                                        <span className="text-muted">暂无其他分类</span>
                                     )}
                                 </div>
                             </div>
@@ -1606,39 +1604,39 @@ const Templates: React.FC = () => {
                     <div className="modal-overlay" onClick={() => setShowFeaturedGroupModal(false)}>
                         <div className="modal-content modal-form" onClick={(e) => e.stopPropagation()}>
                             <div className="modal-header">
-                                <h3>{selectedFeaturedGroup ? '缂栬緫绮鹃€夋渚嬬粍' : '鏂板缓绮鹃€夋渚嬬粍'}</h3>
-                                <button className="modal-close" onClick={() => setShowFeaturedGroupModal(false)}>鉁?/button>
+                                <h3>{selectedFeaturedGroup ? '编辑精选案例组' : '新建精选案例组'}</h3>
+                                <button className="modal-close" onClick={() => setShowFeaturedGroupModal(false)}>×</button>
                             </div>
                             <div className="modal-body">
                                 <div className="form-group">
-                                    <label>缁勫悕绉?*</label>
+                                    <label>组名称 *</label>
                                     <input
                                         className="form-input"
                                         value={featuredGroupForm.name}
                                         onChange={(e) => setFeaturedGroupForm(f => ({ ...f, name: e.target.value }))}
-                                        placeholder="渚嬪锛氱湡瀹炲満鏅?vs AI璁捐"
+                                        placeholder="例如：真实场景 vs AI 设计"
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>鏄剧ず妯″紡 *</label>
+                                    <label>显示模式 *</label>
                                     <select
                                         className="form-input"
                                         value={featuredGroupForm.display_mode}
                                         onChange={(e) => setFeaturedGroupForm(f => ({ ...f, display_mode: e.target.value as any }))}
                                     >
-                                        <option value="comparison">瀵规瘮妯″紡锛堢湡瀹?vs AI锛?/option>
-                                        <option value="side_by_side">骞舵帓妯″紡锛堢湡瀹炲拰AI锛?/option>
-                                        <option value="normal">鏅€氭ā寮忥紙鍗曚釜妗堜緥锛?/option>
+                                        <option value="comparison">对比模式（真实 vs AI）</option>
+                                        <option value="side_by_side">并排模式（真实和 AI）</option>
+                                        <option value="normal">普通模式（单个案例）</option>
                                     </select>
                                 </div>
                                 <div className="form-group">
-                                    <label>绗竴涓渚?*</label>
+                                    <label>第一个案例 *</label>
                                     <select
                                         className="form-input"
                                         value={featuredGroupForm.case1_id}
                                         onChange={(e) => setFeaturedGroupForm(f => ({ ...f, case1_id: e.target.value }))}
                                     >
-                                        <option value="">璇烽€夋嫨妗堜緥</option>
+                                        <option value="">请选择案例</option>
                                         {templates.filter(t => t.status === 'published').map(t => (
                                             <option key={t.id} value={t.id}>{t.name}</option>
                                         ))}
@@ -1646,13 +1644,13 @@ const Templates: React.FC = () => {
                                 </div>
                                 {featuredGroupForm.display_mode !== 'normal' && (
                                     <div className="form-group">
-                                        <label>绗簩涓渚?*</label>
+                                        <label>第二个案例 *</label>
                                         <select
                                             className="form-input"
                                             value={featuredGroupForm.case2_id}
                                             onChange={(e) => setFeaturedGroupForm(f => ({ ...f, case2_id: e.target.value }))}
                                         >
-                                            <option value="">璇烽€夋嫨妗堜緥</option>
+                                            <option value="">请选择案例</option>
                                             {templates.filter(t => t.status === 'published' && t.id !== featuredGroupForm.case1_id).map(t => (
                                                 <option key={t.id} value={t.id}>{t.name}</option>
                                             ))}
@@ -1661,17 +1659,17 @@ const Templates: React.FC = () => {
                                 )}
                                 <div className="form-row">
                                     <div className="form-group">
-                                        <label>绗竴涓渚嬫爣绛?/label>
+                                        <label>第一个案例标签</label>
                                         <input
                                             className="form-input"
                                             value={featuredGroupForm.case1_label}
                                             onChange={(e) => setFeaturedGroupForm(f => ({ ...f, case1_label: e.target.value }))}
-                                            placeholder="渚嬪锛氱湡瀹?
+                                            placeholder="例如：真实"
                                         />
                                     </div>
                                     {featuredGroupForm.display_mode !== 'normal' && (
                                         <div className="form-group">
-                                            <label>绗簩涓渚嬫爣绛?/label>
+                                            <label>第二个案例标签</label>
                                             <input
                                                 className="form-input"
                                                 value={featuredGroupForm.case2_label}
@@ -1682,24 +1680,24 @@ const Templates: React.FC = () => {
                                     )}
                                 </div>
                                 <div className="form-group">
-                                    <label>鎺掑簭椤哄簭</label>
+                                    <label>排序顺序</label>
                                     <input
                                         type="number"
                                         className="form-input"
                                         value={featuredGroupForm.sort_order}
                                         onChange={(e) => setFeaturedGroupForm(f => ({ ...f, sort_order: parseInt(e.target.value, 10) || 0 }))}
-                                        placeholder="鏁板瓧瓒婂皬瓒婇潬鍓?
+                                        placeholder="数字越小越靠前"
                                     />
                                 </div>
                             </div>
                             <div className="modal-footer">
-                                <button className="btn-secondary" onClick={() => setShowFeaturedGroupModal(false)}>鍙栨秷</button>
+                                <button className="btn-secondary" onClick={() => setShowFeaturedGroupModal(false)}>取消</button>
                                 <button
                                     className="btn-primary"
                                     onClick={selectedFeaturedGroup ? handleUpdateFeaturedGroup : handleCreateFeaturedGroup}
                                     disabled={actionLoading === 'create-group' || actionLoading === 'update-group'}
                                 >
-                                    {actionLoading === 'create-group' || actionLoading === 'update-group' ? '淇濆瓨涓?..' : '淇濆瓨'}
+                                    {actionLoading === 'create-group' || actionLoading === 'update-group' ? '保存中...' : '保存'}
                                 </button>
                             </div>
                         </div>
