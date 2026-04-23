@@ -2,10 +2,14 @@
 <view class="page {{isEditMode ? 'page-edit-mode' : ''}}">
   <navigation-bar title="生成历史" background="#e6daca"></navigation-bar>
 
-  <view class="page-toolbar" wx:if="{{!loading && list.length > 0 && !isEditMode}}">
-    <view class="page-toolbar-placeholder"></view>
+  <view class="page-overview" wx:if="{{!loading && list.length > 0 && !isEditMode}}">
+    <view class="page-overview-copy">
+      <text class="page-overview-eyebrow">最近生成</text>
+      <text class="page-overview-title">共 {{total || list.length}} 条记录</text>
+      <text class="page-overview-desc">点击卡片查看完整结果，左滑可以删除记录</text>
+    </view>
     <view class="page-toolbar-action" bindtap="onToggleEditMode">
-      <text>管理</text>
+      <text>管理记录</text>
     </view>
   </view>
 
@@ -69,62 +73,82 @@
         data-item="{{item}}"
         bindtap="onItemClick"
       >
-        <view class="item-image">
-          <image
-            wx:if="{{item.imageUrl}}"
-            src="{{item.imageUrl}}"
-            mode="aspectFill"
-            lazy-load
-          />
-          <view class="no-image" wx:else>
-            <t-icon name="image" size="60rpx" color="#9b8466" />
-          </view>
-          <view class="status-tag {{item.status}}">
-            <text wx:if="{{item.status === 'pending'}}">等待中</text>
-            <text wx:elif="{{item.status === 'processing'}}">生成中</text>
-            <text wx:elif="{{item.status === 'success'}}">已完成</text>
-            <text wx:elif="{{item.status === 'failed'}}">失败</text>
-          </view>
-        </view>
-
-        <view class="item-info">
-          <view class="info-row" wx:if="{{item.tool_name}}">
-            <text class="info-label">AI工具</text>
-            <text class="info-value tool-name">{{item.tool_name}}</text>
-          </view>
-          <view class="info-row">
-            <text class="info-label">场景</text>
-            <text class="info-value">{{item.sceneText}}</text>
-          </view>
-          <view class="info-row">
-            <text class="info-label">消耗</text>
-            <text class="info-value stones">{{item.stones_used}} 灵石</text>
-          </view>
-          <view class="info-row">
-            <text class="info-label">时间</text>
-            <text class="info-value time">{{item.createdAtText}}</text>
-          </view>
-          <view class="prompt-preview" wx:if="{{item.prompt}}">
-            <text class="prompt-text">{{item.prompt}}</text>
-          </view>
-          <view class="ref-image-wrap" wx:if="{{item.reference_image_urls && item.reference_image_urls.length}}">
-            <text class="ref-label">参考图</text>
-            <view class="ref-thumb-list">
-              <image class="ref-thumb" wx:for="{{item.reference_image_urls}}" wx:key="index" src="{{item}}" mode="aspectFill" />
+        <view class="item-main">
+          <view class="item-image">
+            <image
+              wx:if="{{item.imageUrl}}"
+              src="{{item.imageUrl}}"
+              mode="aspectFill"
+              lazy-load
+            />
+            <view class="no-image" wx:else>
+              <t-icon name="image" size="60rpx" color="#9b8466" />
+            </view>
+            <view class="status-tag {{item.status}}">
+              <text wx:if="{{item.status === 'pending'}}">等待中</text>
+              <text wx:elif="{{item.status === 'processing'}}">生成中</text>
+              <text wx:elif="{{item.status === 'success'}}">已完成</text>
+              <text wx:elif="{{item.status === 'failed'}}">失败</text>
             </view>
           </view>
-          <view class="excel-link-wrap" wx:if="{{item.scene === 'ai_cost_doc' && item.excel_url}}">
-            <text class="excel-link-tip">Excel 已生成，复制链接到浏览器下载</text>
-            <view class="copy-excel-btn" catchtap="onCopyExcelLink" data-item="{{item}}">复制下载链接</view>
-          </view>
-          <view class="excel-link-wrap pending" wx:elif="{{item.scene === 'ai_cost_doc' && item.status === 'success' && !item.excel_url}}">
-            <text class="excel-link-tip">链接加载中...</text>
-          </view>
-        </view>
 
-        <view class="item-right">
-          <view class="item-arrow">
-            <t-icon name="chevron-right" size="40rpx" color="#9b8466" />
+          <view class="item-info">
+            <view class="item-header">
+              <view class="item-title-group">
+                <text class="item-title">{{item.sceneText}}</text>
+                <view class="item-tool-badge" wx:if="{{item.tool_name}}">
+                  <text>{{item.tool_name}}</text>
+                </view>
+              </view>
+              <view class="item-detail-entry" catchtap="goToDetail" data-item="{{item}}">
+                <text>详情</text>
+                <t-icon name="chevron-right" size="32rpx" color="#72573b" />
+              </view>
+            </view>
+
+            <view class="item-metrics">
+              <view class="metric-pill">
+                <text class="metric-pill-label">消耗</text>
+                <text class="metric-pill-value">{{item.stones_used}} 灵石</text>
+              </view>
+              <view class="metric-pill muted">
+                <text class="metric-pill-label">时间</text>
+                <text class="metric-pill-value">{{item.createdAtText}}</text>
+              </view>
+            </view>
+
+            <view class="prompt-preview" wx:if="{{item.prompt}}">
+              <view class="prompt-preview-head">
+                <text class="prompt-label">提示词</text>
+                <text class="prompt-hint">点击卡片查看完整内容</text>
+              </view>
+              <text class="prompt-text">{{item.prompt}}</text>
+            </view>
+
+            <view class="ref-image-wrap" wx:if="{{item.referencePreviewUrls && item.referencePreviewUrls.length}}">
+              <text class="ref-label">参考图</text>
+              <view class="ref-thumb-list">
+                <image
+                  class="ref-thumb"
+                  wx:for="{{item.referencePreviewUrls}}"
+                  wx:key="index"
+                  wx:for-item="refImage"
+                  src="{{refImage}}"
+                  mode="aspectFill"
+                />
+                <view class="ref-thumb ref-thumb-more" wx:if="{{item.referenceOverflowCount > 0}}">
+                  <text>+{{item.referenceOverflowCount}}</text>
+                </view>
+              </view>
+            </view>
+
+            <view class="excel-link-wrap" wx:if="{{item.scene === 'ai_cost_doc' && item.excel_url}}">
+              <text class="excel-link-tip">Excel 已生成，复制链接到浏览器下载</text>
+              <view class="copy-excel-btn" catchtap="onCopyExcelLink" data-item="{{item}}">复制下载链接</view>
+            </view>
+            <view class="excel-link-wrap pending" wx:elif="{{item.scene === 'ai_cost_doc' && item.status === 'success' && !item.excel_url}}">
+              <text class="excel-link-tip">链接加载中...</text>
+            </view>
           </view>
         </view>
       </view>

@@ -247,6 +247,8 @@ Page({
                 prompt,
                 reference_image_url: referenceImages[0] || '',
                 reference_image_urls: referenceImages,
+                referencePreviewUrls: referenceImages.slice(0, 3),
+                referenceOverflowCount: Math.max(referenceImages.length - 3, 0),
                 excel_url: excelUrl,
             };
         });
@@ -255,30 +257,18 @@ Page({
         if (!timeStr)
             return '';
         const date = new Date(timeStr);
+        if (Number.isNaN(date.getTime()))
+            return '';
         const now = new Date();
-        const diff = now.getTime() - date.getTime();
-        // 小于1分钟
-        if (diff < 60000) {
-            return '刚刚';
-        }
-        // 小于1小时
-        if (diff < 3600000) {
-            return Math.floor(diff / 60000) + '分钟前';
-        }
-        // 小于24小时
-        if (diff < 86400000) {
-            return Math.floor(diff / 3600000) + '小时前';
-        }
-        // 小于7天
-        if (diff < 604800000) {
-            return Math.floor(diff / 86400000) + '天前';
-        }
-        // 格式化日期
+        const year = date.getFullYear().toString();
         const month = (date.getMonth() + 1).toString().padStart(2, '0');
         const day = date.getDate().toString().padStart(2, '0');
         const hours = date.getHours().toString().padStart(2, '0');
         const minutes = date.getMinutes().toString().padStart(2, '0');
-        return `${month}-${day} ${hours}:${minutes}`;
+        if (date.getFullYear() === now.getFullYear()) {
+            return `${month}-${day} ${hours}:${minutes}`;
+        }
+        return `${year}-${month}-${day} ${hours}:${minutes}`;
     },
     /** 复制 Excel 下载链接（ai_cost_doc 任务） */
     onCopyExcelLink(e) {
