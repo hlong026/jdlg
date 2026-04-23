@@ -234,7 +234,7 @@ function matchesMainTabKeywords(text, mainTab) {
     return [...baseKeywords, ...dynamicKeywords].some((keyword) => text.includes(keyword.toLowerCase()));
 }
 function matchesSubTabKeywords(text, subTab) {
-    if (!subTab) {
+    if (!subTab || !String(subTab.value || '').trim()) {
         return true;
     }
     const keywords = (Array.isArray(subTab.keywords) ? subTab.keywords : []).concat([subTab.label, subTab.value]);
