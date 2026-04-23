@@ -202,13 +202,17 @@ func (m *TemplateModel) GetByID(id int64) (*Template, error) {
 	template := &Template{}
 	var isFreeInt, isFeaturedInt int
 	var creatorUserID, originalTaskID sql.NullInt64
+	var internalPrompt sql.NullString
 	err := m.DB.QueryRow(query, id).Scan(
-		&template.ID, &template.Name, &template.Category, &template.MainTab, &template.SubTab, &template.ThirdTab, &template.Description, &template.InternalPrompt,
+		&template.ID, &template.Name, &template.Category, &template.MainTab, &template.SubTab, &template.ThirdTab, &template.Description, &internalPrompt,
 		&template.Thumbnail, &template.PreviewURL, &template.Images, &template.ImageWidth, &template.ImageHeight,
 		&template.Price, &isFreeInt, &isFeaturedInt, &template.DownloadCount, &template.LikeCount,
 		&template.Status, &template.PublishScope, &template.RejectReason, &template.SourceType, &template.Creator, &creatorUserID, &originalTaskID, &template.CreatedAt, &template.UpdatedAt)
 	if err != nil {
 		return nil, err
+	}
+	if internalPrompt.Valid {
+		template.InternalPrompt = internalPrompt.String
 	}
 	if creatorUserID.Valid {
 		template.CreatorUserID = creatorUserID.Int64
