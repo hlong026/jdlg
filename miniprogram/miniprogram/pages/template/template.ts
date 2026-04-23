@@ -19,7 +19,6 @@ type TemplateListItem = {
   imageHeight?: number;
   mediaHeightRpx?: number;
   displayTitle: string;
-  displaySubtitle: string;
   tags: string[];
   targetType: 'template' | 'inspiration';
   localDemo?: boolean;
@@ -380,13 +379,6 @@ function isInspirationMainTab(mainTab: MainTabItem | undefined): boolean {
   return value === 'inspiration' || label === '灵感';
 }
 
-function buildSubtitle(item: TemplateApiListItem, currentMainLabel: string, currentSubLabel: string): string {
-  const category = String(item?.category || '').trim();
-  const subTab = String(item?.sub_tab || '').trim();
-  const description = cleanDescription(String(item?.description || ''));
-  return truncate(description || subTab || category || `${currentSubLabel}${currentMainLabel}`, 20);
-}
-
 function buildTags(item: TemplateApiListItem, currentMainLabel: string, currentSubLabel: string): string[] {
   const name = String(item?.name || '').trim();
   const category = String(item?.category || '').trim();
@@ -396,13 +388,6 @@ function buildTags(item: TemplateApiListItem, currentMainLabel: string, currentS
     .map((tag) => truncate(String(tag || '').trim(), 6))
     .filter((tag, index, list) => Boolean(tag) && tag !== '全部' && list.indexOf(tag) === index)
     .slice(0, 3);
-}
-
-function buildInspirationSubtitle(item: InspirationApiListItem, currentSubLabel: string): string {
-  const scene = String(item?.scene || '').trim();
-  const style = String(item?.style || '').trim();
-  const description = cleanDescription(String(item?.description || ''));
-  return truncate(description || scene || style || currentSubLabel || '灵感内容', 20);
 }
 
 function buildInspirationTags(item: InspirationApiListItem, currentSubLabel: string): string[] {
@@ -436,7 +421,6 @@ function buildTemplateCard(item: TemplateApiListItem, currentMainLabel: string, 
     id,
     image: normalizeImageUrl(String(item?.thumbnail || item?.preview_url || '')),
     displayTitle: truncate(title, 14),
-    displaySubtitle: buildSubtitle(item, currentMainLabel, currentSubLabel),
     tags: buildTags(item, currentMainLabel, currentSubLabel),
     targetType: 'template',
     cardKey: `template-${id}-${index}`,
@@ -450,7 +434,6 @@ function buildInspirationCard(item: InspirationApiListItem, currentSubLabel: str
     id,
     image: normalizeImageUrl(String(item?.cover_image || item?.images?.[0] || '')),
     displayTitle: truncate(String(item?.title || `灵感内容 ${index + 1}`), 14),
-    displaySubtitle: buildInspirationSubtitle(item, currentSubLabel),
     tags: buildInspirationTags(item, currentSubLabel),
     targetType: 'inspiration',
     cardKey: `inspiration-${id}-${index}`,
@@ -535,7 +518,7 @@ function splitWaterfallColumns(cards: TemplateListItem[]) {
   let rightWeight = 0;
 
   cards.forEach((item, index) => {
-    const weight = Number(item.mediaHeightRpx || DEFAULT_CARD_MEDIA_HEIGHT_RPX) + 18 + item.displayTitle.length * 1.6 + item.displaySubtitle.length * 0.8 + item.tags.length * 4 + (index % 3) * 8;
+    const weight = Number(item.mediaHeightRpx || DEFAULT_CARD_MEDIA_HEIGHT_RPX) + 18 + item.displayTitle.length * 1.6 + item.tags.length * 4 + (index % 3) * 8;
     if (leftWeight <= rightWeight) {
       leftColumnCards.push(item);
       leftWeight += weight;

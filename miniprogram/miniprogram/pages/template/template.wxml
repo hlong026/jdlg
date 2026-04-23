@@ -88,7 +88,6 @@
               <view class="template-card-badge" wx:if="{{item.tags.length > 0}}">{{item.tags[0]}}</view>
               <view class="template-card-overlay">
                 <view class="template-title-text">{{item.displayTitle}}</view>
-                <view class="template-subtitle">{{item.displaySubtitle}}</view>
               </view>
             </view>
           </view>
@@ -109,7 +108,6 @@
               <view class="template-card-badge" wx:if="{{item.tags.length > 0}}">{{item.tags[0]}}</view>
               <view class="template-card-overlay">
                 <view class="template-title-text">{{item.displayTitle}}</view>
-                <view class="template-subtitle">{{item.displaySubtitle}}</view>
               </view>
             </view>
           </view>

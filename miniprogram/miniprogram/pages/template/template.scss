@@ -383,20 +383,6 @@
   word-break: break-all;
 }
 
-.template-subtitle {
-  display: block;
-  display: -webkit-box;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-clamp: 1;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  font-size: 17rpx;
-  line-height: 1.38;
-  color: rgba(255, 249, 242, 0.58);
-  text-shadow: 0 2rpx 8rpx rgba(18, 13, 10, 0.1);
-}
-
 .load-more,
 .empty-tip {
   text-align: center;
