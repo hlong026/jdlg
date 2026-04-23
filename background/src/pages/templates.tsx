@@ -480,7 +480,7 @@ const Templates: React.FC = () => {
         const statusMap: Record<string, { label: string; className: string }> = {
             published: { label: '已发布', className: 'status-published' },
             pending: { label: '待审核', className: 'status-pending' },
-            draft: { label: '鑽夌', className: 'status-draft' },
+            draft: { label: '草稿', className: 'status-draft' },
             rejected: { label: '已拒绝', className: 'status-draft' },
             archived: { label: '已归档', className: 'status-archived' },
         };
@@ -875,7 +875,7 @@ const Templates: React.FC = () => {
                                 标签配置
                             </button>
                             <button className="btn-secondary" onClick={() => setCategorySectionOpen(!categorySectionOpen)}>
-                                <FiFolderIcon /> 鍒嗙被绠＄悊
+                                <FiFolderIcon /> 分类管理
                             </button>
                             <button
                                 className="btn-primary"
@@ -896,7 +896,7 @@ const Templates: React.FC = () => {
                             <FiSearchIcon className="search-icon" />
                             <input
                                 type="text"
-                                placeholder="鎼滅储妯℃澘鍚嶇О鎴栨弿杩?.."
+                                placeholder="搜索模板名称或描述..."
                                 value={searchInput}
                                 onChange={(e) => setSearchInput(e.target.value)}
                                 onKeyDown={(e) => {
@@ -913,7 +913,7 @@ const Templates: React.FC = () => {
                                 value={categoryFilter}
                                 onChange={(e) => setCategoryFilter(e.target.value)}
                             >
-                                <option value="all">鍏ㄩ儴鍒嗙被</option>
+                                <option value="all">全部分类</option>
                                 {categories.map((c) => (
                                     <option key={c.id} value={c.id}>{c.name}</option>
                                 ))}
@@ -926,7 +926,7 @@ const Templates: React.FC = () => {
                                 <option value="all">全部状态</option>
                                 <option value="pending">待审核</option>
                                 <option value="published">已发布</option>
-                                <option value="draft">鑽夌</option>
+                                <option value="draft">草稿</option>
                                 <option value="rejected">已拒绝</option>
                                 <option value="archived">已归档</option>
                             </select>
@@ -934,8 +934,8 @@ const Templates: React.FC = () => {
                     </div>
                     <div className="templates-toolbar-footer">
                         <div className="toolbar-summary">
-                            褰撳墠鏄剧ず <strong>{filteredTemplates.length}</strong> / {templates.length} 涓ā鏉?
-                            {searchKeyword ? <span className="summary-tag">鍏抽敭璇嶏細{searchKeyword}</span> : null}
+                            当前显示 <strong>{filteredTemplates.length}</strong> / {templates.length} 个模板
+                            {searchKeyword ? <span className="summary-tag">关键词：{searchKeyword}</span> : null}
                             {categoryFilter !== 'all' ? <span className="summary-tag">分类：{getCategoryLabel(categoryFilter)}</span> : null}
                             {statusFilter !== 'all' ? <span className="summary-tag">状态：{getStatusLabel(statusFilter).label}</span> : null}
                         </div>
@@ -1062,18 +1062,18 @@ const Templates: React.FC = () => {
                 {featuredGroupSectionOpen && (
                     <div className="section-card featured-group-management">
                         <div className="section-header">
-                            <h4>棣栭〉绮鹃€夋渚嬬粍绠＄悊</h4>
+                            <h4>首页精选案例组管理</h4>
                             <button className="btn-primary btn-sm" onClick={() => { setSelectedFeaturedGroup(null); setFeaturedGroupForm({ name: '', display_mode: 'comparison', case1_id: '', case2_id: '', case1_label: '真实', case2_label: 'AI', sort_order: 0 }); setShowFeaturedGroupModal(true); }}>
                                 <FiPlusIcon /> 新建案例组
                             </button>
                         </div>
                         <p className="section-desc">案例组会显示在小程序首页的精选案例区域，每组可配置 1-2 个案例，支持对比、并排和普通模式。</p>
                         {loadingFeaturedGroups ? (
-                            <div className="loading-state">鍔犺浇涓?..</div>
+                            <div className="loading-state">加载中...</div>
                         ) : (
                             <div className="featured-group-list">
                                 {!featuredGroups || featuredGroups.length === 0 ? (
-                                    <div className="empty-state">鏆傛棤绮鹃€夋渚嬬粍</div>
+                                    <div className="empty-state">暂无精选案例组</div>
                                 ) : (
                                     featuredGroups.map((group) => {
                                         if (!group) return null;
@@ -1146,7 +1146,7 @@ const Templates: React.FC = () => {
                             {categories.map((c) => (
                                 <div key={c.id} className="category-row">
                                     <span><strong>{c.id}</strong> - {c.name}</span>
-                                    <button className="btn-action btn-delete" onClick={() => handleDeleteCategory(c.id)} title="鍒犻櫎鍒嗙被">
+                                    <button className="btn-action btn-delete" onClick={() => handleDeleteCategory(c.id)} title="删除分类">
                                         <FiTrash2Icon size={14} />
                                     </button>
                                 </div>
@@ -1154,20 +1154,20 @@ const Templates: React.FC = () => {
                         </div>
                         <div className="category-add">
                             <input
-                                placeholder="鍒嗙被ID锛堣嫳鏂囷級"
+                                placeholder="分类ID（英文）"
                                 value={categoryForm.id}
                                 onChange={(e) => setCategoryForm(f => ({ ...f, id: e.target.value }))}
                                 className="form-input small"
                             />
                             <input
-                                placeholder="鍒嗙被鍚嶇О"
+                                placeholder="分类名称"
                                 value={categoryForm.name}
                                 onChange={(e) => setCategoryForm(f => ({ ...f, name: e.target.value }))}
                                 className="form-input small"
                             />
                             <input
                                 type="number"
-                                placeholder="鎺掑簭"
+                                placeholder="排序"
                                 value={categoryForm.sort_order || ''}
                                 onChange={(e) => setCategoryForm(f => ({ ...f, sort_order: parseInt(e.target.value, 10) || 0 }))}
                                 className="form-input small"
@@ -1202,7 +1202,7 @@ const Templates: React.FC = () => {
                 ) : (
                     <div className="templates-grid">
                         {filteredTemplates.length === 0 ? (
-                            <div className="empty-state">鏆傛棤妯℃澘鏁版嵁</div>
+                            <div className="empty-state">暂无模板数据</div>
                         ) : (
                             filteredTemplates.map((template) => (
                                 <div key={template.id} className="template-card">
@@ -1225,23 +1225,23 @@ const Templates: React.FC = () => {
                                         </p>
                                         <div className="template-meta">
                                             <span className="meta-item">
-                                                <span className="meta-label">鍒嗙被:</span>
+                                                <span className="meta-label">分类:</span>
                                                 {getCategoryLabel(template.category)}
                                             </span>
                                             <span className="meta-item">
-                                                <span className="meta-label">鍘诲悜:</span>
+                                                <span className="meta-label">去向:</span>
                                                 {getPublishScopeLabel(template.publishScope)}
                                             </span>
                                             <span className="meta-item">
-                                                <span className="meta-label">鏉ユ簮:</span>
+                                                <span className="meta-label">来源:</span>
                                                 {getSourceTypeLabel(template.sourceType)}
                                             </span>
                                             <span className="meta-item">
-                                                <span className="meta-label">涓嬭浇:</span>
+                                                <span className="meta-label">下载:</span>
                                                 {template.downloadCount}
                                             </span>
                                             <span className="meta-item meta-item-image">
-                                                <span className="meta-label">灏哄:</span>
+                                                <span className="meta-label">尺寸:</span>
                                                 {formatImageMeta(template.imageWidth, template.imageHeight)}
                                             </span>
                                         </div>
@@ -1249,15 +1249,15 @@ const Templates: React.FC = () => {
                                             <p className="template-description">拒绝原因：{template.rejectReason}</p>
                                         ) : null}
                                         <div className="template-footer">
-                                            <span className="template-creator">鍒涘缓鑰? {template.creator}</span>
+                                            <span className="template-creator">创建者: {template.creator}</span>
                                             <div className="template-actions">
                                                 {template.status === 'pending' && (
                                                     <>
-                                                        <button className="btn-action btn-approve" onClick={() => handleApprove(template)} disabled={actionLoading === template.id} title="閫氳繃">
-                                                            <FiCheckIcon size={14} /> 閫氳繃
+                                                        <button className="btn-action btn-approve" onClick={() => handleApprove(template)} disabled={actionLoading === template.id} title="通过">
+                                                            <FiCheckIcon size={14} /> 通过
                                                         </button>
-                                                        <button className="btn-action btn-reject" onClick={() => handleReject(template)} disabled={actionLoading === template.id} title="鎷掔粷">
-                                                            <FiXIcon size={14} /> 鎷掔粷
+                                                        <button className="btn-action btn-reject" onClick={() => handleReject(template)} disabled={actionLoading === template.id} title="拒绝">
+                                                            <FiXIcon size={14} /> 拒绝
                                                         </button>
                                                     </>
                                                 )}
@@ -1271,13 +1271,13 @@ const Templates: React.FC = () => {
                                                         {template.isFeatured ? '已精选' : '设为精选'}
                                                     </button>
                                                 )}
-                                                <button className="btn-action btn-move" onClick={() => handleMoveCategory(template)} title="绉诲姩鍒嗙被">
+                                                <button className="btn-action btn-move" onClick={() => handleMoveCategory(template)} title="移动分类">
                                                     <FiFolderIcon size={14} />
                                                 </button>
-                                                <button className="btn-action btn-edit" onClick={() => handleEdit(template)} title="缂栬緫">
+                                                <button className="btn-action btn-edit" onClick={() => handleEdit(template)} title="编辑">
                                                     <FiEditIcon size={14} />
                                                 </button>
-                                                <button className="btn-action btn-delete" onClick={() => handleDelete(template.id)} disabled={actionLoading === template.id} title="鍒犻櫎">
+                                                <button className="btn-action btn-delete" onClick={() => handleDelete(template.id)} disabled={actionLoading === template.id} title="删除">
                                                     <FiTrash2Icon size={14} />
                                                 </button>
                                             </div>
@@ -1435,7 +1435,7 @@ const Templates: React.FC = () => {
                                     <div className="form-group">
                                         <label>状态</label>
                                         <select className="form-input" value={formData.status} onChange={(e) => setFormData(f => ({ ...f, status: e.target.value }))}>
-                                            <option value="draft">鑽夌</option>
+                                            <option value="draft">草稿</option>
                                             <option value="published">已发布</option>
                                             <option value="archived">已归档</option>
                                         </select>
@@ -1553,7 +1553,7 @@ const Templates: React.FC = () => {
                                     <div className="form-group">
                                         <label>状态</label>
                                         <select className="form-input" value={formData.status} onChange={(e) => setFormData(f => ({ ...f, status: e.target.value }))}>
-                                            <option value="draft">鑽夌</option>
+                                            <option value="draft">草稿</option>
                                             <option value="pending">待审核</option>
                                             <option value="published">已发布</option>
                                             <option value="archived">已归档</option>
@@ -1674,7 +1674,7 @@ const Templates: React.FC = () => {
                                                 className="form-input"
                                                 value={featuredGroupForm.case2_label}
                                                 onChange={(e) => setFeaturedGroupForm(f => ({ ...f, case2_label: e.target.value }))}
-                                                placeholder="渚嬪锛欰I"
+                                                placeholder="例如：AI"
                                             />
                                         </div>
                                     )}
