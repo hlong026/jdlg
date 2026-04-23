@@ -5,6 +5,7 @@ const parameter_1 = require("../../utils/parameter");
 const asset_1 = require("../../utils/asset");
 const aiError_1 = require("../../utils/aiError");
 const perf_1 = require("../../utils/perf");
+const shareImage_1 = require("../../utils/shareImage");
 // API基础地址
 const API_BASE_URL = 'https://api.jiadilingguang.com';
 function getTaskStatusPollDelay(attempt) {
@@ -116,6 +117,8 @@ const PUBLISH_TEMPLATE_SUB_TOPICS = [
     { label: '功能创新', value: 'function_innovation', parent: 'inspiration' },
     { label: '案例精选', value: 'selected_cases', parent: 'inspiration' },
 ];
+void PUBLISH_TEMPLATE_TOPICS;
+void PUBLISH_TEMPLATE_SUB_TOPICS;
 function normalizePublishMainTabs(list) {
     const normalized = (Array.isArray(list) ? list : [])
         .map((item) => ({
@@ -188,6 +191,8 @@ Page({
             subtitle: '左右滑动可切换不同图片。',
         },
         previewImageMode: 'result',
+        shareImageUrl: '',
+        shareImageSourceUrl: '',
         downloadTargetImageIndex: 0,
         showEnterpriseWechatModal: false,
         enterpriseWechatQRCodeUrl: '',
@@ -485,6 +490,7 @@ Page({
             loadingStageText: nextLoadingStageText,
             loading: false,
         });
+        void this.prepareCurrentShareImage(this.getCurrentShareSourceUrl(safeResultImageIndex));
         if (shouldRevealResult) {
             if (this.resultRevealTimer) {
                 clearTimeout(this.resultRevealTimer);
@@ -511,6 +517,7 @@ Page({
                 ...(Array.isArray(data.resultImages) ? data.resultImages : []),
                 ...(Array.isArray(data.reference_image_urls) ? data.reference_image_urls : []),
             ], 3);
+            this.prefetchResultShareImages(Array.isArray(data.resultImages) ? data.resultImages : []);
         }
     },
     onShow() {
@@ -944,6 +951,7 @@ Page({
             currentResultImageIndex: current,
             currentResultImageInfo: this.getSafeImageInfo(this.data.resultImageInfos, current),
         });
+        void this.prepareCurrentShareImage(this.getCurrentShareSourceUrl(current));
     },
     openImagePreview(urls, index = 0, mode = 'result') {
         if (!urls.length) {
@@ -1599,13 +1607,47 @@ Page({
         return !!this.data.enterpriseWechatVerified && !!String(this.data.enterpriseWechatContact || '').trim();
     },
     getCurrentShareImageUrl() {
-        const { taskData, currentResultImageIndex = 0 } = this.data;
+        return this.data.shareImageUrl || this.getCurrentShareSourceUrl();
+    },
+    getCurrentShareSourceUrl(index) {
+        const { taskData } = this.data;
+        const currentResultImageIndex = typeof index === 'number' ? Math.max(0, Number(index)) : Math.max(0, Number(this.data.currentResultImageIndex || 0));
         const resultImages = Array.isArray(taskData.resultImages) ? taskData.resultImages : [];
         const currentImage = String(resultImages[currentResultImageIndex] || '').trim();
         if (currentImage) {
             return currentImage;
         }
         return String(taskData.watermarkedImageUrl || taskData.imageUrl || resultImages[0] || '').trim();
+    },
+    async prepareCurrentShareImage(sourceUrl) {
+        const shareSourceUrl = String(sourceUrl || this.getCurrentShareSourceUrl()).trim();
+        if (!shareSourceUrl) {
+            this.setData({
+                shareImageUrl: '',
+                shareImageSourceUrl: '',
+            });
+            return;
+        }
+        this.setData({
+            shareImageUrl: '',
+            shareImageSourceUrl: shareSourceUrl,
+        });
+        const shareImageUrl = await (0, shareImage_1.prepareShareCardImage)(shareSourceUrl);
+        if (this.data.shareImageSourceUrl !== shareSourceUrl) {
+            return;
+        }
+        if (shareImageUrl) {
+            this.setData({ shareImageUrl });
+        }
+    },
+    prefetchResultShareImages(urls) {
+        const uniqueUrls = (Array.isArray(urls) ? urls : [])
+            .map((item) => String(item || '').trim())
+            .filter((item, index, array) => item && array.indexOf(item) === index)
+            .slice(0, 6);
+        uniqueUrls.forEach((item) => {
+            (0, shareImage_1.prefetchShareCardImage)(item);
+        });
     },
     buildShareTitle() {
         const sourceText = String(this.data.taskData.user_prompt || this.data.taskData.prompt || '').replace(/\s+/g, ' ').trim();

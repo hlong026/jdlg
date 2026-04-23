@@ -6,6 +6,7 @@ import {
   cacheDeviceFingerprint,
 } from '../../utils/deviceFingerprint';
 import { normalizeCosUrl, resolveAssetPath } from '../../utils/asset';
+import { prepareShareCardImage } from '../../utils/shareImage';
 
 const API_BASE_URL = 'https://api.jiadilingguang.com';
 const DEFAULT_PLAN_IMAGE = resolveAssetPath('/assets/images/home.jpg');
@@ -92,6 +93,8 @@ Page({
 
     // 数据（分组后的）
     groupedPlans: [] as CategoryGroup[],
+    pendingSharePlanId: 0,
+    pendingShareImageUrl: '',
 
     // 编辑弹窗
     showEditModal: false,
@@ -381,10 +384,19 @@ Page({
     });
   },
 
-  onSharePlan(e: any) {
+  async onSharePlan(e: any) {
     const id = e.currentTarget.dataset.id;
     const plan = this.findPlanById(id);
     if (!plan) return;
+
+    wx.showLoading({ title: '准备分享图...' });
+    const shareSourceUrl = String(plan.preview_url || plan.thumbnail || DEFAULT_PLAN_IMAGE).trim();
+    const shareImageUrl = await prepareShareCardImage(shareSourceUrl);
+    wx.hideLoading();
+    this.setData({
+      pendingSharePlanId: Number(id || 0),
+      pendingShareImageUrl: shareImageUrl || shareSourceUrl,
+    });
 
     wx.showShareMenu({
       withShareTicket: true,
@@ -686,20 +698,37 @@ Page({
   },
 
   onShareAppMessage(options: any) {
-    const planId = options.target?.dataset?.id;
+    const planId = Number(options?.target?.dataset?.id || this.data.pendingSharePlanId || 0);
     if (planId) {
       const plan = this.findPlanById(planId);
       if (plan) {
         return {
           title: plan.name,
           path: `/pages/templatesquaredetails/templatesquaredetails?id=${planId}`,
-          imageUrl: plan.thumbnail || plan.preview_url,
+          imageUrl: this.data.pendingShareImageUrl || plan.preview_url || plan.thumbnail || DEFAULT_PLAN_IMAGE,
         };
       }
     }
     return {
       title: '我的方案',
       path: '/pages/myplan/myplan',
+    };
+  },
+
+  onShareTimeline() {
+    const planId = Number(this.data.pendingSharePlanId || 0);
+    if (planId) {
+      const plan = this.findPlanById(planId);
+      if (plan) {
+        return {
+          title: plan.name,
+          query: `id=${planId}`,
+          imageUrl: this.data.pendingShareImageUrl || plan.preview_url || plan.thumbnail || DEFAULT_PLAN_IMAGE,
+        };
+      }
+    }
+    return {
+      title: '鎴戠殑鏂规',
     };
   },
 });

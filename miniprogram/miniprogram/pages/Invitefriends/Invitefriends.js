@@ -4,6 +4,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const parameter_1 = require("../../utils/parameter");
 const deviceFingerprint_1 = require("../../utils/deviceFingerprint");
 const asset_1 = require("../../utils/asset");
+const shareImage_1 = require("../../utils/shareImage");
 const API_BASE_URL = 'https://api.jiadilingguang.com';
 const INVITE_POSTER_LOGO = (0, asset_1.resolveAssetPath)('/assets/企业logo.png');
 const DEFAULT_INVITE_AVATAR = (0, asset_1.resolveAssetPath)('/assets/images/home.jpg');
@@ -25,6 +26,7 @@ Page({
         // 海报相关
         showPosterModal: false,
         posterImageUrl: '',
+        shareImageUrl: '',
         posterLogoUrl: INVITE_POSTER_LOGO,
         posterLogoOverlayVisible: false,
         canvasWidth: 750,
@@ -262,7 +264,11 @@ Page({
                 wx.nextTick(() => resolve());
             });
             const posterImageUrl = await this.drawPoster();
-            this.setData({ posterImageUrl });
+            const shareImageUrl = await (0, shareImage_1.prepareShareCardImage)(posterImageUrl);
+            this.setData({
+                posterImageUrl,
+                shareImageUrl: shareImageUrl || posterImageUrl,
+            });
         }
         catch (err) {
             console.error('生成海报失败:', err);
@@ -830,7 +836,7 @@ Page({
         const userInfo = this.data.userInfo;
         const nickname = userInfo?.nickname || '好友';
         // 如果有生成的海报，使用海报作为分享图片
-        let imageUrl = this.data.posterImageUrl;
+        let imageUrl = this.data.shareImageUrl || this.data.posterImageUrl;
         return {
             title: `${nickname}邀请你使用甲第灵光AI，输入邀请码${inviteCode}即可获得50灵石奖励！`,
             path: `/pages/index/index?invite_code=${inviteCode}`,
@@ -844,7 +850,7 @@ Page({
         const nickname = userInfo?.nickname || '好友';
         return {
             title: `${nickname}邀请你使用甲第灵光AI，输入邀请码${inviteCode}即可获得50灵石奖励！`,
-            imageUrl: this.data.posterImageUrl || '',
+            imageUrl: this.data.shareImageUrl || this.data.posterImageUrl || '',
         };
     },
 });

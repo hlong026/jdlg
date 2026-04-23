@@ -4,6 +4,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const parameter_1 = require("../../utils/parameter");
 const deviceFingerprint_1 = require("../../utils/deviceFingerprint");
 const asset_1 = require("../../utils/asset");
+const shareImage_1 = require("../../utils/shareImage");
 const API_BASE_URL = 'https://api.jiadilingguang.com';
 const DEFAULT_PLAN_IMAGE = (0, asset_1.resolveAssetPath)('/assets/images/home.jpg');
 function base64Encode(input) {
@@ -56,6 +57,8 @@ Page({
         hasMore: true,
         // 数据（分组后的）
         groupedPlans: [],
+        pendingSharePlanId: 0,
+        pendingShareImageUrl: '',
         // 编辑弹窗
         showEditModal: false,
         editingPlanId: null,
@@ -329,11 +332,19 @@ Page({
             },
         });
     },
-    onSharePlan(e) {
+    async onSharePlan(e) {
         const id = e.currentTarget.dataset.id;
         const plan = this.findPlanById(id);
         if (!plan)
             return;
+        wx.showLoading({ title: '准备分享图...' });
+        const shareSourceUrl = String(plan.preview_url || plan.thumbnail || DEFAULT_PLAN_IMAGE).trim();
+        const shareImageUrl = await (0, shareImage_1.prepareShareCardImage)(shareSourceUrl);
+        wx.hideLoading();
+        this.setData({
+            pendingSharePlanId: Number(id || 0),
+            pendingShareImageUrl: shareImageUrl || shareSourceUrl,
+        });
         wx.showShareMenu({
             withShareTicket: true,
             menus: ['shareAppMessage', 'shareTimeline'],
@@ -622,20 +633,36 @@ Page({
         return null;
     },
     onShareAppMessage(options) {
-        const planId = options.target?.dataset?.id;
+        const planId = Number(options?.target?.dataset?.id || this.data.pendingSharePlanId || 0);
         if (planId) {
             const plan = this.findPlanById(planId);
             if (plan) {
                 return {
                     title: plan.name,
                     path: `/pages/templatesquaredetails/templatesquaredetails?id=${planId}`,
-                    imageUrl: plan.thumbnail || plan.preview_url,
+                    imageUrl: this.data.pendingShareImageUrl || plan.preview_url || plan.thumbnail || DEFAULT_PLAN_IMAGE,
                 };
             }
         }
         return {
             title: '我的方案',
             path: '/pages/myplan/myplan',
+        };
+    },
+    onShareTimeline() {
+        const planId = Number(this.data.pendingSharePlanId || 0);
+        if (planId) {
+            const plan = this.findPlanById(planId);
+            if (plan) {
+                return {
+                    title: plan.name,
+                    query: `id=${planId}`,
+                    imageUrl: this.data.pendingShareImageUrl || plan.preview_url || plan.thumbnail || DEFAULT_PLAN_IMAGE,
+                };
+            }
+        }
+        return {
+            title: '鎴戠殑鏂规',
         };
     },
 });

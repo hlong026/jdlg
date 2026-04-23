@@ -1,5 +1,6 @@
 import { getPageCache, prefetchImages, setPageCache } from '../../utils/perf';
 import { normalizeCosUrl } from '../../utils/asset';
+import { prepareShareCardImage } from '../../utils/shareImage';
 
 const API_BASE_URL = 'https://api.jiadilingguang.com';
 
@@ -32,6 +33,8 @@ Page({
     loading: true,
     detail: null as InspirationDetail | null,
     currentImage: '',
+    shareImageUrl: '',
+    shareImageSourceUrl: '',
     navTop: 0,
     navBarHeight: 72,
   },
@@ -143,12 +146,14 @@ Page({
   applyDetail(detail: InspirationDetail) {
     const normalizedImages = (Array.isArray(detail.images) ? detail.images : []).map((img: string) => normalizeCosUrl(img));
     const normalizedCover = normalizeCosUrl(detail.cover_image || '');
+    const shareSourceUrl = normalizedImages[0] || normalizedCover || '';
     this.setData({
       detail,
-      currentImage: normalizedImages[0] || normalizedCover || '',
+      currentImage: shareSourceUrl,
       loading: false,
     });
     void prefetchImages([normalizedCover, ...normalizedImages], 2);
+    void this.prepareCurrentShareImage(shareSourceUrl);
   },
 
   async loadDetail(silent = false) {
@@ -184,7 +189,7 @@ Page({
     return {
       title,
       path: `/pages/inspirationdetail/inspirationdetail?id=${this.data.inspirationId}`,
-      imageUrl: this.data.currentImage || this.data.detail?.cover_image || '',
+      imageUrl: this.data.shareImageUrl || String(this.data.currentImage || this.data.detail?.cover_image || '').trim(),
     };
   },
 
@@ -193,7 +198,29 @@ Page({
     return {
       title,
       query: `id=${this.data.inspirationId}`,
-      imageUrl: this.data.currentImage || this.data.detail?.cover_image || '',
+      imageUrl: this.data.shareImageUrl || String(this.data.currentImage || this.data.detail?.cover_image || '').trim(),
     };
+  },
+
+  async prepareCurrentShareImage(sourceUrl?: string) {
+    const shareSourceUrl = String(sourceUrl || this.data.currentImage || this.data.detail?.cover_image || '').trim();
+    if (!shareSourceUrl) {
+      this.setData({
+        shareImageUrl: '',
+        shareImageSourceUrl: '',
+      });
+      return;
+    }
+    this.setData({
+      shareImageUrl: '',
+      shareImageSourceUrl: shareSourceUrl,
+    });
+    const shareImageUrl = await prepareShareCardImage(shareSourceUrl);
+    if (this.data.shareImageSourceUrl !== shareSourceUrl) {
+      return;
+    }
+    if (shareImageUrl) {
+      this.setData({ shareImageUrl });
+    }
   },
 });

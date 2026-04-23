@@ -3,6 +3,7 @@ import { generateRequestParams, paramsToHeaders } from '../../utils/parameter';
 import { resolveAssetPath } from '../../utils/asset';
 import { sanitizeAIGenerationErrorMessage } from '../../utils/aiError';
 import { prefetchImages } from '../../utils/perf';
+import { prepareShareCardImage, prefetchShareCardImage } from '../../utils/shareImage';
 
 // API基础地址
 const API_BASE_URL = 'https://api.jiadilingguang.com';
@@ -254,6 +255,8 @@ Page({
       subtitle: '左右滑动可切换不同图片。',
     } as TaskImageInfo,
     previewImageMode: 'result' as PreviewImageMode,
+    shareImageUrl: '',
+    shareImageSourceUrl: '',
     downloadTargetImageIndex: 0,
     showEnterpriseWechatModal: false,
     enterpriseWechatQRCodeUrl: '',
@@ -566,6 +569,7 @@ Page({
       loadingStageText: nextLoadingStageText,
       loading: false,
     });
+    void this.prepareCurrentShareImage(this.getCurrentShareSourceUrl(safeResultImageIndex));
 
     if (shouldRevealResult) {
       if (this.resultRevealTimer) {
@@ -594,6 +598,7 @@ Page({
         ...(Array.isArray(data.resultImages) ? data.resultImages : []),
         ...(Array.isArray(data.reference_image_urls) ? data.reference_image_urls : []),
       ], 3);
+      this.prefetchResultShareImages(Array.isArray(data.resultImages) ? data.resultImages : []);
     }
   },
 
@@ -1058,6 +1063,7 @@ Page({
       currentResultImageIndex: current,
       currentResultImageInfo: this.getSafeImageInfo(this.data.resultImageInfos, current),
     });
+    void this.prepareCurrentShareImage(this.getCurrentShareSourceUrl(current));
   },
 
   openImagePreview(urls: string[], index: number = 0, mode: PreviewImageMode = 'result') {
@@ -1765,13 +1771,50 @@ Page({
   },
 
   getCurrentShareImageUrl(): string {
-    const { taskData, currentResultImageIndex = 0 } = this.data;
+    return this.data.shareImageUrl || this.getCurrentShareSourceUrl();
+  },
+
+  getCurrentShareSourceUrl(index?: number): string {
+    const { taskData } = this.data;
+    const currentResultImageIndex = typeof index === 'number' ? Math.max(0, Number(index)) : Math.max(0, Number(this.data.currentResultImageIndex || 0));
     const resultImages = Array.isArray(taskData.resultImages) ? taskData.resultImages : [];
     const currentImage = String(resultImages[currentResultImageIndex] || '').trim();
     if (currentImage) {
       return currentImage;
     }
     return String(taskData.watermarkedImageUrl || taskData.imageUrl || resultImages[0] || '').trim();
+  },
+
+  async prepareCurrentShareImage(sourceUrl?: string) {
+    const shareSourceUrl = String(sourceUrl || this.getCurrentShareSourceUrl()).trim();
+    if (!shareSourceUrl) {
+      this.setData({
+        shareImageUrl: '',
+        shareImageSourceUrl: '',
+      });
+      return;
+    }
+    this.setData({
+      shareImageUrl: '',
+      shareImageSourceUrl: shareSourceUrl,
+    });
+    const shareImageUrl = await prepareShareCardImage(shareSourceUrl);
+    if (this.data.shareImageSourceUrl !== shareSourceUrl) {
+      return;
+    }
+    if (shareImageUrl) {
+      this.setData({ shareImageUrl });
+    }
+  },
+
+  prefetchResultShareImages(urls: string[]) {
+    const uniqueUrls = (Array.isArray(urls) ? urls : [])
+      .map((item) => String(item || '').trim())
+      .filter((item, index, array) => item && array.indexOf(item) === index)
+      .slice(0, 6);
+    uniqueUrls.forEach((item) => {
+      prefetchShareCardImage(item);
+    });
   },
 
   buildShareTitle(): string {

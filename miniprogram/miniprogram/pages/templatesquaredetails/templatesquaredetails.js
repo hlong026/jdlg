@@ -5,6 +5,7 @@ const parameter_1 = require("../../utils/parameter");
 const deviceFingerprint_1 = require("../../utils/deviceFingerprint");
 const asset_1 = require("../../utils/asset");
 const perf_1 = require("../../utils/perf");
+const shareImage_1 = require("../../utils/shareImage");
 // API基础地址
 const API_BASE_URL = 'https://api.jiadilingguang.com'; // 根据实际情况修改
 const LOCAL_ENTERPRISE_WECHAT_QRCODE = (0, asset_1.resolveAssetPath)('/assets/企业微信二维码.png');
@@ -73,6 +74,8 @@ Page({
         imageHeight: 500,
         imageHeights: [],
         currentImageIndex: 0,
+        shareImageUrl: '',
+        shareImageSourceUrl: '',
         navTop: 0,
         navBarHeight: 72,
         heroHeight: DEFAULT_HERO_HEIGHT_PX,
@@ -226,20 +229,22 @@ Page({
      * 生命周期函数--监听页面显示
      */
     onShareAppMessage() {
+        const shareSourceUrl = this.getCurrentShareSourceUrl();
         return {
             title: this.data.templateName || '甲第灵光 · 模板详情',
             path: `/pages/templatesquaredetails/templatesquaredetails?id=${this.data.templateId || 0}`,
-            imageUrl: this.data.mainImage || this.data.imageList[0] || '',
+            imageUrl: this.data.shareImageUrl || shareSourceUrl,
             success: () => {
                 this.handleShareSuccess();
             },
         };
     },
     onShareTimeline() {
+        const shareSourceUrl = this.getCurrentShareSourceUrl();
         return {
             title: this.data.templateName || '甲第灵光 · 模板详情',
             query: `id=${this.data.templateId || 0}`,
-            imageUrl: this.data.mainImage || this.data.imageList[0] || '',
+            imageUrl: this.data.shareImageUrl || shareSourceUrl,
             success: () => {
                 this.handleShareSuccess();
             },
@@ -809,7 +814,7 @@ Page({
                                 return;
                             }
                             if (img && typeof img === 'object') {
-                                const imageUrl = img.image || img.url || img.preview_url || '';
+                                const imageUrl = (0, asset_1.normalizeCosUrl)(img.image || img.url || img.preview_url || '');
                                 if (typeof imageUrl === 'string' && imageUrl) {
                                     imageList.push(imageUrl);
                                 }
@@ -821,7 +826,7 @@ Page({
                     console.error('解析图片列表失败:', error);
                 }
             }
-            let mainImage = res.preview_url || res.thumbnail || '';
+            let mainImage = (0, asset_1.normalizeCosUrl)(res.preview_url || res.thumbnail || '');
             if (!mainImage && imageList.length > 0) {
                 mainImage = imageList[0];
             }
@@ -877,6 +882,7 @@ Page({
             this.prepareHeroImageHeights(imageList, Number(res.image_width || 0), Number(res.image_height || 0));
             this.detailLoadedToken = String(token || '').trim();
             void (0, perf_1.prefetchImages)([mainImage, ...imageList], 2);
+            void this.prepareCurrentShareImage(mainImage || imageList[0] || '');
             if (Number(userInfo.userId) > 0) {
                 void this.loadCreatorCertificationStatus(Number(userInfo.userId));
             }
@@ -1265,6 +1271,33 @@ Page({
         const current = e.detail?.current ?? 0;
         this.setData({ currentImageIndex: current });
         this.refreshHeroHeightByIndex(current);
+        void this.prepareCurrentShareImage(this.getCurrentShareSourceUrl(current));
+    },
+    getCurrentShareSourceUrl(index) {
+        const imageList = Array.isArray(this.data.imageList) ? this.data.imageList : [];
+        const safeIndex = typeof index === 'number' ? Math.max(0, Number(index)) : Math.max(0, Number(this.data.currentImageIndex || 0));
+        return String(imageList[safeIndex] || this.data.mainImage || imageList[0] || '').trim();
+    },
+    async prepareCurrentShareImage(sourceUrl) {
+        const shareSourceUrl = String(sourceUrl || this.getCurrentShareSourceUrl()).trim();
+        if (!shareSourceUrl) {
+            this.setData({
+                shareImageUrl: '',
+                shareImageSourceUrl: '',
+            });
+            return;
+        }
+        this.setData({
+            shareImageUrl: '',
+            shareImageSourceUrl: shareSourceUrl,
+        });
+        const shareImageUrl = await (0, shareImage_1.prepareShareCardImage)(shareSourceUrl);
+        if (this.data.shareImageSourceUrl !== shareSourceUrl) {
+            return;
+        }
+        if (shareImageUrl) {
+            this.setData({ shareImageUrl });
+        }
     },
     formatDateText(value, fallback = '刚刚发布') {
         if (!value) {

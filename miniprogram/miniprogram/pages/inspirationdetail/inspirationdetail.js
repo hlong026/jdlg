@@ -1,6 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const perf_1 = require("../../utils/perf");
+const asset_1 = require("../../utils/asset");
+const shareImage_1 = require("../../utils/shareImage");
 const API_BASE_URL = 'https://api.jiadilingguang.com';
 const INSPIRATION_DETAIL_CACHE_TTL = 2 * 60 * 1000;
 function buildInspirationDetailCacheKey(inspirationId) {
@@ -12,6 +14,8 @@ Page({
         loading: true,
         detail: null,
         currentImage: '',
+        shareImageUrl: '',
+        shareImageSourceUrl: '',
         navTop: 0,
         navBarHeight: 72,
     },
@@ -116,12 +120,16 @@ Page({
         return String(raw).replace('T', ' ').slice(0, 16);
     },
     applyDetail(detail) {
+        const normalizedImages = (Array.isArray(detail.images) ? detail.images : []).map((img) => (0, asset_1.normalizeCosUrl)(img));
+        const normalizedCover = (0, asset_1.normalizeCosUrl)(detail.cover_image || '');
+        const shareSourceUrl = normalizedImages[0] || normalizedCover || '';
         this.setData({
             detail,
-            currentImage: detail.images?.[0] || detail.cover_image || '',
+            currentImage: shareSourceUrl,
             loading: false,
         });
-        void (0, perf_1.prefetchImages)([detail.cover_image || '', ...(Array.isArray(detail.images) ? detail.images : [])], 2);
+        void (0, perf_1.prefetchImages)([normalizedCover, ...normalizedImages], 2);
+        void this.prepareCurrentShareImage(shareSourceUrl);
     },
     async loadDetail(silent = false) {
         if (!silent) {
@@ -155,7 +163,7 @@ Page({
         return {
             title,
             path: `/pages/inspirationdetail/inspirationdetail?id=${this.data.inspirationId}`,
-            imageUrl: this.data.currentImage || this.data.detail?.cover_image || '',
+            imageUrl: this.data.shareImageUrl || String(this.data.currentImage || this.data.detail?.cover_image || '').trim(),
         };
     },
     onShareTimeline() {
@@ -163,7 +171,28 @@ Page({
         return {
             title,
             query: `id=${this.data.inspirationId}`,
-            imageUrl: this.data.currentImage || this.data.detail?.cover_image || '',
+            imageUrl: this.data.shareImageUrl || String(this.data.currentImage || this.data.detail?.cover_image || '').trim(),
         };
+    },
+    async prepareCurrentShareImage(sourceUrl) {
+        const shareSourceUrl = String(sourceUrl || this.data.currentImage || this.data.detail?.cover_image || '').trim();
+        if (!shareSourceUrl) {
+            this.setData({
+                shareImageUrl: '',
+                shareImageSourceUrl: '',
+            });
+            return;
+        }
+        this.setData({
+            shareImageUrl: '',
+            shareImageSourceUrl: shareSourceUrl,
+        });
+        const shareImageUrl = await (0, shareImage_1.prepareShareCardImage)(shareSourceUrl);
+        if (this.data.shareImageSourceUrl !== shareSourceUrl) {
+            return;
+        }
+        if (shareImageUrl) {
+            this.setData({ shareImageUrl });
+        }
     },
 });

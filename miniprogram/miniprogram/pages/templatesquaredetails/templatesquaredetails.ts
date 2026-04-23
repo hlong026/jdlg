@@ -3,6 +3,7 @@ import { generateRequestParams, paramsToHeaders } from '../../utils/parameter';
 import { getCachedDeviceFingerprint } from '../../utils/deviceFingerprint';
 import { resolveAssetPath, normalizeCosUrl } from '../../utils/asset';
 import { getPageCache, prefetchImages, setPageCache } from '../../utils/perf';
+import { prepareShareCardImage } from '../../utils/shareImage';
 
 // API基础地址
 const API_BASE_URL = 'https://api.jiadilingguang.com'; // 根据实际情况修改
@@ -86,6 +87,8 @@ Page({
     imageHeight: 500,
     imageHeights: [] as number[],
     currentImageIndex: 0,
+    shareImageUrl: '',
+    shareImageSourceUrl: '',
     navTop: 0,
     navBarHeight: 72,
     heroHeight: DEFAULT_HERO_HEIGHT_PX,
@@ -252,10 +255,11 @@ Page({
    * 生命周期函数--监听页面显示
    */
   onShareAppMessage() {
+    const shareSourceUrl = this.getCurrentShareSourceUrl();
     return {
       title: this.data.templateName || '甲第灵光 · 模板详情',
       path: `/pages/templatesquaredetails/templatesquaredetails?id=${this.data.templateId || 0}`,
-      imageUrl: this.data.mainImage || this.data.imageList[0] || '',
+      imageUrl: this.data.shareImageUrl || shareSourceUrl,
       success: () => {
         this.handleShareSuccess();
       },
@@ -263,10 +267,11 @@ Page({
   },
 
   onShareTimeline() {
+    const shareSourceUrl = this.getCurrentShareSourceUrl();
     return {
       title: this.data.templateName || '甲第灵光 · 模板详情',
       query: `id=${this.data.templateId || 0}`,
-      imageUrl: this.data.mainImage || this.data.imageList[0] || '',
+      imageUrl: this.data.shareImageUrl || shareSourceUrl,
       success: () => {
         this.handleShareSuccess();
       },
@@ -948,6 +953,7 @@ Page({
       this.prepareHeroImageHeights(imageList, Number(res.image_width || 0), Number(res.image_height || 0));
       this.detailLoadedToken = String(token || '').trim();
       void prefetchImages([mainImage, ...imageList], 2);
+      void this.prepareCurrentShareImage(mainImage || imageList[0] || '');
       if (Number(userInfo.userId) > 0) {
         void this.loadCreatorCertificationStatus(Number(userInfo.userId));
       }
@@ -1357,6 +1363,35 @@ Page({
     const current = e.detail?.current ?? 0;
     this.setData({ currentImageIndex: current });
     this.refreshHeroHeightByIndex(current);
+    void this.prepareCurrentShareImage(this.getCurrentShareSourceUrl(current));
+  },
+
+  getCurrentShareSourceUrl(index?: number): string {
+    const imageList = Array.isArray(this.data.imageList) ? this.data.imageList : [];
+    const safeIndex = typeof index === 'number' ? Math.max(0, Number(index)) : Math.max(0, Number(this.data.currentImageIndex || 0));
+    return String(imageList[safeIndex] || this.data.mainImage || imageList[0] || '').trim();
+  },
+
+  async prepareCurrentShareImage(sourceUrl?: string) {
+    const shareSourceUrl = String(sourceUrl || this.getCurrentShareSourceUrl()).trim();
+    if (!shareSourceUrl) {
+      this.setData({
+        shareImageUrl: '',
+        shareImageSourceUrl: '',
+      });
+      return;
+    }
+    this.setData({
+      shareImageUrl: '',
+      shareImageSourceUrl: shareSourceUrl,
+    });
+    const shareImageUrl = await prepareShareCardImage(shareSourceUrl);
+    if (this.data.shareImageSourceUrl !== shareSourceUrl) {
+      return;
+    }
+    if (shareImageUrl) {
+      this.setData({ shareImageUrl });
+    }
   },
 
   formatDateText(value: any, fallback: string = '刚刚发布') {

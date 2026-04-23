@@ -6,6 +6,7 @@ import {
   cacheDeviceFingerprint,
 } from '../../utils/deviceFingerprint';
 import { resolveAssetPath } from '../../utils/asset';
+import { prepareShareCardImage } from '../../utils/shareImage';
 
 const API_BASE_URL = 'https://api.jiadilingguang.com';
 const INVITE_POSTER_LOGO = resolveAssetPath('/assets/企业logo.png');
@@ -42,6 +43,7 @@ Page({
     // 海报相关
     showPosterModal: false,
     posterImageUrl: '',
+    shareImageUrl: '',
     posterLogoUrl: INVITE_POSTER_LOGO,
     posterLogoOverlayVisible: false,
     canvasWidth: 750,
@@ -288,7 +290,11 @@ Page({
         wx.nextTick(() => resolve());
       });
       const posterImageUrl = await this.drawPoster();
-      this.setData({ posterImageUrl });
+      const shareImageUrl = await prepareShareCardImage(posterImageUrl);
+      this.setData({
+        posterImageUrl,
+        shareImageUrl: shareImageUrl || posterImageUrl,
+      });
     } catch (err) {
       console.error('生成海报失败:', err);
       wx.showToast({
@@ -885,7 +891,7 @@ Page({
     const nickname = userInfo?.nickname || '好友';
     
     // 如果有生成的海报，使用海报作为分享图片
-    let imageUrl = this.data.posterImageUrl;
+    let imageUrl = this.data.shareImageUrl || this.data.posterImageUrl;
     
     return {
       title: `${nickname}邀请你使用甲第灵光AI，输入邀请码${inviteCode}即可获得50灵石奖励！`,
@@ -902,7 +908,7 @@ Page({
     
     return {
       title: `${nickname}邀请你使用甲第灵光AI，输入邀请码${inviteCode}即可获得50灵石奖励！`,
-      imageUrl: this.data.posterImageUrl || '',
+      imageUrl: this.data.shareImageUrl || this.data.posterImageUrl || '',
     };
   },
 });
