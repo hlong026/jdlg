@@ -1,85 +1,22 @@
+<!--index.wxml-->
 <view class="pages">
-  <view class="page-shell">
-    <view class="hero-section">
-      <image class="hero-image" src="{{defaultCoverImage}}" mode="aspectFill"></image>
-      <view class="hero-overlay"></view>
+  <view class="home-canvas">
+    <image class="bg-image" src="{{heroBgImage}}" mode="scaleToFill" />
+    <image class="daily-checkin" src="{{dailyCheckinImage}}" mode="scaleToFill" bindtap="onOpenPage" data-url="/pages/checkin/checkin?source=index" />
+    <image class="invite-friend" src="{{inviteFriendImage}}" mode="scaleToFill" bindtap="onOpenPage" data-url="/pages/Invitefriends/Invitefriends?source=index" />
 
-      <view class="hero-topline">
-        <text class="hero-kicker">AI 建筑设计中枢</text>
-        <view class="hero-top-actions">
-          <view class="mini-action" bindtap="onOpenPage" data-url="/pages/checkin/checkin?source=index">
-            <text class="mini-action-title">每日签到</text>
-            <text class="mini-action-desc">领取灵感值</text>
-          </view>
-          <view class="mini-action" bindtap="onOpenPage" data-url="/pages/Invitefriends/Invitefriends?source=index">
-            <text class="mini-action-title">邀请好友</text>
-            <text class="mini-action-desc">解锁更多权益</text>
-          </view>
-        </view>
-      </view>
+    <image class="core-entry" src="{{coreEntryImage}}" mode="scaleToFill" />
+    <view class="hotspot photo-hotspot" bindtap="onOpenPage" data-url="/pages/aigenerate/aigenerate?source=index"></view>
+    <view class="hotspot voice-hotspot" bindtap="onOpenPage" data-url="/pages/aitools/aitools"></view>
 
-      <view class="hero-brand">
-        <text class="brand-cn">甲第灵光</text>
-        <text class="brand-en">ArchLight</text>
-        <text class="brand-desc">方案生成、设计表达、综合创意与造价测算，统一回到一个更清晰的首页工作台。</text>
-      </view>
-
-      <view class="hero-entry">
-        <view class="hero-entry-header">
-          <text class="hero-entry-badge">AI</text>
-          <text class="hero-entry-title">拍照 / 说需求，快速进入设计流程</text>
-        </view>
-        <view class="hero-entry-actions">
-          <view class="entry-action entry-action-primary" bindtap="onOpenPage" data-url="/pages/aigenerate/aigenerate?source=index">
-            <text class="entry-action-title">拍照上传</text>
-            <text class="entry-action-desc">从真实场景开始生成方案</text>
-          </view>
-          <view class="entry-action" bindtap="onOpenPage" data-url="/pages/aitools/aitools">
-            <text class="entry-action-title">AI 生图工具</text>
-            <text class="entry-action-desc">进入工具库继续创作</text>
-          </view>
-        </view>
-      </view>
-    </view>
-
-    <view class="service-section">
-      <view class="section-heading">
-        <text class="section-title">四大入口</text>
-        <text class="section-desc">首页入口已按功能重组，亲子工坊能力并入综合设计，原卡位调整为造价生成。</text>
-      </view>
-      <view class="service-grid">
-        <view class="service-card" bindtap="onOpenPage" data-url="/pages/aigenerate/aigenerate?source=rural_villa&showSceneTabs=1&tab=exterior">
-          <text class="service-tag">乡建场景</text>
-          <text class="service-title">乡村别墅</text>
-          <text class="service-desc">聚焦自建房立面与空间方案，直接进入别墅设计流程。</text>
-          <text class="service-link">进入模块</text>
-        </view>
-        <view class="service-card" bindtap="onOpenPage" data-url="/pages/aigenerate/aigenerate?source=urban_renewal&showSceneTabs=0">
-          <text class="service-tag">更新场景</text>
-          <text class="service-title">城市更新</text>
-          <text class="service-desc">适合老旧街区、公共空间与更新项目的快速方案推演。</text>
-          <text class="service-link">进入模块</text>
-        </view>
-        <view class="service-card service-card-accent" bindtap="onOpenPage" data-url="/pages/aicost/aicost">
-          <text class="service-tag">新增独立入口</text>
-          <text class="service-title">造价生成</text>
-          <text class="service-desc">输入建房参数，快速生成五大分项测算表并查看 Excel 下载线索。</text>
-          <text class="service-link">进入模块</text>
-        </view>
-        <view class="service-card" bindtap="onOpenPage" data-url="/pages/allrounddesign/allrounddesign">
-          <text class="service-tag">能力合并</text>
-          <text class="service-title">综合设计</text>
-          <text class="service-desc">风格转换、海报设计、文创设计、创意玩偶合并为统一工作台。</text>
-          <text class="service-link">进入模块</text>
-        </view>
-      </view>
-    </view>
-
+    <image class="service-card rural-card" src="{{ruralVillaImage}}" mode="scaleToFill" bindtap="onOpenPage" data-url="/pages/aigenerate/aigenerate?source=rural_villa&showSceneTabs=1&tab=exterior" />
+    <image class="service-card city-card" src="{{cityRenewalImage}}" mode="scaleToFill" bindtap="onOpenPage" data-url="/pages/aigenerate/aigenerate?source=urban_renewal&showSceneTabs=0" />
+    <image class="service-card parent-card" src="{{parentWorkshopImage}}" mode="scaleToFill" bindtap="onOpenPage" data-url="/pages/Parentchildcreativity/Parentchildcreativity" />
+    <image class="service-card all-card" src="{{allRoundDesignImage}}" mode="scaleToFill" bindtap="onOpenPage" data-url="/pages/allrounddesign/allrounddesign" />
+  </view>
+  <view class="content">
     <view class="case-section" wx:if="{{featuredGroups && featuredGroups.length > 0}}">
-      <view class="section-heading">
-        <text class="section-title">精选案例对比</text>
-        <text class="section-desc">从真实案例里快速查看前后效果、方向差异和表达方式。</text>
-      </view>
+      <text class="case-title">精选案例对比</text>
       <view class="featured-groups">
         <view class="featured-group" wx:for="{{featuredGroups}}" wx:key="id">
           <view class="case-comparison" wx:if="{{item.display_mode === 'comparison'}}">
@@ -91,7 +28,7 @@
                 </view>
                 <view class="case-content">
                   <text class="case-item-title">{{item.case1.name}}</text>
-                  <text class="case-item-desc">{{item.case1.description || '通过 AI 将真实场景快速转化为更清晰的设计表达。'}}</text>
+                  <text class="case-item-desc">{{item.case1.description || '通过AI技术，将真实场景快速转换为专业设计方案'}}</text>
                 </view>
               </view>
             </view>
@@ -104,7 +41,7 @@
                 </view>
                 <view class="case-content">
                   <text class="case-item-title">{{item.case2.name}}</text>
-                  <text class="case-item-desc">{{item.case2.description || '通过 AI 将真实场景快速转化为更清晰的设计表达。'}}</text>
+                  <text class="case-item-desc">{{item.case2.description || '通过AI技术，将真实场景快速转换为专业设计方案'}}</text>
                 </view>
               </view>
             </view>
@@ -119,7 +56,7 @@
                 </view>
                 <view class="case-content">
                   <text class="case-item-title">{{item.case1.name}}</text>
-                  <text class="case-item-desc">{{item.case1.description || '通过 AI 将真实场景快速转化为更清晰的设计表达。'}}</text>
+                  <text class="case-item-desc">{{item.case1.description || '通过AI技术，将真实场景快速转换为专业设计方案'}}</text>
                 </view>
               </view>
             </view>
@@ -131,7 +68,7 @@
                 </view>
                 <view class="case-content">
                   <text class="case-item-title">{{item.case2.name}}</text>
-                  <text class="case-item-desc">{{item.case2.description || '通过 AI 将真实场景快速转化为更清晰的设计表达。'}}</text>
+                  <text class="case-item-desc">{{item.case2.description || '通过AI技术，将真实场景快速转换为专业设计方案'}}</text>
                 </view>
               </view>
             </view>
@@ -145,7 +82,7 @@
                 </view>
                 <view class="case-content">
                   <text class="case-item-title">{{item.case1.name}}</text>
-                  <text class="case-item-desc">{{item.case1.description || '通过 AI 将真实场景快速转化为更清晰的设计表达。'}}</text>
+                  <text class="case-item-desc">{{item.case1.description || '通过AI技术，将真实场景快速转换为专业设计方案'}}</text>
                 </view>
               </view>
             </view>
@@ -161,12 +98,8 @@
         </view>
       </view>
     </view>
-
     <view class="case-section case-section-skeleton" wx:elif="{{featuredGroupsLoading}}">
-      <view class="section-heading">
-        <view class="skeleton-block skeleton-title"></view>
-        <view class="skeleton-block skeleton-desc"></view>
-      </view>
+      <view class="case-title skeleton-block skeleton-title"></view>
       <view class="featured-groups skeleton-groups">
         <view class="skeleton-group-row">
           <view class="skeleton-card"></view>
@@ -188,42 +121,48 @@
       <view class="popup-header">
         <view class="popup-header-main">
           <text class="popup-title">联系服务商</text>
-          <text class="popup-subtitle">选择更适合你的沟通方式，快速获取人工支持。</text>
+          <text class="popup-subtitle">选择更适合你的沟通方式，快速获得帮助</text>
         </view>
         <view class="popup-close" bindtap="closeContactPopup">×</view>
       </view>
 
+      <!-- 在线客服（小程序原生客服） -->
       <view class="supplier-option supplier-option-contact">
+        <view class="supplier-option-icon supplier-chat-icon">💬</view>
         <view class="supplier-option-content">
           <text class="supplier-option-title">在线客服</text>
-          <text class="supplier-option-desc">通过小程序原生客服直接咨询</text>
+          <text class="supplier-option-desc">在线消息咨询</text>
         </view>
         <view class="supplier-option-right">
           <text class="supplier-option-badge green">立即咨询</text>
-          <text class="supplier-option-arrow">></text>
+          <text class="supplier-option-arrow">›</text>
         </view>
         <button class="supplier-option-contact-btn" open-type="contact" bindcontact="onNativeContactSuccess"></button>
       </view>
 
+      <!-- 电话咨询 -->
       <view class="supplier-option" bindtap="onCallSupplier">
+        <view class="supplier-option-icon supplier-phone-icon">☎</view>
         <view class="supplier-option-content">
           <text class="supplier-option-title">电话咨询</text>
           <text class="supplier-option-desc">{{supplierPhone}}</text>
         </view>
         <view class="supplier-option-right">
           <text class="supplier-option-badge warm">立即联系</text>
-          <text class="supplier-option-arrow">></text>
+          <text class="supplier-option-arrow">›</text>
         </view>
       </view>
 
+      <!-- 智能客服（企微客服，失败弹二维码） -->
       <view class="supplier-option" bindtap="onSmartServiceTap">
+        <view class="supplier-option-icon supplier-ai-icon">🤖</view>
         <view class="supplier-option-content">
           <text class="supplier-option-title">智能客服</text>
-          <text class="supplier-option-desc">优先尝试拉起企业微信服务入口</text>
+          <text class="supplier-option-desc">AI 智能问答</text>
         </view>
         <view class="supplier-option-right">
           <text class="supplier-option-badge green">立即体验</text>
-          <text class="supplier-option-arrow">></text>
+          <text class="supplier-option-arrow">›</text>
         </view>
       </view>
     </view>
@@ -234,23 +173,24 @@
       <view class="popup-header">
         <view class="popup-header-main">
           <text class="popup-title">企业微信咨询</text>
-          <text class="popup-subtitle">长按识别二维码，添加后可继续一对一沟通与服务跟进。</text>
+          <text class="popup-subtitle">长按识别二维码，添加后可继续一对一沟通与服务跟进</text>
         </view>
         <view class="popup-close" bindtap="closeWechatQrcode">×</view>
       </view>
 
       <view class="wechat-summary-card">
+        <view class="wechat-summary-icon">微</view>
         <view class="wechat-summary-content">
           <text class="wechat-summary-title">企业微信在线咨询</text>
-          <text class="wechat-summary-desc">如果没有直接拉起客服，这里会作为备用入口。</text>
+          <text class="wechat-summary-desc">当前为二维码备用入口，若直达客服未拉起，可长按识别继续咨询</text>
         </view>
       </view>
 
       <view class="wechat-qrcode-wrapper">
-        <image wx:if="{{supplierWechatQrAvailable}}" class="wechat-qrcode-image" src="{{supplierWechatQr}}" mode="aspectFit" binderror="onWechatQrcodeError" bindtap="previewWechatQrcode"></image>
+        <image wx:if="{{supplierWechatQrAvailable}}" class="wechat-qrcode-image" src="{{supplierWechatQr}}" mode="aspectFit" binderror="onWechatQrcodeError" bindtap="previewWechatQrcode" />
         <view wx:else class="wechat-qrcode-placeholder">
           <text class="wechat-qrcode-placeholder-title">请补充客服二维码图片</text>
-          <text class="wechat-qrcode-placeholder-desc">将二维码放置到 /assets/企业微信二维码.png</text>
+          <text class="wechat-qrcode-placeholder-desc">将二维码图片放到 /assets/企业微信二维码.png</text>
         </view>
       </view>
 

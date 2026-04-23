@@ -1,278 +1,125 @@
-/** index.scss **/
+/**index.scss**/
 .pages {
   width: 100vw;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0) 32%),
-    linear-gradient(180deg, #efe4d6 0%, #e9dccb 42%, #f3ecdf 100%);
+  background: linear-gradient(180deg, #e6daca 0%, #ece4d9 100%);
   overflow-x: hidden;
   box-sizing: border-box;
 }
 
-.page-shell {
-  padding: calc(env(safe-area-inset-top) + 24rpx) 24rpx calc(200rpx + env(safe-area-inset-bottom));
-  box-sizing: border-box;
-}
-
-.hero-section {
+.home-canvas {
   position: relative;
-  overflow: hidden;
-  border-radius: 36rpx;
-  padding: 32rpx;
-  background: linear-gradient(160deg, rgba(255, 250, 244, 0.92) 0%, rgba(240, 229, 213, 0.88) 100%);
-  border: 1px solid rgba(183, 156, 124, 0.24);
-  box-shadow: 0 22rpx 44rpx rgba(113, 80, 63, 0.12);
+  width: 750rpx;
+  height: 1640rpx;
 }
 
-.hero-image,
-.hero-overlay {
+.bg-image,
+.daily-checkin,
+.invite-friend,
+.core-entry,
+.service-card {
   position: absolute;
+  display: block;
+}
+
+.bg-image {
   left: 0;
   top: 0;
-  width: 100%;
-  height: 100%;
+  width: 750rpx;
+  height: 1640rpx;
 }
 
-.hero-image {
-  opacity: 0.32;
+.daily-checkin {
+  left: 512rpx;
+  top: 228rpx;
+  width: 99rpx;
+  height: 133rpx;
+  z-index: 5;
 }
 
-.hero-overlay {
-  background:
-    linear-gradient(180deg, rgba(248, 242, 233, 0.92) 0%, rgba(239, 228, 214, 0.84) 100%),
-    linear-gradient(120deg, rgba(205, 175, 141, 0.12) 0%, rgba(255, 255, 255, 0) 60%);
+.invite-friend {
+  left: 635rpx;
+  top: 228rpx;
+  width: 101rpx;
+  height: 133rpx;
+  z-index: 5;
 }
 
-.hero-topline,
-.hero-brand,
-.hero-entry {
-  position: relative;
-  z-index: 2;
+.core-entry {
+  left: 20rpx;
+  top: 675rpx;
+  width: 710rpx;
+  height: 367rpx;
+  z-index: 4;
 }
 
-.hero-topline {
-  display: flex;
-  flex-direction: column;
-  gap: 24rpx;
+.hotspot {
+  position: absolute;
+  z-index: 6;
+  background: transparent;
 }
 
-.hero-kicker {
-  align-self: flex-start;
-  padding: 12rpx 22rpx;
-  border-radius: 999rpx;
-  background: rgba(94, 65, 47, 0.08);
-  border: 1px solid rgba(94, 65, 47, 0.12);
-  color: #7a5a41;
-  font-size: 22rpx;
-  letter-spacing: 2rpx;
+.photo-hotspot {
+  left: 48rpx;
+  top: 770rpx;
+  width: 300rpx;
+  height: 170rpx;
+  border-radius: 42rpx;
 }
 
-.hero-top-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16rpx;
-}
-
-.mini-action {
-  padding: 22rpx;
-  border-radius: 22rpx;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(189, 165, 134, 0.28);
-  box-shadow: 0 10rpx 26rpx rgba(113, 80, 63, 0.08);
-}
-
-.mini-action-title {
-  display: block;
-  color: #5e412f;
-  font-size: 28rpx;
-  font-weight: 600;
-}
-
-.mini-action-desc {
-  display: block;
-  margin-top: 8rpx;
-  color: #8b6f55;
-  font-size: 22rpx;
-  line-height: 1.5;
-}
-
-.hero-brand {
-  margin-top: 36rpx;
-}
-
-.brand-cn {
-  display: block;
-  color: #6b4c35;
-  font-size: 72rpx;
-  font-weight: 700;
-  line-height: 1.1;
-}
-
-.brand-en {
-  display: block;
-  margin-top: 8rpx;
-  color: #8c6c50;
-  font-size: 40rpx;
-  font-weight: 600;
-  letter-spacing: 1rpx;
-}
-
-.brand-desc {
-  display: block;
-  margin-top: 18rpx;
-  color: #7d624a;
-  font-size: 26rpx;
-  line-height: 1.7;
-}
-
-.hero-entry {
-  margin-top: 34rpx;
-  padding: 28rpx;
-  border-radius: 30rpx;
-  background: rgba(255, 255, 255, 0.74);
-  border: 1px solid rgba(191, 167, 139, 0.28);
-  box-shadow: inset 0 0 0 1rpx rgba(255, 255, 255, 0.4);
-}
-
-.hero-entry-header {
-  display: flex;
-  align-items: center;
-  gap: 18rpx;
-}
-
-.hero-entry-badge {
-  width: 88rpx;
-  height: 88rpx;
-  line-height: 88rpx;
-  border-radius: 50%;
-  text-align: center;
-  background: linear-gradient(135deg, #d7b285 0%, #bb8755 100%);
-  color: #fff6ed;
-  font-size: 34rpx;
-  font-weight: 700;
-  box-shadow: 0 12rpx 22rpx rgba(187, 135, 85, 0.22);
-}
-
-.hero-entry-title {
-  flex: 1;
-  color: #5b4030;
-  font-size: 36rpx;
-  font-weight: 700;
-  line-height: 1.45;
-}
-
-.hero-entry-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16rpx;
-  margin-top: 24rpx;
-}
-
-.entry-action {
-  padding: 22rpx 20rpx;
-  border-radius: 24rpx;
-  background: rgba(250, 245, 239, 0.9);
-  border: 1px solid rgba(192, 166, 137, 0.24);
-}
-
-.entry-action-primary {
-  background: linear-gradient(135deg, rgba(210, 177, 136, 0.2) 0%, rgba(255, 248, 239, 0.92) 100%);
-}
-
-.entry-action-title {
-  display: block;
-  color: #5b4030;
-  font-size: 28rpx;
-  font-weight: 600;
-}
-
-.entry-action-desc {
-  display: block;
-  margin-top: 8rpx;
-  color: #8b6f55;
-  font-size: 22rpx;
-  line-height: 1.5;
-}
-
-.service-section,
-.case-section {
-  margin-top: 28rpx;
-}
-
-.section-heading {
-  display: flex;
-  flex-direction: column;
-  gap: 10rpx;
-  margin-bottom: 24rpx;
-}
-
-.section-title {
-  color: #5e412f;
-  font-size: 34rpx;
-  font-weight: 700;
-}
-
-.section-desc {
-  color: #8a6e56;
-  font-size: 24rpx;
-  line-height: 1.7;
-}
-
-.service-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18rpx;
+.voice-hotspot {
+  left: 354rpx;
+  top: 770rpx;
+  width: 310rpx;
+  height: 170rpx;
+  border-radius: 42rpx;
 }
 
 .service-card {
-  min-height: 224rpx;
-  padding: 24rpx;
-  border-radius: 28rpx;
-  background: rgba(255, 251, 246, 0.82);
-  border: 1px solid rgba(185, 160, 131, 0.26);
-  box-shadow: 0 14rpx 30rpx rgba(113, 80, 63, 0.08);
-  display: flex;
-  flex-direction: column;
+  width: 339rpx;
+  height: 164rpx;
+  z-index: 4;
+  top: 1067rpx;
 }
 
-.service-card-accent {
-  background: linear-gradient(160deg, rgba(255, 245, 233, 0.96) 0%, rgba(242, 228, 210, 0.92) 100%);
-  border-color: rgba(178, 141, 101, 0.34);
+.rural-card {
+  left: 27rpx;
+  top: 1067rpx;
 }
 
-.service-tag {
-  align-self: flex-start;
-  padding: 10rpx 16rpx;
-  border-radius: 999rpx;
-  background: rgba(94, 65, 47, 0.08);
-  color: #8a6d53;
-  font-size: 20rpx;
+.city-card {
+  left: 385rpx;
+  top: 1067rpx;
 }
 
-.service-title {
-  margin-top: 20rpx;
-  color: #5e412f;
-  font-size: 32rpx;
-  font-weight: 700;
+.parent-card {
+  left: 27rpx;
+  top: 1250rpx;
 }
 
-.service-desc {
-  margin-top: 12rpx;
-  color: #856852;
-  font-size: 23rpx;
-  line-height: 1.65;
-  flex: 1;
+.all-card {
+  left: 385rpx;
+  top: 1250rpx;
 }
 
-.service-link {
-  margin-top: 18rpx;
-  color: #b27d4c;
-  font-size: 24rpx;
-  font-weight: 600;
+.content {
+  position: relative;
+  margin-top: -120rpx;
+  min-height: 960rpx;
+  padding: 0 30rpx calc(220rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
 }
 
 .case-section {
   margin-bottom: 40rpx;
+
+  .case-title {
+    display: block;
+    font-size: 32rpx;
+    color: #5e412f;
+    margin-bottom: 30rpx;
+    font-weight: 600;
+  }
 
   .case-comparison {
     display: flex;
@@ -388,13 +235,7 @@
   width: 220rpx;
   height: 36rpx;
   border-radius: 18rpx;
-}
-
-.skeleton-desc {
-  width: 100%;
-  max-width: 420rpx;
-  height: 24rpx;
-  border-radius: 12rpx;
+  margin-bottom: 30rpx;
 }
 
 .skeleton-groups {
@@ -518,200 +359,351 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 10rpx;
+  gap: 8rpx;
+  padding-right: 20rpx;
 }
 
 .popup-title {
-  color: #5d412f;
-  font-size: 32rpx;
-  font-weight: 700;
+  font-size: 34rpx;
+  line-height: 48rpx;
+  color: #5e412f;
+  font-weight: 600;
 }
 
 .popup-subtitle {
-  color: #8b6f55;
-  font-size: 24rpx;
+  font-size: 22rpx;
   line-height: 1.6;
+  color: rgba(94, 65, 47, 0.68);
 }
 
 .popup-close {
-  width: 64rpx;
-  height: 64rpx;
-  line-height: 64rpx;
-  border-radius: 50%;
-  background: rgba(94, 65, 47, 0.08);
-  text-align: center;
-  color: #6f5945;
-  font-size: 32rpx;
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: 26rpx;
+  background: rgba(201, 173, 142, 0.2);
+  color: #8d6f56;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34rpx;
+  line-height: 1;
 }
 
 .supplier-option {
-  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 20rpx;
-  padding: 26rpx 24rpx;
-  margin-top: 18rpx;
-  border-radius: 22rpx;
-  background: rgba(255, 255, 255, 0.68);
-  border: 1px solid rgba(181, 145, 108, 0.18);
+  gap: 24rpx;
+  padding: 24rpx;
+  border-radius: 24rpx;
+  background: rgba(255, 255, 255, 0.72);
+  border: 2rpx solid rgba(196, 165, 131, 0.22);
+  box-shadow: 0 10rpx 24rpx rgba(94, 65, 47, 0.08);
+}
+
+.supplier-option + .supplier-option {
+  margin-top: 20rpx;
+}
+
+.supplier-option-contact {
+  position: relative;
+  overflow: hidden;
+}
+
+.supplier-option-icon {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.supplier-phone-icon {
+  background: linear-gradient(180deg, #caa16d 0%, #b27b46 100%);
+}
+
+.supplier-wechat-icon {
+  background: linear-gradient(180deg, #7ac96f 0%, #45a35a 100%);
 }
 
 .supplier-option-content {
   flex: 1;
-}
-
-.supplier-option-title {
-  display: block;
-  color: #5d412f;
-  font-size: 28rpx;
-  font-weight: 600;
-}
-
-.supplier-option-desc {
-  display: block;
-  margin-top: 8rpx;
-  color: #8b6f55;
-  font-size: 24rpx;
-  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
 }
 
 .supplier-option-right {
   display: flex;
   align-items: center;
-  gap: 16rpx;
+  gap: 12rpx;
+  flex-shrink: 0;
 }
 
 .supplier-option-badge {
-  padding: 10rpx 18rpx;
+  padding: 10rpx 16rpx;
   border-radius: 999rpx;
   font-size: 20rpx;
-  color: #fff;
-}
+  font-weight: 600;
+  line-height: 1;
 
-.supplier-option-badge.green {
-  background: linear-gradient(135deg, #6abf88 0%, #2e9d68 100%);
-}
+  &.warm {
+    background: rgba(202, 161, 109, 0.16);
+    color: #a3703f;
+  }
 
-.supplier-option-badge.warm {
-  background: linear-gradient(135deg, #d7ae78 0%, #bb8755 100%);
+  &.green {
+    background: rgba(88, 185, 105, 0.16);
+    color: #3f9951;
+  }
 }
 
 .supplier-option-arrow {
-  color: #af7c49;
-  font-size: 26rpx;
-  font-weight: 700;
+  font-size: 34rpx;
+  line-height: 1;
+  color: rgba(138, 105, 78, 0.55);
+}
+
+.supplier-contact-trigger {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  opacity: 0;
+  z-index: 3;
+}
+
+.supplier-option-title {
+  font-size: 30rpx;
+  color: #5e412f;
+  font-weight: 600;
+}
+
+.supplier-option-desc {
+  font-size: 24rpx;
+  color: rgba(94, 65, 47, 0.78);
+}
+
+.supplier-contact-tip {
+  margin-top: 20rpx;
+  padding: 18rpx 22rpx;
+  border-radius: 18rpx;
+  background: rgba(201, 173, 142, 0.12);
+  border: 1px solid rgba(189, 154, 119, 0.2);
+
+  text {
+    font-size: 24rpx;
+    color: #8a694e;
+    line-height: 1.6;
+  }
+}
+
+/* 在线客服卡片：view 做布局 + 透明 button 覆盖层处理 contact */
+.supplier-option-contact {
+  position: relative;
+  overflow: hidden;
 }
 
 .supplier-option-contact-btn {
   position: absolute;
-  left: 0;
   top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   opacity: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.supplier-option-contact-btn::after {
+  border: none;
+}
+
+.supplier-chat-icon {
+  background: linear-gradient(180deg, #4facfe 0%, #3b82f6 100%);
+}
+
+.supplier-ai-icon {
+  background: linear-gradient(180deg, #a78bfa 0%, #7c3aed 100%);
+}
+
+/* 智能客服禁用态 */
+.supplier-option-disabled {
+  opacity: 0.55;
+}
+
+.supplier-option-badge.muted {
+  background: rgba(138, 105, 78, 0.12);
+  color: #8a694e;
+}
+
+.supplier-contact-helper {
+  margin-top: 18rpx;
+  padding: 18rpx 22rpx;
+  border-radius: 18rpx;
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(189, 154, 119, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.supplier-contact-helper-text {
+  flex: 1;
+  font-size: 24rpx;
+  color: #8a694e;
+  line-height: 1.5;
+}
+
+.supplier-contact-helper-arrow {
+  font-size: 30rpx;
+  line-height: 1;
+  color: rgba(138, 105, 78, 0.58);
 }
 
 .wechat-summary-card {
-  padding: 24rpx;
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  margin-bottom: 22rpx;
+  padding: 20rpx 22rpx;
   border-radius: 22rpx;
-  background: rgba(255, 255, 255, 0.68);
+  background: rgba(255, 255, 255, 0.74);
   border: 1px solid rgba(181, 145, 108, 0.18);
 }
 
+.wechat-summary-icon {
+  width: 74rpx;
+  height: 74rpx;
+  border-radius: 37rpx;
+  background: linear-gradient(180deg, #6fc865 0%, #43a75a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 34rpx;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.wechat-summary-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
 .wechat-summary-title {
-  display: block;
-  color: #5d412f;
   font-size: 28rpx;
+  color: #5e412f;
   font-weight: 600;
 }
 
 .wechat-summary-desc {
-  display: block;
-  margin-top: 8rpx;
-  color: #8b6f55;
-  font-size: 24rpx;
+  font-size: 22rpx;
   line-height: 1.6;
+  color: rgba(94, 65, 47, 0.72);
 }
 
 .wechat-qrcode-wrapper {
-  margin-top: 22rpx;
-  padding: 30rpx;
-  border-radius: 26rpx;
-  background: rgba(255, 255, 255, 0.78);
+  width: 100%;
+  min-height: 560rpx;
+  border-radius: 28rpx;
+  background: rgba(255, 255, 255, 0.9);
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
+  padding: 24rpx;
+  box-sizing: border-box;
+  border: 2rpx dashed rgba(190, 157, 123, 0.35);
 }
 
 .wechat-qrcode-image {
-  width: 360rpx;
-  height: 360rpx;
+  width: 100%;
+  height: 520rpx;
 }
 
 .wechat-qrcode-placeholder {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12rpx;
+  gap: 16rpx;
+  text-align: center;
+  padding: 40rpx;
 }
 
 .wechat-qrcode-placeholder-title {
-  color: #5d412f;
-  font-size: 28rpx;
+  font-size: 30rpx;
+  color: #5e412f;
   font-weight: 600;
 }
 
 .wechat-qrcode-placeholder-desc {
-  color: #8b6f55;
-  font-size: 22rpx;
+  font-size: 24rpx;
+  color: rgba(94, 65, 47, 0.74);
   line-height: 1.6;
-  text-align: center;
 }
 
 .wechat-service-tip {
-  margin-top: 22rpx;
-  padding: 20rpx 24rpx;
+  margin-top: 24rpx;
+  padding: 18rpx 22rpx;
   border-radius: 18rpx;
-  background: rgba(255, 255, 255, 0.58);
+  background: rgba(201, 173, 142, 0.12);
+  border: 1px solid rgba(189, 154, 119, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
 }
 
 .wechat-service-tip-text {
-  color: #866a53;
-  font-size: 23rpx;
+  font-size: 24rpx;
+  color: #7a5d46;
   line-height: 1.7;
+}
+
+.wechat-service-contact {
+  font-size: 24rpx;
+  color: #5e412f;
+  font-weight: 600;
 }
 
 .wechat-popup-footer {
   display: flex;
-  gap: 18rpx;
-  margin-top: 26rpx;
+  gap: 20rpx;
+  margin-top: 28rpx;
 }
 
 .wechat-footer-btn {
   flex: 1;
-  padding: 24rpx 20rpx;
-  border-radius: 999rpx;
-  text-align: center;
+  height: 84rpx;
+  border-radius: 22rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 28rpx;
   font-weight: 600;
 }
 
 .wechat-footer-btn.secondary {
-  background: rgba(255, 255, 255, 0.72);
-  color: #6f5945;
-  border: 1px solid rgba(181, 145, 108, 0.18);
+  background: rgba(201, 173, 142, 0.14);
+  color: #8a694e;
+  border: 2rpx solid rgba(189, 154, 119, 0.25);
 }
 
 .wechat-footer-btn.primary {
-  background: linear-gradient(135deg, #c8a679 0%, #a9855b 100%);
-  color: #fffaf2;
-}
-
-@media (max-width: 360px) {
-  .hero-top-actions,
-  .hero-entry-actions,
-  .service-grid {
-    grid-template-columns: 1fr;
-  }
+  background: linear-gradient(180deg, #c8a679 0%, #a9855b 100%);
+  color: #fff;
+  box-shadow: 0 12rpx 26rpx rgba(113, 80, 63, 0.18);
 }

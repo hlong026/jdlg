@@ -1,286 +1,161 @@
+<!--pages/allrounddesign/allrounddesign.wxml-->
 <view class="page">
-  <navigation-bar title="综合设计" background="#eadfce" />
+  <!-- 统一导航栏 -->
+  <navigation-bar title="综合设计" background="#e6daca" />
 
-  <scroll-view class="page-scroll" scroll-y enhanced show-scrollbar="{{false}}">
-    <view class="hero-section">
-      <text class="hero-kicker">四合一设计工作台</text>
-      <text class="hero-title">综合设计</text>
-      <text class="hero-desc">原亲子工坊已并入综合设计。现在可以在这里完成风格转换、海报设计、文创设计和创意玩偶生成。</text>
-      <view class="hero-pills">
-        <text class="hero-pill">风格转换</text>
-        <text class="hero-pill">海报设计</text>
-        <text class="hero-pill">文创设计</text>
-        <text class="hero-pill">创意玩偶</text>
+  <view class="content">
+    <!-- 主导航标签 -->
+    <view class="main-tabs">
+      <view class="tab-item {{activeTab === item.value ? 'active' : ''}}" 
+            wx:for="{{tabs}}" 
+            wx:key="index"
+            bindtap="onTabSwitch"
+            data-value="{{item.value}}">
+        {{item.label}}
       </view>
     </view>
 
-    <view class="tab-rail">
-      <view class="tab-item {{activeTab === item.value ? 'active' : ''}}" wx:for="{{tabs}}" wx:key="value" bindtap="onTabSwitch" data-value="{{item.value}}">
-        <text class="tab-label">{{item.label}}</text>
-        <text class="tab-desc">{{item.shortDesc}}</text>
+    <!-- 风格变换内容 -->
+    <view class="tab-content" wx:if="{{activeTab === 'style'}}">
+      <!-- 上传原图 -->
+      <view class="form-section">
+        <view class="section-title">上传原图</view>
+        <view class="section-content">
+          <view class="upload-btn" bindtap="onUploadOriginalImage">
+            <t-icon name="upload" size="36rpx" color="#6f5945" />
+            <text>上传原图</text>
+          </view>
+          <view class="uploaded-images" wx:if="{{originalImage}}">
+            <view class="image-item">
+              <image class="uploaded-image" src="{{originalImage}}" mode="aspectFill" />
+              <view class="image-delete" bindtap="onDeleteOriginalImage">×</view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 选择目标风格 -->
+      <view class="form-section">
+        <view class="section-title">选择目标风格</view>
+        <view class="section-content">
+          <view class="style-options">
+            <view class="style-item {{targetStyle === item.value ? 'active' : ''}}" 
+                  wx:for="{{styleOptions}}" 
+                  wx:key="index"
+                  bindtap="onSelectTargetStyle"
+                  data-value="{{item.value}}">
+              <text>{{item.label}}</text>
+            </view>
+          </view>
+        </view>
       </view>
     </view>
 
-    <view class="module-shell">
-      <view class="module-head">
-        <view class="module-copy">
-          <text class="module-title">{{activeModuleTitle}}</text>
-          <text class="module-desc">{{activeModuleDesc}}</text>
-        </view>
-        <text class="module-badge">{{activeModuleBadge}}</text>
-      </view>
-      <view class="module-tip">
-        <text class="module-tip-text">{{activeModuleHint}}</text>
-        <view class="module-tip-link" wx:if="{{activeTab === 'creative'}}" bindtap="onOpenLegacyWorkshop">
-          <text>打开原亲子工坊</text>
-        </view>
-      </view>
-
-      <block wx:if="{{activeTab === 'style'}}">
-        <view class="form-section">
-          <view class="section-header">
-            <text class="section-title">原图素材</text>
-            <text class="section-desc">上传需要调整的建筑图像，作为风格转换的基础画面。</text>
+    <!-- 海报设计内容 -->
+    <view class="tab-content" wx:if="{{activeTab === 'poster'}}">
+      <!-- 主题和文字 -->
+      <view class="form-section">
+        <view class="section-title">主题和文字</view>
+        <view class="section-content">
+          <view class="form-item">
+            <text class="form-label">海报主题</text>
+            <input class="form-input" value="{{posterTheme}}" bindinput="onPosterThemeInput" placeholder="请输入海报主题..." />
           </view>
-          <view class="section-content">
-            <view class="upload-btn" bindtap="onUploadOriginalImage">
-              <t-icon name="upload" size="36rpx" color="#6f5945" />
-              <text>上传原图</text>
-            </view>
-            <view class="uploaded-images" wx:if="{{originalImage}}">
-              <view class="image-item">
-                <image class="uploaded-image" src="{{originalImage}}" mode="aspectFill"></image>
-                <view class="image-delete" bindtap="onDeleteOriginalImage">×</view>
-              </view>
-            </view>
+          <view class="form-item">
+            <text class="form-label">文字内容</text>
+            <textarea class="form-textarea" value="{{posterText}}" bindinput="onPosterTextInput" placeholder="请输入海报文字内容..." maxlength="200" />
           </view>
-        </view>
-
-        <view class="form-section">
-          <view class="section-header">
-            <text class="section-title">风格方向</text>
-            <text class="section-desc">选择目标风格，适合立面、空间或概念图的视觉转换。</text>
-          </view>
-          <view class="section-content">
-            <view class="chip-list">
-              <view class="chip-item {{targetStyle === item.value ? 'active' : ''}}" wx:for="{{styleOptions}}" wx:key="value" bindtap="onSelectTargetStyle" data-value="{{item.value}}">
-                <text>{{item.label}}</text>
-              </view>
-            </view>
-          </view>
-        </view>
-      </block>
-
-      <block wx:elif="{{activeTab === 'poster'}}">
-        <view class="form-section">
-          <view class="section-header">
-            <text class="section-title">海报文案</text>
-            <text class="section-desc">先定义主题和文字内容，再进入风格和参考图阶段。</text>
-          </view>
-          <view class="section-content">
-            <view class="form-item">
-              <text class="form-label">海报主题</text>
-              <input class="form-input" value="{{posterTheme}}" bindinput="onPosterThemeInput" placeholder="例如：设计发布、活动预告、品牌海报" />
-            </view>
-            <view class="form-item">
-              <text class="form-label">文字内容</text>
-              <textarea class="form-textarea" value="{{posterText}}" bindinput="onPosterTextInput" placeholder="输入需要呈现在海报上的核心文案" maxlength="200" auto-height />
-            </view>
-          </view>
-        </view>
-
-        <view class="form-section">
-          <view class="section-header">
-            <text class="section-title">海报风格</text>
-            <text class="section-desc">选择更接近最终输出方向的视觉表达方式。</text>
-          </view>
-          <view class="section-content">
-            <view class="chip-list">
-              <view class="chip-item {{posterStyle === item.value ? 'active' : ''}}" wx:for="{{posterStyleOptions}}" wx:key="value" bindtap="onSelectPosterStyle" data-value="{{item.value}}">
-                <text>{{item.label}}</text>
-              </view>
-            </view>
-          </view>
-        </view>
-
-        <view class="form-section">
-          <view class="section-header">
-            <text class="section-title">参考图</text>
-            <text class="section-desc">可选项。上传后有助于稳定版式和整体氛围。</text>
-          </view>
-          <view class="section-content">
-            <view class="upload-btn" bindtap="onUploadPosterReference">
-              <t-icon name="upload" size="36rpx" color="#6f5945" />
-              <text>上传参考图</text>
-            </view>
-            <view class="uploaded-images" wx:if="{{posterReferenceImages.length > 0}}">
-              <view class="image-item" wx:for="{{posterReferenceImages}}" wx:key="index">
-                <image class="uploaded-image" src="{{item}}" mode="aspectFill"></image>
-                <view class="image-delete" bindtap="onDeletePosterReferenceImage" data-index="{{index}}">×</view>
-              </view>
-            </view>
-          </view>
-        </view>
-      </block>
-
-      <block wx:elif="{{activeTab === 'cultural'}}">
-        <view class="form-section">
-          <view class="section-header">
-            <text class="section-title">产品定位</text>
-            <text class="section-desc">输入产品类型与设计诉求，先把文创产品的方向定下来。</text>
-          </view>
-          <view class="section-content">
-            <view class="form-item">
-              <text class="form-label">产品类型</text>
-              <input class="form-input" value="{{productType}}" bindinput="onProductTypeInput" placeholder="例如：帆布袋、文创杯、展陈周边" />
-            </view>
-            <view class="form-item">
-              <text class="form-label">设计要求</text>
-              <textarea class="form-textarea" value="{{productRequirements}}" bindinput="onProductRequirementsInput" placeholder="描述你希望呈现的图案、元素、语气和用途" maxlength="300" auto-height />
-            </view>
-          </view>
-        </view>
-
-        <view class="form-section">
-          <view class="section-header">
-            <text class="section-title">风格方向</text>
-            <text class="section-desc">选择主风格后，系统会更准确地理解文创输出方向。</text>
-          </view>
-          <view class="section-content">
-            <view class="chip-list">
-              <view class="chip-item {{culturalStyle === item.value ? 'active' : ''}}" wx:for="{{culturalStyleOptions}}" wx:key="value" bindtap="onSelectCulturalStyle" data-value="{{item.value}}">
-                <text>{{item.label}}</text>
-              </view>
-            </view>
-          </view>
-        </view>
-
-        <view class="form-section">
-          <view class="section-header">
-            <text class="section-title">参考图</text>
-            <text class="section-desc">可选项。适合上传色板、纹样、包装或竞品参考。</text>
-          </view>
-          <view class="section-content">
-            <view class="upload-btn" bindtap="onUploadCulturalReference">
-              <t-icon name="upload" size="36rpx" color="#6f5945" />
-              <text>上传参考图</text>
-            </view>
-            <view class="uploaded-images" wx:if="{{culturalReferenceImages.length > 0}}">
-              <view class="image-item" wx:for="{{culturalReferenceImages}}" wx:key="index">
-                <image class="uploaded-image" src="{{item}}" mode="aspectFill"></image>
-                <view class="image-delete" bindtap="onDeleteCulturalReferenceImage" data-index="{{index}}">×</view>
-              </view>
-            </view>
-          </view>
-        </view>
-      </block>
-
-      <block wx:else>
-        <view class="form-section">
-          <view class="section-header">
-            <text class="section-title">创意原型</text>
-            <text class="section-desc">创意玩偶能力来自原亲子工坊，现已并入综合设计统一工作台。</text>
-          </view>
-          <view class="section-content">
-            <view class="chip-list">
-              <view class="chip-item {{creativePrototype === item.value ? 'active' : ''}}" wx:for="{{creativePrototypeOptions}}" wx:key="value" bindtap="onSelectCreativePrototype" data-value="{{item.value}}">
-                <text>{{item.label}}</text>
-              </view>
-            </view>
-          </view>
-        </view>
-
-        <view class="form-section">
-          <view class="section-header">
-            <text class="section-title">玩偶气质</text>
-            <text class="section-desc">先决定整体气质，再补充主题和描述，更容易得到稳定结果。</text>
-          </view>
-          <view class="section-content">
-            <view class="chip-list">
-              <view class="chip-item {{creativeMood === item.value ? 'active' : ''}}" wx:for="{{creativeMoodOptions}}" wx:key="value" bindtap="onSelectCreativeMood" data-value="{{item.value}}">
-                <text>{{item.label}}</text>
-              </view>
-            </view>
-          </view>
-        </view>
-
-        <view class="form-section">
-          <view class="section-header">
-            <text class="section-title">创意描述</text>
-            <text class="section-desc">至少填写主题或设计要求中的一项，就可以开始生成。</text>
-          </view>
-          <view class="section-content">
-            <view class="form-item">
-              <text class="form-label">玩偶主题</text>
-              <input class="form-input" value="{{creativeTheme}}" bindinput="onCreativeThemeInput" placeholder="例如：城市地标盲盒、建筑守护精灵" />
-            </view>
-            <view class="form-item">
-              <text class="form-label">设计要求</text>
-              <textarea class="form-textarea" value="{{creativeRequirements}}" bindinput="onCreativeRequirementsInput" placeholder="描述想要的角色性格、颜色、材质和造型细节" maxlength="300" auto-height />
-            </view>
-          </view>
-        </view>
-
-        <view class="form-section">
-          <view class="section-header">
-            <text class="section-title">参考图</text>
-            <text class="section-desc">可选项。上传建筑、玩偶、插画或手稿参考都可以。</text>
-          </view>
-          <view class="section-content">
-            <view class="upload-btn" bindtap="onUploadCreativeReference">
-              <t-icon name="upload" size="36rpx" color="#6f5945" />
-              <text>上传参考图</text>
-            </view>
-            <view class="uploaded-images" wx:if="{{creativeReferenceImages.length > 0}}">
-              <view class="image-item" wx:for="{{creativeReferenceImages}}" wx:key="index">
-                <image class="uploaded-image" src="{{item}}" mode="aspectFill"></image>
-                <view class="image-delete" bindtap="onDeleteCreativeReferenceImage" data-index="{{index}}">×</view>
-              </view>
-            </view>
-          </view>
-        </view>
-
-        <view class="result-section" wx:if="{{generatedImages.length > 0}}">
-          <view class="section-header">
-            <text class="section-title">生成结果</text>
-            <text class="section-desc">创意玩偶生成完成后，会在这里展示最近的结果图。</text>
-          </view>
-          <view class="result-grid">
-            <view class="result-item" wx:for="{{generatedImages}}" wx:key="index">
-              <image class="result-image" src="{{item}}" mode="aspectFill" bindtap="onPreviewGeneratedImage" data-index="{{index}}"></image>
-              <view class="result-actions">
-                <view class="result-action-btn" bindtap="onSaveImage" data-index="{{index}}">
-                  <t-icon name="download" size="32rpx" color="#6f5945" />
-                  <text>保存</text>
-                </view>
-                <view class="result-action-btn" bindtap="onShareImage" data-index="{{index}}">
-                  <t-icon name="share" size="32rpx" color="#6f5945" />
-                  <text>分享</text>
-                </view>
-              </view>
-            </view>
-          </view>
-        </view>
-      </block>
-
-      <view class="helper-actions">
-        <view class="helper-btn" bindtap="onOpenGenerateHistory">
-          <text>查看生成历史</text>
-        </view>
-        <view class="helper-btn helper-btn-secondary" wx:if="{{activeTab === 'creative'}}" bindtap="onOpenLegacyWorkshop">
-          <text>原亲子工坊</text>
         </view>
       </view>
 
-      <view class="task-notice" wx:if="{{taskNotice}}">
-        <text>{{taskNotice}}</text>
+      <!-- 选择风格 -->
+      <view class="form-section">
+        <view class="section-title">选择风格</view>
+        <view class="section-content">
+          <view class="style-options">
+            <view class="style-item {{posterStyle === item.value ? 'active' : ''}}" 
+                  wx:for="{{posterStyleOptions}}" 
+                  wx:key="index"
+                  bindtap="onSelectPosterStyle"
+                  data-value="{{item.value}}">
+              <text>{{item.label}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 参考图上传 -->
+      <view class="form-section">
+        <view class="section-title">参考图上传（可选）</view>
+        <view class="section-content">
+          <view class="upload-btn" bindtap="onUploadPosterReference">
+            <t-icon name="upload" size="36rpx" color="#6f5945" />
+            <text>上传参考图</text>
+          </view>
+          <view class="uploaded-images" wx:if="{{posterReferenceImages.length > 0}}">
+            <view class="image-item" wx:for="{{posterReferenceImages}}" wx:key="index">
+              <image class="uploaded-image" src="{{item}}" mode="aspectFill" />
+              <view class="image-delete" bindtap="onDeletePosterReferenceImage" data-index="{{index}}">×</view>
+            </view>
+          </view>
+        </view>
       </view>
     </view>
-  </scroll-view>
 
-  <view class="generate-button-wrapper">
-    <button class="generate-button" bindtap="onGenerateDesign" disabled="{{!allStepsCompleted || submitting}}">
-      {{submitting ? '处理中...' : generateButtonText}}
-    </button>
+    <!-- 文创设计内容 -->
+    <view class="tab-content" wx:if="{{activeTab === 'cultural'}}">
+      <!-- 产品信息 -->
+      <view class="form-section">
+        <view class="section-title">产品信息</view>
+        <view class="section-content">
+          <view class="form-item">
+            <text class="form-label">产品类型</text>
+            <input class="form-input" value="{{productType}}" bindinput="onProductTypeInput" placeholder="如：T恤、杯子、帆布袋..." />
+          </view>
+          <view class="form-item">
+            <text class="form-label">设计要求</text>
+            <textarea class="form-textarea" value="{{productRequirements}}" bindinput="onProductRequirementsInput" placeholder="请输入设计要求..." maxlength="500" />
+          </view>
+        </view>
+      </view>
+
+      <!-- 选择风格 -->
+      <view class="form-section">
+        <view class="section-title">选择风格</view>
+        <view class="section-content">
+          <view class="style-options">
+            <view class="style-item {{culturalStyle === item.value ? 'active' : ''}}" 
+                  wx:for="{{culturalStyleOptions}}" 
+                  wx:key="index"
+                  bindtap="onSelectCulturalStyle"
+                  data-value="{{item.value}}">
+              <text>{{item.label}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 参考图上传 -->
+      <view class="form-section">
+        <view class="section-title">参考图上传（可选）</view>
+        <view class="section-content">
+          <view class="upload-btn" bindtap="onUploadCulturalReference">
+            <t-icon name="upload" size="36rpx" color="#6f5945" />
+            <text>上传参考图</text>
+          </view>
+          <view class="uploaded-images" wx:if="{{culturalReferenceImages.length > 0}}">
+            <view class="image-item" wx:for="{{culturalReferenceImages}}" wx:key="index">
+              <image class="uploaded-image" src="{{item}}" mode="aspectFill" />
+              <view class="image-delete" bindtap="onDeleteCulturalReferenceImage" data-index="{{index}}">×</view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- AI生成按钮（完成必填步骤后显示） -->
+  <view class="generate-button-wrapper" wx:if="{{allStepsCompleted}}">
+    <button class="generate-button" bindtap="onGenerateDesign">AI生成设计</button>
   </view>
 </view>
