@@ -1226,23 +1226,23 @@ const Templates: React.FC = () => {
                                         <div className="template-meta">
                                             <span className="meta-item">
                                                 <span className="meta-label">分类:</span>
-                                                {getCategoryLabel(template.category)}
+                                                <span className="meta-value">{getCategoryLabel(template.category)}</span>
                                             </span>
                                             <span className="meta-item">
                                                 <span className="meta-label">去向:</span>
-                                                {getPublishScopeLabel(template.publishScope)}
+                                                <span className="meta-value">{getPublishScopeLabel(template.publishScope)}</span>
                                             </span>
                                             <span className="meta-item">
                                                 <span className="meta-label">来源:</span>
-                                                {getSourceTypeLabel(template.sourceType)}
+                                                <span className="meta-value">{getSourceTypeLabel(template.sourceType)}</span>
                                             </span>
                                             <span className="meta-item">
                                                 <span className="meta-label">下载:</span>
-                                                {template.downloadCount}
+                                                <span className="meta-value">{template.downloadCount}</span>
                                             </span>
                                             <span className="meta-item meta-item-image">
                                                 <span className="meta-label">尺寸:</span>
-                                                {formatImageMeta(template.imageWidth, template.imageHeight)}
+                                                <span className="meta-value">{formatImageMeta(template.imageWidth, template.imageHeight)}</span>
                                             </span>
                                         </div>
                                         {template.rejectReason ? (
