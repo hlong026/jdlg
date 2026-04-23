@@ -32,7 +32,21 @@ function getFirstDisplayValue(source, keys) {
     }
     return '';
 }
-function resolveVipDisplays(...sources) {
+function buildDefaultVipDisplays(hasLoginToken) {
+    if (hasLoginToken) {
+        return {
+            vipLevelShortDisplay: '普通',
+            vipLevelText: '普通会员',
+            vipLevelIsFallback: true,
+        };
+    }
+    return {
+        vipLevelShortDisplay: '--',
+        vipLevelText: 'VIP --',
+        vipLevelIsFallback: true,
+    };
+}
+function resolveVipDisplays(hasLoginToken, ...sources) {
     let raw = '';
     for (const source of sources) {
         raw = getFirstDisplayValue(source, ['vip_level', 'vipLevel', 'member_level', 'memberLevel', 'level']);
@@ -40,17 +54,15 @@ function resolveVipDisplays(...sources) {
             break;
         }
     }
-    if (!raw) {
-        return {
-            vipLevelShortDisplay: '--',
-            vipLevelText: 'VIP --',
-        };
+    if (!raw || raw === '--') {
+        return buildDefaultVipDisplays(hasLoginToken);
     }
     const shortDisplay = raw.replace(/[^0-9]/g, '') || raw;
     const fullDisplay = /^VIP/i.test(raw) ? raw : `VIP ${raw.includes('级') ? raw : `${raw}级`}`;
     return {
         vipLevelShortDisplay: shortDisplay,
         vipLevelText: fullDisplay,
+        vipLevelIsFallback: false,
     };
 }
 function buildCommonMenuItems() {
@@ -136,6 +148,7 @@ Page({
         certRealNameMasked: '', // 脱敏后的实名
         vipLevelShortDisplay: '--',
         vipLevelText: 'VIP --',
+        vipLevelIsFallback: true,
         lastProfileRefreshTime: 0,
         lastProfileRefreshToken: '',
         lastProfileRefreshInterval: 60000, // 1分钟
@@ -233,7 +246,7 @@ Page({
         const userInfo = wx.getStorageSync('userInfo') || null;
         const currentUserInfo = this.data.userInfo || null;
         const displayUserInfo = userInfo || currentUserInfo;
-        const vipDisplays = resolveVipDisplays(displayUserInfo);
+        const vipDisplays = resolveVipDisplays(!!token, displayUserInfo);
         if (token) {
             this.setData({
                 token: token,
@@ -250,6 +263,7 @@ Page({
                 stonesDisplay: formatStonesDisplay(this.data.stones || 0),
                 vipLevelShortDisplay: vipDisplays.vipLevelShortDisplay,
                 vipLevelText: vipDisplays.vipLevelText,
+                vipLevelIsFallback: vipDisplays.vipLevelIsFallback,
             });
             const lastProfileRefreshTime = Number(this.data.lastProfileRefreshTime || 0);
             const refreshInterval = Number(this.data.lastProfileRefreshInterval || 60000);
@@ -285,6 +299,7 @@ Page({
                 serviceMenuItems: buildServiceMenuItems(),
                 vipLevelShortDisplay: '--',
                 vipLevelText: 'VIP --',
+                vipLevelIsFallback: true,
                 lastProfileRefreshTime: 0,
                 lastProfileRefreshToken: '',
                 lastCertificationRefreshTime: 0,
@@ -436,7 +451,7 @@ Page({
                     nickname: res.nickname || mergedUserInfo.username || mergedUserInfo.name || '',
                     avatar: res.avatar || mergedUserInfo.avatar || mergedUserInfo.avatarUrl || '',
                 },
-                ...resolveVipDisplays(res, mergedUserInfo),
+                ...resolveVipDisplays(true, res, mergedUserInfo),
             });
         }
         catch (error) {

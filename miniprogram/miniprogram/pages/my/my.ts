@@ -50,7 +50,23 @@ function getFirstDisplayValue(source: any, keys: string[]): string {
   return '';
 }
 
-function resolveVipDisplays(...sources: any[]) {
+function buildDefaultVipDisplays(hasLoginToken: boolean) {
+  if (hasLoginToken) {
+    return {
+      vipLevelShortDisplay: '普通',
+      vipLevelText: '普通会员',
+      vipLevelIsFallback: true,
+    };
+  }
+
+  return {
+    vipLevelShortDisplay: '--',
+    vipLevelText: 'VIP --',
+    vipLevelIsFallback: true,
+  };
+}
+
+function resolveVipDisplays(hasLoginToken: boolean, ...sources: any[]) {
   let raw = '';
 
   for (const source of sources) {
@@ -60,11 +76,8 @@ function resolveVipDisplays(...sources: any[]) {
     }
   }
 
-  if (!raw) {
-    return {
-      vipLevelShortDisplay: '--',
-      vipLevelText: 'VIP --',
-    };
+  if (!raw || raw === '--') {
+    return buildDefaultVipDisplays(hasLoginToken);
   }
 
   const shortDisplay = raw.replace(/[^0-9]/g, '') || raw;
@@ -73,6 +86,7 @@ function resolveVipDisplays(...sources: any[]) {
   return {
     vipLevelShortDisplay: shortDisplay,
     vipLevelText: fullDisplay,
+    vipLevelIsFallback: false,
   };
 }
 
@@ -165,6 +179,7 @@ Page({
     certRealNameMasked: '',  // 脱敏后的实名
     vipLevelShortDisplay: '--',
     vipLevelText: 'VIP --',
+    vipLevelIsFallback: true,
     lastProfileRefreshTime: 0,
     lastProfileRefreshToken: '',
     lastProfileRefreshInterval: 60000, // 1分钟
@@ -271,7 +286,7 @@ Page({
     const userInfo = wx.getStorageSync('userInfo') || null;
     const currentUserInfo = this.data.userInfo || null;
     const displayUserInfo = userInfo || currentUserInfo;
-    const vipDisplays = resolveVipDisplays(displayUserInfo);
+    const vipDisplays = resolveVipDisplays(!!token, displayUserInfo);
 
     if (token) {
       this.setData({
@@ -289,6 +304,7 @@ Page({
         stonesDisplay: formatStonesDisplay(this.data.stones || 0),
         vipLevelShortDisplay: vipDisplays.vipLevelShortDisplay,
         vipLevelText: vipDisplays.vipLevelText,
+        vipLevelIsFallback: vipDisplays.vipLevelIsFallback,
       });
 
       const lastProfileRefreshTime = Number(this.data.lastProfileRefreshTime || 0);
@@ -325,6 +341,7 @@ Page({
         serviceMenuItems: buildServiceMenuItems(),
         vipLevelShortDisplay: '--',
         vipLevelText: 'VIP --',
+        vipLevelIsFallback: true,
         lastProfileRefreshTime: 0,
         lastProfileRefreshToken: '',
         lastCertificationRefreshTime: 0,
@@ -486,7 +503,7 @@ Page({
           nickname: res.nickname || mergedUserInfo.username || mergedUserInfo.name || '',
           avatar: res.avatar || mergedUserInfo.avatar || mergedUserInfo.avatarUrl || '',
         },
-        ...resolveVipDisplays(res, mergedUserInfo),
+        ...resolveVipDisplays(true, res, mergedUserInfo),
       });
     } catch (error: any) {
       console.error('获取用户资料失败:', error);

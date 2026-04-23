@@ -43,7 +43,7 @@
       <!-- 数据展示区域 -->
       <view class="stats-card">
         <view class="stats-item">
-          <text class="stats-value">{{vipLevelShortDisplay}}</text>
+          <text class="stats-value {{vipLevelIsFallback ? 'stats-value-muted' : ''}}">{{vipLevelShortDisplay}}</text>
           <text class="stats-label">会员等级</text>
         </view>
         <view class="stats-divider"></view>
@@ -86,7 +86,7 @@
       </view>
 
       <view class="menu-section-title">设计师工作台</view>
-      <view class="menu-card menu-list-card account-card">
+      <view class="menu-card menu-list-card workbench-card">
         <view
           wx:for="{{workbenchMenuItems}}"
           wx:key="action"
@@ -108,7 +108,7 @@
       </view>
 
       <view class="menu-section-title">账户与工具</view>
-      <view class="menu-card menu-list-card account-card">
+      <view class="menu-card menu-list-card service-card">
         <view
           wx:for="{{serviceMenuItems}}"
           wx:key="action"
