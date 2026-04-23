@@ -654,11 +654,11 @@ func (m *TemplateModel) ListByMainTabAndSubTab(mainTab string, subTab string, th
 		args = append(args, mainTab)
 	}
 	if subTab != "" {
-		query += " AND sub_tab = ?"
+		query += " AND (sub_tab = ? OR TRIM(COALESCE(sub_tab, '')) = '')"
 		args = append(args, subTab)
 	}
 	if thirdTab != "" {
-		query += " AND third_tab = ?"
+		query += " AND (third_tab = ? OR TRIM(COALESCE(third_tab, '')) = '')"
 		args = append(args, thirdTab)
 	}
 	if status != "" {
@@ -711,11 +711,11 @@ func (m *TemplateModel) CountByMainTabAndSubTab(mainTab string, subTab string, t
 		args = append(args, mainTab)
 	}
 	if subTab != "" {
-		query += " AND sub_tab = ?"
+		query += " AND (sub_tab = ? OR TRIM(COALESCE(sub_tab, '')) = '')"
 		args = append(args, subTab)
 	}
 	if thirdTab != "" {
-		query += " AND third_tab = ?"
+		query += " AND (third_tab = ? OR TRIM(COALESCE(third_tab, '')) = '')"
 		args = append(args, thirdTab)
 	}
 	if status != "" {
