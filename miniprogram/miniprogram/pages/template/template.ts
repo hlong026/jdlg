@@ -1,6 +1,6 @@
 // pages/template/template.ts
 
-import { resolveAssetPath } from '../../utils/asset';
+import { resolveAssetPath, normalizeCosUrl } from '../../utils/asset';
 import { getPageCache, prefetchImages, setPageCache } from '../../utils/perf';
 
 export {};
@@ -132,41 +132,23 @@ const TEMPLATE_SUB_TAB_MAP: Record<MainTabValue, SubTabItem[]> = {
 };
 
 function normalizeMainTabs(list: any): MainTabItem[] {
-  const normalized = (Array.isArray(list) ? list : [])
+  return (Array.isArray(list) ? list : [])
     .map((item) => ({
       label: String(item?.label || '').trim(),
       value: String(item?.value || '').trim(),
     }))
     .filter((item) => item.label && item.value);
-
-  const result = normalized.length ? normalized : TEMPLATE_MAIN_TABS.slice();
-  const hasAIToolsTab = result.some((item) => item.value === AI_TOOLS_MAIN_TAB.value);
-
-  if (!hasAIToolsTab) {
-    const inspirationIndex = result.findIndex((item) => item.value === 'inspiration');
-    if (inspirationIndex >= 0) {
-      result.splice(inspirationIndex + 1, 0, AI_TOOLS_MAIN_TAB);
-    } else {
-      result.push(AI_TOOLS_MAIN_TAB);
-    }
-  }
-
-  return result;
 }
 
 function normalizeSubTabs(list: any, mainTabs: MainTabItem[]): SubTabItem[] {
   const mainValues = new Set(mainTabs.map((item) => item.value));
-  const normalized = (Array.isArray(list) ? list : [])
+  return (Array.isArray(list) ? list : [])
     .map((item) => ({
       label: String(item?.label || '').trim(),
       value: String(item?.value || '').trim(),
       parent: String(item?.parent || '').trim(),
     }))
     .filter((item) => item.label && item.value && item.parent && mainValues.has(item.parent));
-  if (normalized.length) {
-    return normalized;
-  }
-  return Object.values(TEMPLATE_SUB_TAB_MAP).flat();
 }
 
 function truncate(str: string, maxLen: number): string {
@@ -198,10 +180,10 @@ function normalizeImageUrl(url: string): string {
     return resolveAssetPath('/assets/images/home.jpg');
   }
   if (/^https?:\/\//i.test(cleanUrl)) {
-    return cleanUrl;
+    return normalizeCosUrl(cleanUrl);
   }
   if (cleanUrl.startsWith('//')) {
-    return `https:${cleanUrl}`;
+    return normalizeCosUrl(`https:${cleanUrl}`);
   }
   if (cleanUrl.startsWith('/')) {
     return `${API_BASE_URL}${cleanUrl}`;
@@ -279,15 +261,24 @@ function requestTabConfig(parent?: string): Promise<{ main_tabs?: MainTabItem[];
   });
 }
 
+function ensureAllTabPrefix(tabs: SubTabItem[], parent: string): SubTabItem[] {
+  const hasAll = tabs.some((item) => !String(item.value || '').trim());
+  if (hasAll) {
+    return tabs;
+  }
+  return [{ label: '全部', value: '', parent }, ...tabs];
+}
+
 function getSubTabsByMainTab(mainTabValue: MainTabValue, allSubTabs?: SubTabItem[]): SubTabItem[] {
   const currentParent = String(mainTabValue || '').trim();
-  if (Array.isArray(allSubTabs) && allSubTabs.length > 0) {
-    const matched = allSubTabs.filter((item) => String(item.parent || '').trim() === currentParent);
-    if (matched.length) {
-      return matched;
-    }
+  if (!currentParent || !Array.isArray(allSubTabs) || allSubTabs.length === 0) {
+    return [];
   }
-  return TEMPLATE_SUB_TAB_MAP[currentParent] || [];
+  const matched = allSubTabs.filter((item) => String(item.parent || '').trim() === currentParent);
+  if (!matched.length) {
+    return [];
+  }
+  return ensureAllTabPrefix(matched, currentParent);
 }
 
 function normalizeThirdTabs(list: any, subTabs: SubTabItem[]): SubTabItem[] {
@@ -349,7 +340,7 @@ function matchesMainTabKeywords(text: string, mainTab: MainTabItem): boolean {
 }
 
 function matchesSubTabKeywords(text: string, subTab?: SubTabItem): boolean {
-  if (!subTab) {
+  if (!subTab || !String(subTab.value || '').trim()) {
     return true;
   }
   const keywords = (Array.isArray(subTab.keywords) ? subTab.keywords : []).concat([subTab.label, subTab.value]);
@@ -386,7 +377,7 @@ function buildTags(item: TemplateApiListItem, currentMainLabel: string, currentS
   const styleTag = inferStyleTag(name, '');
   return [currentMainLabel, currentSubLabel, styleTag, category, subTab]
     .map((tag) => truncate(String(tag || '').trim(), 6))
-    .filter((tag, index, list) => Boolean(tag) && list.indexOf(tag) === index)
+    .filter((tag, index, list) => Boolean(tag) && tag !== '全部' && list.indexOf(tag) === index)
     .slice(0, 3);
 }
 
@@ -401,13 +392,13 @@ function buildInspirationTags(item: InspirationApiListItem, currentSubLabel: str
   const tags = Array.isArray(item?.tags) ? item.tags : [];
   return [currentSubLabel, String(item?.scene || ''), String(item?.style || ''), ...tags]
     .map((tag) => truncate(String(tag || '').trim(), 6))
-    .filter((tag, index, list) => Boolean(tag) && list.indexOf(tag) === index)
+    .filter((tag, index, list) => Boolean(tag) && tag !== '全部' && list.indexOf(tag) === index)
     .slice(0, 4);
 }
 
 function buildEmptyTip(mainLabel: string, subLabel = ''): string {
   const suffix = mainLabel === '灵感' ? '暂无灵感内容' : '暂无模板内容';
-  return subLabel ? `${subLabel} ${suffix}` : `${mainLabel} ${suffix}`;
+  return (!subLabel || subLabel === '全部') ? `${mainLabel} ${suffix}` : `${subLabel} ${suffix}`;
 }
 
 function buildSearchEmptyTip(mainLabel: string, keyword: string): string {
@@ -416,9 +407,9 @@ function buildSearchEmptyTip(mainLabel: string, keyword: string): string {
 
 function buildSummaryText(mainLabel: string, subLabel: string, keyword: string): string {
   if (keyword) {
-    return `搜索“${keyword}” · ${subLabel}`;
+    return `搜索”${keyword}” · ${subLabel === '全部' ? mainLabel : subLabel}`;
   }
-  return `${mainLabel} · ${subLabel}`;
+  return subLabel === '全部' ? mainLabel : `${mainLabel} · ${subLabel}`;
 }
 
 function buildTemplateCard(item: TemplateApiListItem, currentMainLabel: string, currentSubLabel: string, index: number): TemplateListItem {
@@ -450,24 +441,6 @@ function buildInspirationCard(item: InspirationApiListItem, currentSubLabel: str
   }, Number(item?.image_width || 0), Number(item?.image_height || 0));
 }
 
-function buildLocalFallbackCards(mainLabel: string, subLabel: string, targetType: 'template' | 'inspiration'): TemplateListItem[] {
-  return [`${subLabel}参考一`, `${subLabel}参考二`, `${subLabel}精选一`, `${subLabel}精选二`].map((title, index) => ({
-    id: -(index + 1),
-    image: resolveAssetPath('/assets/images/home.jpg'),
-    displayTitle: title,
-    displaySubtitle: `${mainLabel}演示卡片`,
-    tags: [mainLabel, subLabel, '演示'],
-    targetType,
-    localDemo: true,
-    cardKey: `local-${targetType}-${index}`,
-  }));
-}
-
-function paginateTemplateItems(items: TemplateApiListItem[], page: number, pageSize: number): TemplateApiListItem[] {
-  const start = Math.max(page - 1, 0) * pageSize;
-  return items.slice(start, start + pageSize);
-}
-
 async function requestTemplateListByMainTab(mainTab: MainTabItem, subTab: SubTabItem | undefined, thirdTab: SubTabItem | undefined, keyword: string, page: number, pageSize: number): Promise<{ list: TemplateApiListItem[]; hasMore: boolean } | null> {
   if (keyword) {
     const result = await requestListApi<TemplateApiListItem>('/api/v1/miniprogram/templates/search', {
@@ -497,29 +470,13 @@ async function requestTemplateListByMainTab(mainTab: MainTabItem, subTab: SubTab
   });
 
   const preciseList = Array.isArray(preciseResult?.list) ? preciseResult.list : [];
-  if (preciseResult && preciseList.length > 0) {
+  if (preciseResult) {
     return {
       list: preciseList,
       hasMore: Number(preciseResult.total || 0) > page * pageSize || preciseList.length >= pageSize,
     };
   }
-
-  const fallbackResult = await requestListApi<TemplateApiListItem>('/api/v1/miniprogram/templates', {
-    page: 1,
-    page_size: Math.max(pageSize * 5, 60),
-  });
-  if (!fallbackResult) {
-    return null;
-  }
-  const filteredList = (Array.isArray(fallbackResult.list) ? fallbackResult.list : []).filter((item: TemplateApiListItem) => {
-    const text = getTemplateFilterText(item);
-    return matchesMainTabKeywords(text, mainTab) && matchesSubTabKeywords(text, subTab) && matchesThirdTab(item, thirdTab);
-  });
-  const pagedList = paginateTemplateItems(filteredList, page, pageSize);
-  return {
-    list: pagedList,
-    hasMore: filteredList.length > page * pageSize,
-  };
+  return null;
 }
 
 async function requestInspirationListBySubTab(keyword: string, page: number, pageSize: number, subTab?: SubTabItem): Promise<{ list: InspirationApiListItem[]; hasMore: boolean } | null> {
@@ -661,13 +618,13 @@ Page({
     navBarHeight: 96,
     navContentHeight: 44,
     navSideWidth: 88,
-    mainTabs: TEMPLATE_MAIN_TABS,
-    allSubTabs: Object.values(TEMPLATE_SUB_TAB_MAP).flat() as SubTabItem[],
-    subTabs: getSubTabsByMainTab('scene', Object.values(TEMPLATE_SUB_TAB_MAP).flat()),
+    mainTabs: [] as MainTabItem[],
+    allSubTabs: [] as SubTabItem[],
+    subTabs: [] as SubTabItem[],
     allThirdTabs: [] as SubTabItem[],
     thirdTabs: [] as SubTabItem[],
-    currentMainTabIndex: 0,
-    currentSubTabIndex: 0,
+    currentMainTabIndex: -1,
+    currentSubTabIndex: -1,
     currentThirdTabIndex: -1,
     searchInputValue: '',
     searchKeyword: '',
@@ -712,7 +669,7 @@ Page({
     };
   },
 
-  getCurrentMainTab(): MainTabItem {
+  getCurrentMainTab(): MainTabItem | undefined {
     return this.data.mainTabs[this.data.currentMainTabIndex] || this.data.mainTabs[0];
   },
 
@@ -784,7 +741,7 @@ Page({
   },
 
   prefetchCardDetail(card: TemplateListItem) {
-    if (!card || card.localDemo || !Number(card.id) || (card.targetType !== 'template' && card.targetType !== 'inspiration')) {
+    if (!card || !Number(card.id) || (card.targetType !== 'template' && card.targetType !== 'inspiration')) {
       return;
     }
 
@@ -819,7 +776,7 @@ Page({
   },
 
   warmLeadingCards(cards: TemplateListItem[], count = 2) {
-    const nextCards = Array.isArray(cards) ? cards.filter((item) => item && !item.localDemo) : [];
+    const nextCards = Array.isArray(cards) ? cards.filter((item) => item) : [];
     if (!nextCards.length) {
       return;
     }
@@ -831,10 +788,27 @@ Page({
   async initializePage() {
     const tabConfig = await requestTabConfig();
     const mainTabs = normalizeMainTabs(tabConfig?.main_tabs);
+    if (!mainTabs.length) {
+      this.syncWaterfallCards([]);
+      this.setData({
+        mainTabs: [],
+        allSubTabs: [],
+        allThirdTabs: [],
+        subTabs: [],
+        thirdTabs: [],
+        currentMainTabIndex: -1,
+        currentSubTabIndex: -1,
+        currentThirdTabIndex: -1,
+        hasMore: false,
+        resultSummaryText: '模板广场分类配置不可用',
+        emptyTipText: '请先在管理端配置一级、二级、三级标签',
+      });
+      return;
+    }
     const allSubTabs = normalizeSubTabs(tabConfig?.sub_tabs, mainTabs);
     const allThirdTabs = normalizeThirdTabs(tabConfig?.third_tabs, allSubTabs);
-    const firstMain = mainTabs[0] || TEMPLATE_MAIN_TABS[0];
-    const subTabs = getSubTabsByMainTab(firstMain?.value || 'scene', allSubTabs);
+    const firstMain = mainTabs[0];
+    const subTabs = getSubTabsByMainTab(firstMain?.value || '', allSubTabs);
     const firstSub = subTabs[0];
     const thirdTabs = getThirdTabsBySubTab(firstSub?.value || '', allThirdTabs);
     this.setData({
@@ -844,7 +818,7 @@ Page({
       subTabs,
       thirdTabs,
       currentMainTabIndex: 0,
-      currentSubTabIndex: 0,
+      currentSubTabIndex: firstSub ? 0 : -1,
       currentThirdTabIndex: thirdTabs.length ? 0 : -1,
       resultSummaryText: buildSummaryText(firstMain?.label || '模板广场', firstSub?.label || firstMain?.label || '模板广场', ''),
       emptyTipText: buildEmptyTip(firstMain?.label || '模板广场', firstSub?.label || ''),
@@ -939,6 +913,16 @@ Page({
   onSearchConfirm() {
     const keyword = String(this.data.searchInputValue || '').trim();
     const currentMainTab = this.getCurrentMainTab();
+    if (!currentMainTab) {
+      this.syncWaterfallCards([]);
+      this.setData({
+        loading: false,
+        hasMore: false,
+        resultSummaryText: '模板广场分类配置不可用',
+        emptyTipText: '请先在管理端配置一级、二级、三级标签',
+      });
+      return;
+    }
     const currentSubTab = this.getCurrentSubTab();
     const currentThirdTab = this.getCurrentThirdTab();
 
@@ -955,6 +939,9 @@ Page({
 
   onSearchClear() {
     const currentMainTab = this.getCurrentMainTab();
+    if (!currentMainTab) {
+      return;
+    }
     const currentSubTab = this.getCurrentSubTab();
     const currentThirdTab = this.getCurrentThirdTab();
     if (!this.data.searchKeyword && !this.data.searchInputValue) {
@@ -1018,18 +1005,19 @@ Page({
       const templateResult = await requestTemplateListByMainTab(currentMainTab, currentSubTab, currentThirdTab, keyword, requestPage, this.data.pageSize);
 
       if (templateResult && templateResult.list.length > 0) {
-        const filteredList = templateResult.list.filter((item: TemplateApiListItem) => matchesSubTabKeywords(getTemplateFilterText(item), currentSubTab));
-        mappedList = filteredList.map((item: TemplateApiListItem, index: number) => buildTemplateCard(item, currentMainLabel, currentSubLabel, index));
+        mappedList = templateResult.list.map((item: TemplateApiListItem, index: number) => buildTemplateCard(item, currentMainLabel, currentSubLabel, index));
         nextHasMore = templateResult.hasMore;
       } else {
         const inspirationResult = await requestInspirationListBySubTab(keyword, requestPage, this.data.pageSize, currentSubTab);
         if (!templateResult && !inspirationResult) {
-          const localFallbackCards = buildLocalFallbackCards(currentMainLabel, currentSubLabel, 'template');
-          this.syncWaterfallCards(reset ? localFallbackCards : [...this.data.displayCards, ...localFallbackCards]);
+          if (reset) {
+            this.syncWaterfallCards([]);
+          }
           this.setData({
             loading: false,
             hasMore: false,
-            resultSummaryText: '模板或灵感接口暂时不可用，当前先展示本地演示数据',
+            resultSummaryText: '模板或灵感接口暂时不可用',
+            emptyTipText: '加载失败，请稍后重试',
           });
           return;
         }
@@ -1045,18 +1033,19 @@ Page({
     } else {
       const result = await requestTemplateListByMainTab(currentMainTab, currentSubTab, currentThirdTab, keyword, requestPage, this.data.pageSize);
       if (!result) {
-        const localFallbackCards = buildLocalFallbackCards(currentMainLabel, currentSubLabel, 'template');
-        this.syncWaterfallCards(reset ? localFallbackCards : [...this.data.displayCards, ...localFallbackCards]);
+        if (reset) {
+          this.syncWaterfallCards([]);
+        }
         this.setData({
           loading: false,
           hasMore: false,
-          resultSummaryText: '模板接口暂时不可用，当前先展示本地演示数据',
+          resultSummaryText: '模板接口暂时不可用',
+          emptyTipText: '加载失败，请稍后重试',
         });
         return;
       }
 
-      const filteredList = result.list.filter((item: TemplateApiListItem) => matchesSubTabKeywords(getTemplateFilterText(item), currentSubTab));
-      mappedList = filteredList.map((item: TemplateApiListItem, index: number) => buildTemplateCard(item, currentMainLabel, currentSubLabel, index));
+      mappedList = result.list.map((item: TemplateApiListItem, index: number) => buildTemplateCard(item, currentMainLabel, currentSubLabel, index));
       nextHasMore = result.hasMore;
     }
 
@@ -1088,7 +1077,7 @@ Page({
   onCardTap(e: CardTapEvent) {
     const id = Number(e.currentTarget.dataset.id);
     const targetType = String(e.currentTarget.dataset.targetType || 'template');
-    const localDemo = e.currentTarget.dataset.localDemo === true || e.currentTarget.dataset.localDemo === 'true';
+    const localDemo = false;
     const targetCard = (this.data.displayCards || []).find((item) => Number(item.id) === id && item.targetType === targetType);
 
     if (localDemo) {

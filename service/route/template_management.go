@@ -147,6 +147,10 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 			for _, t := range req.ThirdTabs {
 				thirdList = append(thirdList, model.TabItem{Label: t.Label, Value: t.Value, Parent: t.Parent})
 			}
+			if err := validateTemplateSquareConfig(mainList, subList, thirdList); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": err.Error()})
+				return
+			}
 			mainBytes, _ := json.Marshal(mainList)
 			subBytes, _ := json.Marshal(subList)
 			thirdBytes, _ := json.Marshal(thirdList)
@@ -342,6 +346,13 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 				SourceType:   req.SourceType,
 				Creator:      username,
 			}
+			if err := validateTemplateTabAssignment(templateSquareConfigModel, template.MainTab, template.SubTab, template.ThirdTab); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 400,
+					"msg":  err.Error(),
+				})
+				return
+			}
 			if err := validateTemplatePrimaryImage(template); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{
 					"code": 400,
@@ -416,6 +427,13 @@ func RegisterTemplateManagementRoutes(r *gin.RouterGroup, templateModel *model.T
 			template.PublishScope = req.PublishScope
 			template.RejectReason = req.RejectReason
 			template.SourceType = req.SourceType
+			if err := validateTemplateTabAssignment(templateSquareConfigModel, template.MainTab, template.SubTab, template.ThirdTab); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 400,
+					"msg":  err.Error(),
+				})
+				return
+			}
 			if err := validateTemplatePrimaryImage(template); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{
 					"code": 400,

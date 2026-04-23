@@ -29,7 +29,7 @@ import (
 )
 
 // RegisterMiniprogramRoutes 注册小程序路由
-func RegisterMiniprogramRoutes(r *gin.RouterGroup, authProcessor *processor.AuthProcessor, codeSessionModel *model.CodeSessionRedisModel, userModel *model.UserRedisModel, stoneRecordModel *model.StoneRecordModel, inviteRelationModel *model.InviteRelationModel, userDBModel *model.UserModel, userInviteCodeModel *model.UserInviteCodeModel, userProfileModel *model.UserProfileModel, aiToolModel *model.AIToolModel) {
+func RegisterMiniprogramRoutes(r *gin.RouterGroup, authProcessor *processor.AuthProcessor, codeSessionModel *model.CodeSessionRedisModel, userModel *model.UserRedisModel, stoneRecordModel *model.StoneRecordModel, inviteRelationModel *model.InviteRelationModel, userDBModel *model.UserModel, userInviteCodeModel *model.UserInviteCodeModel, userProfileModel *model.UserProfileModel, aiToolModel *model.AIToolModel, templateSquareConfigModel *model.TemplateSquareConfigModel) {
 	// 登录接口
 	r.POST("/login", func(c *gin.Context) {
 		var req processor.WechatLoginRequest
@@ -1841,6 +1841,10 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			Creator:       "设计师上传",
 			CreatorUserID: codeSession.UserID,
 		}
+		if err := validateTemplateTabAssignment(sharedTemplateSquareConfigModel, template.MainTab, template.SubTab, template.ThirdTab); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": err.Error()})
+			return
+		}
 		if err := validateTemplatePrimaryImage(template); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": err.Error()})
 			return
@@ -1954,6 +1958,13 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 		}
 		if req.ThirdTab != nil {
 			tpl.ThirdTab = *req.ThirdTab
+		}
+		if err := validateTemplateTabAssignment(sharedTemplateSquareConfigModel, tpl.MainTab, tpl.SubTab, tpl.ThirdTab); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code": 400,
+				"msg":  err.Error(),
+			})
+			return
 		}
 		if req.Description != nil {
 			// Description 中可能包含「提示词: xxx」，这里只替换描述部分，保留原有提示词

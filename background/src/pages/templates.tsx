@@ -289,31 +289,9 @@ const Templates: React.FC = () => {
     const loadTabConfig = useCallback(async () => {
         try {
             const cfg = await getTemplateTabConfig();
-            const nextMainTabs = cfg?.main_tabs?.length ? [...cfg.main_tabs] : [
-                { label: '鍦烘櫙', value: 'scene' },
-                { label: '椋庢牸', value: 'style' },
-                { label: '鐏垫劅', value: 'inspiration' },
-            ];
-            // 浜岀骇tab鐜板湪鍖呭惈parent瀛楁锛屼粠鎺ュ彛鑾峰彇鏃朵細鍖呭惈
-            const nextSubTabs = cfg?.sub_tabs?.length ? cfg.sub_tabs.map(t => ({ ...t, parent: t.parent || '' })) : [
-                { label: '涔″澶栬', value: 'villa_exterior', parent: 'scene' },
-                { label: '瀹ゅ唴绌洪棿', value: 'interior_space', parent: 'scene' },
-                { label: '鑺卞洯搴櫌', value: 'garden_courtyard', parent: 'scene' },
-                { label: '鏀归€犵炕鏂?, value: 'renovation', parent: 'scene' },
-                { label: '鍟嗕笟绌洪棿', value: 'commercial_space', parent: 'scene' },
-                { label: '璁捐杈呭姪', value: 'design_assist', parent: 'scene' },
-                { label: '鏂伴椊娲?, value: 'new_minnan', parent: 'style' },
-                { label: '鏂颁腑寮?, value: 'new_chinese', parent: 'style' },
-                { label: '鐜颁唬椋庢牸', value: 'modern', parent: 'style' },
-                { label: '缁忓吀娆у紡', value: 'classic_european', parent: 'style' },
-                { label: '鍦板煙鐗硅壊', value: 'regional', parent: 'style' },
-                { label: '涔″缓瓒嬪娍', value: 'rural_trend', parent: 'inspiration' },
-                { label: '鐢熸椿鏂瑰紡', value: 'lifestyle', parent: 'inspiration' },
-                { label: '鍦板煙鏂囧寲', value: 'regional_culture', parent: 'inspiration' },
-                { label: '鍔熻兘鍒涙柊', value: 'function_innovation', parent: 'inspiration' },
-                { label: '妗堜緥绮鹃€?, value: 'selected_cases', parent: 'inspiration' },
-            ];
-            const nextThirdTabs = cfg?.third_tabs?.length ? cfg.third_tabs.map(t => ({ ...t, parent: t.parent || '' })) : [];
+            const nextMainTabs = Array.isArray(cfg?.main_tabs) ? cfg.main_tabs.map(t => ({ ...t })) : [];
+            const nextSubTabs = Array.isArray(cfg?.sub_tabs) ? cfg.sub_tabs.map(t => ({ ...t, parent: t.parent || '' })) : [];
+            const nextThirdTabs = Array.isArray(cfg?.third_tabs) ? cfg.third_tabs.map(t => ({ ...t, parent: t.parent || '' })) : [];
             lastSavedTabConfigRef.current = serializeTabConfig(nextMainTabs, nextSubTabs, nextThirdTabs);
             tabConfigLoadedRef.current = true;
             setMainTabs(nextMainTabs);

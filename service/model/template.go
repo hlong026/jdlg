@@ -642,6 +642,7 @@ func (m *TemplateModel) GetHotTemplates(limit int) ([]*Template, error) {
 }
 
 // ListByMainTabAndSubTab 根据 main_tab / sub_tab / third_tab 获取模板列表，按点赞数排序
+// 二级、三级标签筛选采用精确匹配，确保列表结果与数据库标签值一致。
 func (m *TemplateModel) ListByMainTabAndSubTab(mainTab string, subTab string, thirdTab string, status string, limit int, offset int) ([]*Template, error) {
 	query := `SELECT id, name, category, main_tab, sub_tab, third_tab, description, thumbnail, preview_url, images, image_width, image_height, price, is_free, is_featured,
 	          download_count, like_count, status, publish_scope, reject_reason, source_type, creator, creator_user_id, created_at, updated_at
@@ -700,6 +701,7 @@ func (m *TemplateModel) ListByMainTabAndSubTab(mainTab string, subTab string, th
 }
 
 // CountByMainTabAndSubTab 统计按 main_tab / sub_tab / third_tab 筛选的模板数量
+// 与 ListByMainTabAndSubTab 保持一致的精确匹配逻辑。
 func (m *TemplateModel) CountByMainTabAndSubTab(mainTab string, subTab string, thirdTab string, status string) (int64, error) {
 	query := "SELECT COUNT(*) FROM templates WHERE 1=1"
 	args := []interface{}{}

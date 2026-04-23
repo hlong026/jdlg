@@ -172,6 +172,22 @@ Page({
         });
       });
       const mainTabs = normalizeMainTabs(result?.main_tabs);
+      if (!mainTabs.length) {
+        this.setData({
+          mainTabs: [],
+          allSubTabs: [],
+          allThirdTabs: [],
+          subTabs: [],
+          thirdTabs: [],
+          mainTabIndex: -1,
+          subTabIndex: -1,
+          thirdTabIndex: -1,
+          'form.mainTab': '',
+          'form.subTab': '',
+          'form.thirdTab': '',
+        });
+        return;
+      }
       const allSubTabs = normalizeSubTabs(result?.sub_tabs);
       const allThirdTabs = normalizeThirdTabs(result?.third_tabs, allSubTabs);
       const firstMain = mainTabs[0];
@@ -194,27 +210,21 @@ Page({
       });
     } catch (error) {
       console.error('加载分类失败:', error);
-      const mainTabs = DEFAULT_MAIN_TABS;
-      const allSubTabs = DEFAULT_SUB_TABS;
-      const allThirdTabs: TabItem[] = [];
-      const firstMain = mainTabs[0];
-      const subTabs = getSubTabsByParent(allSubTabs, firstMain?.value || '');
-      const firstSub = subTabs[0];
       this.setData({
-        mainTabs,
-        allSubTabs,
-        allThirdTabs,
-        subTabs,
+        mainTabs: [],
+        allSubTabs: [],
+        allThirdTabs: [],
+        subTabs: [],
         thirdTabs: [],
-        mainTabIndex: firstMain ? 0 : -1,
-        subTabIndex: firstSub ? 0 : -1,
+        mainTabIndex: -1,
+        subTabIndex: -1,
         thirdTabIndex: -1,
-        'form.mainTab': firstMain?.value || '',
-        'form.subTab': firstSub?.value || '',
+        'form.mainTab': '',
+        'form.subTab': '',
         'form.thirdTab': '',
       });
       wx.showToast({
-        title: '已切换本地分类',
+        title: '分类配置加载失败',
         icon: 'none',
       });
     }

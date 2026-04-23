@@ -40,38 +40,22 @@ const TEMPLATE_SUB_TAB_MAP = {
     ],
 };
 function normalizeMainTabs(list) {
-    const normalized = (Array.isArray(list) ? list : [])
+    return (Array.isArray(list) ? list : [])
         .map((item) => ({
         label: String(item?.label || '').trim(),
         value: String(item?.value || '').trim(),
     }))
         .filter((item) => item.label && item.value);
-    const result = normalized.length ? normalized : TEMPLATE_MAIN_TABS.slice();
-    const hasAIToolsTab = result.some((item) => item.value === AI_TOOLS_MAIN_TAB.value);
-    if (!hasAIToolsTab) {
-        const inspirationIndex = result.findIndex((item) => item.value === 'inspiration');
-        if (inspirationIndex >= 0) {
-            result.splice(inspirationIndex + 1, 0, AI_TOOLS_MAIN_TAB);
-        }
-        else {
-            result.push(AI_TOOLS_MAIN_TAB);
-        }
-    }
-    return result;
 }
 function normalizeSubTabs(list, mainTabs) {
     const mainValues = new Set(mainTabs.map((item) => item.value));
-    const normalized = (Array.isArray(list) ? list : [])
+    return (Array.isArray(list) ? list : [])
         .map((item) => ({
         label: String(item?.label || '').trim(),
         value: String(item?.value || '').trim(),
         parent: String(item?.parent || '').trim(),
     }))
         .filter((item) => item.label && item.value && item.parent && mainValues.has(item.parent));
-    if (normalized.length) {
-        return normalized;
-    }
-    return Object.values(TEMPLATE_SUB_TAB_MAP).flat();
 }
 function truncate(str, maxLen) {
     if (!str || typeof str !== 'string')
@@ -179,15 +163,23 @@ function requestTabConfig(parent) {
         });
     });
 }
+function ensureAllTabPrefix(tabs, parent) {
+    const hasAll = tabs.some((item) => !String(item.value || '').trim());
+    if (hasAll) {
+        return tabs;
+    }
+    return [{ label: '鍏ㄩ儴', value: '', parent }, ...tabs];
+}
 function getSubTabsByMainTab(mainTabValue, allSubTabs) {
     const currentParent = String(mainTabValue || '').trim();
-    if (Array.isArray(allSubTabs) && allSubTabs.length > 0) {
-        const matched = allSubTabs.filter((item) => String(item.parent || '').trim() === currentParent);
-        if (matched.length) {
-            return matched;
-        }
+    if (!currentParent || !Array.isArray(allSubTabs) || allSubTabs.length === 0) {
+        return [];
     }
-    return TEMPLATE_SUB_TAB_MAP[currentParent] || [];
+    const matched = allSubTabs.filter((item) => String(item.parent || '').trim() === currentParent);
+    if (!matched.length) {
+        return [];
+    }
+    return ensureAllTabPrefix(matched, currentParent);
 }
 function normalizeThirdTabs(list, subTabs) {
     const subValues = new Set(subTabs.map((item) => item.value));
@@ -374,28 +366,13 @@ async function requestTemplateListByMainTab(mainTab, subTab, thirdTab, keyword, 
         page_size: pageSize,
     });
     const preciseList = Array.isArray(preciseResult?.list) ? preciseResult.list : [];
-    if (preciseResult && preciseList.length > 0) {
+    if (preciseResult) {
         return {
             list: preciseList,
             hasMore: Number(preciseResult.total || 0) > page * pageSize || preciseList.length >= pageSize,
         };
     }
-    const fallbackResult = await requestListApi('/api/v1/miniprogram/templates', {
-        page: 1,
-        page_size: Math.max(pageSize * 5, 60),
-    });
-    if (!fallbackResult) {
-        return null;
-    }
-    const filteredList = (Array.isArray(fallbackResult.list) ? fallbackResult.list : []).filter((item) => {
-        const text = getTemplateFilterText(item);
-        return matchesMainTabKeywords(text, mainTab) && matchesSubTabKeywords(text, subTab) && matchesThirdTab(item, thirdTab);
-    });
-    const pagedList = paginateTemplateItems(filteredList, page, pageSize);
-    return {
-        list: pagedList,
-        hasMore: filteredList.length > page * pageSize,
-    };
+    return null;
 }
 async function requestInspirationListBySubTab(keyword, page, pageSize, subTab) {
     const result = await requestListApi('/api/v1/miniprogram/inspirations', {
@@ -522,13 +499,13 @@ Page({
         navBarHeight: 96,
         navContentHeight: 44,
         navSideWidth: 88,
-        mainTabs: TEMPLATE_MAIN_TABS,
-        allSubTabs: Object.values(TEMPLATE_SUB_TAB_MAP).flat(),
-        subTabs: getSubTabsByMainTab('scene', Object.values(TEMPLATE_SUB_TAB_MAP).flat()),
+        mainTabs: [],
+        allSubTabs: [],
+        subTabs: [],
         allThirdTabs: [],
         thirdTabs: [],
-        currentMainTabIndex: 0,
-        currentSubTabIndex: 0,
+        currentMainTabIndex: -1,
+        currentSubTabIndex: -1,
         currentThirdTabIndex: -1,
         searchInputValue: '',
         searchKeyword: '',
@@ -663,7 +640,7 @@ Page({
         });
     },
     warmLeadingCards(cards, count = 2) {
-        const nextCards = Array.isArray(cards) ? cards.filter((item) => item && !item.localDemo) : [];
+        const nextCards = Array.isArray(cards) ? cards.filter((item) => item) : [];
         if (!nextCards.length) {
             return;
         }
@@ -673,10 +650,27 @@ Page({
     async initializePage() {
         const tabConfig = await requestTabConfig();
         const mainTabs = normalizeMainTabs(tabConfig?.main_tabs);
+        if (!mainTabs.length) {
+            this.syncWaterfallCards([]);
+            this.setData({
+                mainTabs: [],
+                allSubTabs: [],
+                allThirdTabs: [],
+                subTabs: [],
+                thirdTabs: [],
+                currentMainTabIndex: -1,
+                currentSubTabIndex: -1,
+                currentThirdTabIndex: -1,
+                hasMore: false,
+                resultSummaryText: '模板广场分类配置不可用',
+                emptyTipText: '请先在管理端配置一级、二级、三级标签',
+            });
+            return;
+        }
         const allSubTabs = normalizeSubTabs(tabConfig?.sub_tabs, mainTabs);
         const allThirdTabs = normalizeThirdTabs(tabConfig?.third_tabs, allSubTabs);
-        const firstMain = mainTabs[0] || TEMPLATE_MAIN_TABS[0];
-        const subTabs = getSubTabsByMainTab(firstMain?.value || 'scene', allSubTabs);
+        const firstMain = mainTabs[0];
+        const subTabs = getSubTabsByMainTab(firstMain?.value || '', allSubTabs);
         const firstSub = subTabs[0];
         const thirdTabs = getThirdTabsBySubTab(firstSub?.value || '', allThirdTabs);
         this.setData({
@@ -686,7 +680,7 @@ Page({
             subTabs,
             thirdTabs,
             currentMainTabIndex: 0,
-            currentSubTabIndex: 0,
+            currentSubTabIndex: firstSub ? 0 : -1,
             currentThirdTabIndex: thirdTabs.length ? 0 : -1,
             resultSummaryText: buildSummaryText(firstMain?.label || '模板广场', firstSub?.label || firstMain?.label || '模板广场', ''),
             emptyTipText: buildEmptyTip(firstMain?.label || '模板广场', firstSub?.label || ''),
@@ -767,6 +761,16 @@ Page({
     onSearchConfirm() {
         const keyword = String(this.data.searchInputValue || '').trim();
         const currentMainTab = this.getCurrentMainTab();
+        if (!currentMainTab) {
+            this.syncWaterfallCards([]);
+            this.setData({
+                loading: false,
+                hasMore: false,
+                resultSummaryText: '模板广场分类配置不可用',
+                emptyTipText: '请先在管理端配置一级、二级、三级标签',
+            });
+            return;
+        }
         const currentSubTab = this.getCurrentSubTab();
         const currentThirdTab = this.getCurrentThirdTab();
         this.setData({
@@ -780,6 +784,9 @@ Page({
     },
     onSearchClear() {
         const currentMainTab = this.getCurrentMainTab();
+        if (!currentMainTab) {
+            return;
+        }
         const currentSubTab = this.getCurrentSubTab();
         const currentThirdTab = this.getCurrentThirdTab();
         if (!this.data.searchKeyword && !this.data.searchInputValue) {
@@ -800,6 +807,16 @@ Page({
             return;
         }
         const currentMainTab = this.getCurrentMainTab();
+        if (!currentMainTab) {
+            this.syncWaterfallCards([]);
+            this.setData({
+                loading: false,
+                hasMore: false,
+                resultSummaryText: '模板广场分类配置不可用',
+                emptyTipText: '请先在管理端配置一级、二级、三级标签',
+            });
+            return;
+        }
         const currentSubTab = this.getCurrentSubTab();
         const currentThirdTab = this.getCurrentThirdTab();
         const currentMainLabel = currentMainTab.label;
@@ -834,19 +851,20 @@ Page({
         if (isInspirationMainTab(currentMainTab)) {
             const templateResult = await requestTemplateListByMainTab(currentMainTab, currentSubTab, currentThirdTab, keyword, requestPage, this.data.pageSize);
             if (templateResult && templateResult.list.length > 0) {
-                const filteredList = templateResult.list.filter((item) => matchesSubTabKeywords(getTemplateFilterText(item), currentSubTab));
-                mappedList = filteredList.map((item, index) => buildTemplateCard(item, currentMainLabel, currentSubLabel, index));
+                mappedList = templateResult.list.map((item, index) => buildTemplateCard(item, currentMainLabel, currentSubLabel, index));
                 nextHasMore = templateResult.hasMore;
             }
             else {
                 const inspirationResult = await requestInspirationListBySubTab(keyword, requestPage, this.data.pageSize, currentSubTab);
                 if (!templateResult && !inspirationResult) {
-                    const localFallbackCards = buildLocalFallbackCards(currentMainLabel, currentSubLabel, 'template');
-                    this.syncWaterfallCards(reset ? localFallbackCards : [...this.data.displayCards, ...localFallbackCards]);
+                    if (reset) {
+                        this.syncWaterfallCards([]);
+                    }
                     this.setData({
                         loading: false,
                         hasMore: false,
-                        resultSummaryText: '模板或灵感接口暂时不可用，当前先展示本地演示数据',
+                        resultSummaryText: '模板或灵感接口暂时不可用',
+                        emptyTipText: '加载失败，请稍后重试',
                     });
                     return;
                 }
@@ -863,17 +881,18 @@ Page({
         else {
             const result = await requestTemplateListByMainTab(currentMainTab, currentSubTab, currentThirdTab, keyword, requestPage, this.data.pageSize);
             if (!result) {
-                const localFallbackCards = buildLocalFallbackCards(currentMainLabel, currentSubLabel, 'template');
-                this.syncWaterfallCards(reset ? localFallbackCards : [...this.data.displayCards, ...localFallbackCards]);
+                if (reset) {
+                    this.syncWaterfallCards([]);
+                }
                 this.setData({
                     loading: false,
                     hasMore: false,
-                    resultSummaryText: '模板接口暂时不可用，当前先展示本地演示数据',
+                    resultSummaryText: '模板接口暂时不可用',
+                    emptyTipText: '加载失败，请稍后重试',
                 });
                 return;
             }
-            const filteredList = result.list.filter((item) => matchesSubTabKeywords(getTemplateFilterText(item), currentSubTab));
-            mappedList = filteredList.map((item, index) => buildTemplateCard(item, currentMainLabel, currentSubLabel, index));
+            mappedList = result.list.map((item, index) => buildTemplateCard(item, currentMainLabel, currentSubLabel, index));
             nextHasMore = result.hasMore;
         }
         if (requestSerial !== this.requestSerial) {
@@ -900,7 +919,7 @@ Page({
     onCardTap(e) {
         const id = Number(e.currentTarget.dataset.id);
         const targetType = String(e.currentTarget.dataset.targetType || 'template');
-        const localDemo = e.currentTarget.dataset.localDemo === true || e.currentTarget.dataset.localDemo === 'true';
+        const localDemo = false;
         const targetCard = (this.data.displayCards || []).find((item) => Number(item.id) === id && item.targetType === targetType);
         if (localDemo) {
             wx.showToast({

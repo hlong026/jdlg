@@ -1524,6 +1524,13 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 				PublishScope:   "square",
 				SourceType:     "ai_generated",
 			}
+			if err := validateTemplateTabAssignment(templateSquareConfigModel, template.MainTab, template.SubTab, template.ThirdTab); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 400,
+					"msg":  err.Error(),
+				})
+				return
+			}
 
 			// 如果提供了原始任务ID，设置关联
 			if req.OriginalTaskID != nil && *req.OriginalTaskID > 0 {

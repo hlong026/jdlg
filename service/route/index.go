@@ -53,10 +53,11 @@ func RegisterRoutes(r *gin.Engine, authProcessor *processor.AuthProcessor,
 	{
 		// 用户DB模型（共用）
 		userDBModel := model.NewUserModel(component.GetDB())
+		setSharedTemplateSquareConfigModel(templateSquareConfigModel)
 
 		// 小程序API
 		miniprogram := v1.Group("/miniprogram")
-		RegisterMiniprogramRoutes(miniprogram, authProcessor, codeSessionModel, userModel, stoneRecordModel, inviteRelationModel, userDBModel, userInviteCodeModel, userProfileModel, aiToolModel)
+		RegisterMiniprogramRoutes(miniprogram, authProcessor, codeSessionModel, userModel, stoneRecordModel, inviteRelationModel, userDBModel, userInviteCodeModel, userProfileModel, aiToolModel, templateSquareConfigModel)
 		RegisterAIPublicRoutes(miniprogram, pricingModel)
 		// 签到接口（简化token认证）
 		checkinModel := model.NewCheckinModel(component.GetDB())

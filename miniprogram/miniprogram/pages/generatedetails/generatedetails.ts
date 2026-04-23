@@ -180,7 +180,7 @@ function normalizePublishMainTabs(list: any): PublishTabItem[] {
       value: String(item?.value || '').trim(),
     }))
     .filter((item) => item.label && item.value);
-  return normalized.length ? normalized : PUBLISH_TEMPLATE_TOPICS;
+  return normalized;
 }
 
 function normalizePublishSubTabs(list: any, mainTabs: PublishTabItem[]): PublishTabItem[] {
@@ -192,7 +192,7 @@ function normalizePublishSubTabs(list: any, mainTabs: PublishTabItem[]): Publish
       parent: String(item?.parent || '').trim(),
     }))
     .filter((item) => item.label && item.value && item.parent && mainValues.has(item.parent));
-  return normalized.length ? normalized : PUBLISH_TEMPLATE_SUB_TOPICS.filter((item) => mainValues.has(String(item.parent || '').trim()));
+  return normalized;
 }
 
 function getPublishSubTabsByParent(allSubTabs: PublishTabItem[], parentValue: string): PublishTabItem[] {
@@ -275,8 +275,8 @@ Page({
       thirdTab: '',
     },
     // 模板广场一级/二级话题配置（用于发布时选择所属板块）
-    mainTabs: PUBLISH_TEMPLATE_TOPICS as PublishTabItem[],
-    allSubTabs: PUBLISH_TEMPLATE_SUB_TOPICS as PublishTabItem[],
+    mainTabs: [] as PublishTabItem[],
+    allSubTabs: [] as PublishTabItem[],
     subTabs: [] as PublishTabItem[],
     allThirdTabs: [] as PublishTabItem[],
     thirdTabs: [] as PublishTabItem[],
@@ -399,6 +399,22 @@ Page({
         });
       });
       const mainTabs = normalizePublishMainTabs(res?.main_tabs);
+      if (!mainTabs.length) {
+        this.setData({
+          mainTabs: [],
+          allSubTabs: [],
+          allThirdTabs: [],
+          subTabs: [],
+          thirdTabs: [],
+          mainTabIndex: -1,
+          subTabIndex: -1,
+          thirdTabIndex: -1,
+          'publishForm.mainTab': '',
+          'publishForm.subTab': '',
+          'publishForm.thirdTab': '',
+        });
+        return;
+      }
       const allSubTabs = normalizePublishSubTabs(res?.sub_tabs, mainTabs);
       const allThirdTabs = normalizePublishThirdTabs(res?.third_tabs, allSubTabs);
       const firstMain = mainTabs[0];
@@ -421,23 +437,17 @@ Page({
       });
     } catch (e) {
       console.error('加载模板广场分类配置失败:', e);
-      const mainTabs = PUBLISH_TEMPLATE_TOPICS;
-      const allSubTabs = PUBLISH_TEMPLATE_SUB_TOPICS;
-      const allThirdTabs: PublishTabItem[] = [];
-      const firstMain = mainTabs[0];
-      const subTabs = getPublishSubTabsByParent(allSubTabs, firstMain?.value || '');
-      const firstSub = subTabs[0];
       this.setData({
-        mainTabs,
-        allSubTabs,
-        allThirdTabs,
-        subTabs,
+        mainTabs: [],
+        allSubTabs: [],
+        allThirdTabs: [],
+        subTabs: [],
         thirdTabs: [],
-        mainTabIndex: firstMain ? 0 : -1,
-        subTabIndex: firstSub ? 0 : -1,
+        mainTabIndex: -1,
+        subTabIndex: -1,
         thirdTabIndex: -1,
-        'publishForm.mainTab': firstMain?.value || '',
-        'publishForm.subTab': firstSub?.value || '',
+        'publishForm.mainTab': '',
+        'publishForm.subTab': '',
         'publishForm.thirdTab': '',
       });
     }
