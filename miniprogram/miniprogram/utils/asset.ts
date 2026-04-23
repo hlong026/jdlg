@@ -3,6 +3,10 @@
 // const ASSET_CDN_BASE = 'https://你的COS自定义域名/miniprogram';
 const ASSET_CDN_BASE = 'https://static.jiadilingguang.com';
 
+// COS 原始域名 → CDN 域名映射，确保所有图片 URL 走 CDN（小程序合法域名）
+const COS_RAW_HOST = 'jiadilingguangcos-1393500756.cos.ap-chongqing.myqcloud.com';
+const COS_CDN_HOST = 'static.jiadilingguang.com';
+
 // 如果你暂时只想先迁移首批大图，就保持 ASSET_CDN_BASE 为空，
 // 然后把下面对应图片的完整 COS 地址填进去即可。
 const ASSET_CDN_MAP: Record<string, string> = {
@@ -26,9 +30,18 @@ const ASSET_CDN_MAP: Record<string, string> = {
   '/assets/template/页面背景.png': 'https://static.jiadilingguang.com/assets/template/页面背景.png',
   // 示例：https://你的COS自定义域名/miniprogram/assets/企业logo.png
   '/assets/企业logo.png': '',
-  // 示例：https://你的COS自定义域名/miniprogram/assets/企业微信二维码.png
+  // 示例：https://你的COS自定义域名/miniprogram/assets/企业微信二维码.png'
   '/assets/企业微信二维码.png': '',
 };
+
+/** 将 COS 原始域名替换为 CDN 域名，确保 URL 在小程序合法域名列表中 */
+export function normalizeCosUrl(url: string): string {
+  const cleanUrl = String(url || '').trim();
+  if (!cleanUrl) {
+    return cleanUrl;
+  }
+  return cleanUrl.replace(`://${COS_RAW_HOST}`, `://${COS_CDN_HOST}`);
+}
 
 export function resolveAssetPath(path: string): string {
   const cleanPath = String(path || '').trim();

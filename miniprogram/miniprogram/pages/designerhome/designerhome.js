@@ -13,10 +13,10 @@ function normalizeImageUrl(url, fallback = '') {
         return fallback;
     }
     if (/^(https?:\/\/|wxfile:\/\/|file:\/\/|data:)/i.test(cleanUrl)) {
-        return cleanUrl;
+        return /^https?:\/\//i.test(cleanUrl) ? (0, asset_1.normalizeCosUrl)(cleanUrl) : cleanUrl;
     }
     if (cleanUrl.startsWith('//')) {
-        return `https:${cleanUrl}`;
+        return (0, asset_1.normalizeCosUrl)(`https:${cleanUrl}`);
     }
     if (cleanUrl.startsWith('/')) {
         return `${API_BASE_URL}${cleanUrl}`;

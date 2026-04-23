@@ -1,4 +1,4 @@
-import { resolveAssetPath } from '../../utils/asset';
+import { normalizeCosUrl, resolveAssetPath } from '../../utils/asset';
 import { generateRequestParams, paramsToHeaders } from '../../utils/parameter';
 import {
   generateDeviceFingerprint,
@@ -14,10 +14,10 @@ function normalizeImageUrl(url: string, fallback = ''): string {
     return fallback;
   }
   if (/^(https?:\/\/|wxfile:\/\/|file:\/\/|data:)/i.test(cleanUrl)) {
-    return cleanUrl;
+    return /^https?:\/\//i.test(cleanUrl) ? normalizeCosUrl(cleanUrl) : cleanUrl;
   }
   if (cleanUrl.startsWith('//')) {
-    return `https:${cleanUrl}`;
+    return normalizeCosUrl(`https:${cleanUrl}`);
   }
   if (cleanUrl.startsWith('/')) {
     return `${API_BASE_URL}${cleanUrl}`;

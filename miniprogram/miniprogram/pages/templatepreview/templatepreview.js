@@ -1,5 +1,6 @@
 "use strict";
 // pages/templatepreview/templatepreview.ts
+const asset_1 = require("../../utils/asset");
 function base64Decode(input) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
     let str = String(input).replace(/=+$/, '');
@@ -57,15 +58,16 @@ Page({
             try {
                 const jsonStr = base64Decode(decodeURIComponent(payload));
                 const data = JSON.parse(jsonStr);
+                const imageUrl = (0, asset_1.normalizeCosUrl)(String(data.imageUrl || ''));
                 this.setData({
                     title: data.title || '',
                     description: data.description || '',
-                    imageUrl: data.imageUrl || '',
+                    imageUrl,
                     userName: data.userName || '',
                     userAvatar: data.userAvatar || '',
                     createdAt: data.createdAt || '',
                 });
-                this.updatePreviewImageHeight(data.imageUrl || '', Number(data.imageWidth || 0), Number(data.imageHeight || 0));
+                this.updatePreviewImageHeight(imageUrl, Number(data.imageWidth || 0), Number(data.imageHeight || 0));
             }
             catch (e) {
                 console.error('预览数据解析失败:', e);
@@ -94,7 +96,7 @@ Page({
         this.setData({
             imageHeight: this.computePreviewImageHeight(width, height),
         });
-        const imageUrl = String(url || '').trim();
+        const imageUrl = (0, asset_1.normalizeCosUrl)(String(url || '').trim());
         if (!imageUrl) {
             return;
         }
@@ -122,7 +124,7 @@ Page({
         wx.navigateBack({ delta: 1 });
     },
     onPreviewImage() {
-        const url = this.data.imageUrl;
+        const url = (0, asset_1.normalizeCosUrl)(String(this.data.imageUrl || ''));
         if (!url)
             return;
         wx.previewImage({

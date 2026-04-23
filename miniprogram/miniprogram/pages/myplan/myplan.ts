@@ -5,7 +5,7 @@ import {
   getCachedDeviceFingerprint,
   cacheDeviceFingerprint,
 } from '../../utils/deviceFingerprint';
-import { resolveAssetPath } from '../../utils/asset';
+import { normalizeCosUrl, resolveAssetPath } from '../../utils/asset';
 
 const API_BASE_URL = 'https://api.jiadilingguang.com';
 const DEFAULT_PLAN_IMAGE = resolveAssetPath('/assets/images/home.jpg');
@@ -258,8 +258,8 @@ Page({
         category: item.category || 'other',
         categoryName: this.getCategoryName(item.category),
         description: item.description || '',
-        thumbnail: item.thumbnail || item.preview_url || DEFAULT_PLAN_IMAGE,
-        preview_url: item.preview_url || item.thumbnail || '',
+        thumbnail: normalizeCosUrl(String(item.thumbnail || item.preview_url || DEFAULT_PLAN_IMAGE)),
+        preview_url: normalizeCosUrl(String(item.preview_url || item.thumbnail || '')),
         download_count: item.download_count || 0,
         like_count: item.like_count || 0,
         status: item.status || 'draft',
@@ -408,7 +408,7 @@ Page({
       success: (res) => {
         if (res.confirm) {
           // 导出功能：可以下载图片或生成分享链接
-          const imageUrl = plan.preview_url || plan.thumbnail;
+          const imageUrl = normalizeCosUrl(String(plan.preview_url || plan.thumbnail || ''));
           if (imageUrl) {
             wx.downloadFile({
               url: imageUrl,

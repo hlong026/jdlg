@@ -221,7 +221,7 @@ func Init() *Config {
 			SecretKey:           getEnv("COS_SECRET_KEY", ""),
 			Region:              getEnv("COS_REGION", "ap-chongqing"),
 			Bucket:              getEnv("COS_BUCKET", "jiadilingguangcos-1393500756"),
-			Domain:              getEnv("COS_DOMAIN", ""), // 可选，如果设置了会使用自定义域名
+			Domain:              getEnv("COS_DOMAIN", "https://static.jiadilingguang.com"), // 自定义 CDN 域名，确保小程序合法域名可用
 			Prefix:              getEnv("COS_PREFIX", "ai_assets/"),
 			EnableSTS:           getEnvBool("COS_ENABLE_STS", false),
 			STSRoleARN:          getEnv("COS_STS_ROLE_ARN", ""),

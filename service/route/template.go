@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	neturl "net/url"
 	"strconv"
 	"strings"
 
 	"service/component"
+	"service/config"
 	"service/function"
 	"service/model"
 
@@ -18,6 +20,35 @@ import (
 
 const promptPrefix = "\n\n提示词: "
 const maxPublicTemplatePageSize = 500
+
+const (
+	cosRawHost = "jiadilingguangcos-1393500756.cos.ap-chongqing.myqcloud.com"
+	cosCDNHost = "static.jiadilingguang.com"
+)
+
+// normalizeCosImageURL 将 COS 原始域名替换为 CDN 域名，确保小程序合法域名可用
+func normalizeCosImageURL(url string) string {
+	cleanURL := strings.TrimSpace(url)
+	if cleanURL == "" {
+		return cleanURL
+	}
+	cdnHost := cosCDNHost
+	if cfg := config.Get(); cfg != nil {
+		if domain := strings.TrimSpace(cfg.COS.Domain); domain != "" {
+			if parsed, err := neturl.Parse(domain); err == nil && parsed.Host != "" {
+				cdnHost = parsed.Host
+			} else {
+				domain = strings.TrimPrefix(domain, "https://")
+				domain = strings.TrimPrefix(domain, "http://")
+				cdnHost = strings.Trim(domain, "/")
+			}
+		}
+	}
+	if cdnHost == "" || cdnHost == cosRawHost {
+		return cleanURL
+	}
+	return strings.ReplaceAll(cleanURL, "://"+cosRawHost, "://"+cdnHost)
+}
 
 func collectTemplateDisplayImageURLs(template *model.Template) []string {
 	if template == nil {
@@ -331,9 +362,9 @@ func templateToResponse(template *model.Template, paidLocked bool, creatorInfo *
 		"sub_tab":           template.SubTab,
 		"third_tab":         template.ThirdTab,
 		"description":       template.Description,
-		"thumbnail":         template.Thumbnail,
-		"preview_url":       template.PreviewURL,
-		"images":            template.Images,
+		"thumbnail":         normalizeCosImageURL(template.Thumbnail),
+		"preview_url":       normalizeCosImageURL(template.PreviewURL),
+		"images":            normalizeCosImageURL(template.Images),
 		"image_width":       template.ImageWidth,
 		"image_height":      template.ImageHeight,
 		"price":             template.Price,
@@ -526,8 +557,9 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 					"id":              t.ID,
 					"name":            t.Name,
 					"description":     t.Description,
-					"thumbnail":       t.Thumbnail,
-					"preview_url":     t.PreviewURL,
+					"thumbnail":       normalizeCosImageURL(t.Thumbnail),
+					"preview_url":     normalizeCosImageURL(t.PreviewURL),
+					"images":          normalizeCosImageURL(t.Images),
 					"image_width":     t.ImageWidth,
 					"image_height":    t.ImageHeight,
 					"category":        t.Category,
@@ -757,9 +789,9 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 					"id":              t.ID,
 					"name":            t.Name,
 					"description":     t.Description,
-					"thumbnail":       t.Thumbnail,
-					"preview_url":     t.PreviewURL,
-					"images":          t.Images,
+					"thumbnail":       normalizeCosImageURL(t.Thumbnail),
+					"preview_url":     normalizeCosImageURL(t.PreviewURL),
+					"images":          normalizeCosImageURL(t.Images),
 					"image_width":     t.ImageWidth,
 					"image_height":    t.ImageHeight,
 					"price":           t.Price,

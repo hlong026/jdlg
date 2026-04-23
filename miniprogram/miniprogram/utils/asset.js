@@ -1,10 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.normalizeCosUrl = normalizeCosUrl;
 exports.resolveAssetPath = resolveAssetPath;
 // 如果你已经把整个 miniprogram/miniprogram/assets 目录上传到了 COS，
 // 可以直接把下面这一项改成：
 // const ASSET_CDN_BASE = 'https://你的COS自定义域名/miniprogram';
 const ASSET_CDN_BASE = 'https://static.jiadilingguang.com';
+const COS_RAW_HOST = 'jiadilingguangcos-1393500756.cos.ap-chongqing.myqcloud.com';
+const COS_CDN_HOST = 'static.jiadilingguang.com';
 // 如果你暂时只想先迁移首批大图，就保持 ASSET_CDN_BASE 为空，
 // 然后把下面对应图片的完整 COS 地址填进去即可。
 const ASSET_CDN_MAP = {
@@ -31,6 +34,13 @@ const ASSET_CDN_MAP = {
     // 示例：https://你的COS自定义域名/miniprogram/assets/企业微信二维码.png
     '/assets/企业微信二维码.png': '',
 };
+function normalizeCosUrl(url) {
+    const cleanUrl = String(url || '').trim();
+    if (!cleanUrl) {
+        return cleanUrl;
+    }
+    return cleanUrl.replace(`://${COS_RAW_HOST}`, `://${COS_CDN_HOST}`);
+}
 function resolveAssetPath(path) {
     const cleanPath = String(path || '').trim();
     if (!cleanPath) {

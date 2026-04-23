@@ -216,8 +216,8 @@ Page({
                 category: item.category || 'other',
                 categoryName: this.getCategoryName(item.category),
                 description: item.description || '',
-                thumbnail: item.thumbnail || item.preview_url || DEFAULT_PLAN_IMAGE,
-                preview_url: item.preview_url || item.thumbnail || '',
+                thumbnail: (0, asset_1.normalizeCosUrl)(String(item.thumbnail || item.preview_url || DEFAULT_PLAN_IMAGE)),
+                preview_url: (0, asset_1.normalizeCosUrl)(String(item.preview_url || item.thumbnail || '')),
                 download_count: item.download_count || 0,
                 like_count: item.like_count || 0,
                 status: item.status || 'draft',
@@ -354,7 +354,7 @@ Page({
             success: (res) => {
                 if (res.confirm) {
                     // 导出功能：可以下载图片或生成分享链接
-                    const imageUrl = plan.preview_url || plan.thumbnail;
+                    const imageUrl = (0, asset_1.normalizeCosUrl)(String(plan.preview_url || plan.thumbnail || ''));
                     if (imageUrl) {
                         wx.downloadFile({
                             url: imageUrl,
