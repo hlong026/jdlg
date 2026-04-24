@@ -531,14 +531,16 @@ page {
   padding: 24rpx 28rpx;
   border-radius: 22rpx;
   text-align: center;
-  background: rgba(255, 255, 255, 0.52);
-  border: 1rpx solid rgba(207, 189, 168, 0.7);
+  background: rgba(255, 250, 243, 0.94);
+  border: 1rpx solid rgba(190, 157, 116, 0.58);
+  box-shadow: 0 10rpx 24rpx rgba(127, 98, 65, 0.1);
 }
 
-.page .prompt-text {
+.page .login-prompt .prompt-text {
   font-size: 24rpx;
   line-height: 1.4;
-  color: #8c7553;
+  color: #5f4429;
+  font-weight: 600;
 }
 
 .page .menu-card {
