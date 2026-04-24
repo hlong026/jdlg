@@ -47,8 +47,8 @@ Page({
 
   async sendSmsCode() {
     const phone = (this.data.phone || '').trim();
-    if (phone.length !== 11) {
-      wx.showToast({ title: '请输入11位手机号', icon: 'none' });
+    if (!/^1\d{10}$/.test(phone)) {
+      wx.showToast({ title: '请输入正确的11位手机号', icon: 'none' });
       return;
     }
     if (this.data.smsCountdown > 0) return;
@@ -78,9 +78,9 @@ Page({
 
   startCountdown() {
     this.setData({ smsCountdown: 60 });
-    const timer = setInterval(() => {
+    (this as any)._smsTimer = setInterval(() => {
       if (this.data.smsCountdown <= 1) {
-        clearInterval(timer);
+        clearInterval((this as any)._smsTimer);
         this.setData({ smsCountdown: 0 });
       } else {
         this.setData({ smsCountdown: this.data.smsCountdown - 1 });
@@ -118,6 +118,12 @@ Page({
       wx.showToast({ title: '绑定失败', icon: 'none' });
     } finally {
       this.setData({ loading: false });
+    }
+  },
+
+  onUnload() {
+    if ((this as any)._smsTimer) {
+      clearInterval((this as any)._smsTimer);
     }
   },
 });
