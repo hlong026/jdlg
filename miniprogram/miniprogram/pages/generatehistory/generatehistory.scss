@@ -72,17 +72,19 @@
 }
 
 .manage-toolbar {
-  margin: 20rpx auto 0;
-  min-height: 72rpx;
-  padding: 0 8rpx;
+  margin: 0;
+  min-height: 96rpx;
+  padding: 0 60rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  position: -webkit-sticky;
-  position: sticky;
+  position: fixed;
   top: calc(env(safe-area-inset-top) + 140rpx);
+  left: 0;
+  right: 0;
+  width: auto;
   z-index: 90;
-  background: linear-gradient(180deg, rgba(230, 218, 202, 0.98) 0%, rgba(236, 228, 217, 0.96) 100%);
+  background: #e6daca;
   box-shadow: 0 10rpx 22rpx rgba(113, 80, 63, 0.08);
 }
 
@@ -492,7 +494,7 @@
 }
 
 .manage-content {
-  padding: 0 24rpx;
+  padding: 116rpx 24rpx 0;
 }
 
 .manage-summary {
