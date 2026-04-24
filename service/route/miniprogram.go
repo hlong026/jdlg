@@ -18,6 +18,7 @@ import (
 	"service/function"
 	"service/model"
 	"service/processor"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -220,7 +221,7 @@ func RegisterMiniprogramRoutes(r *gin.RouterGroup, authProcessor *processor.Auth
 			return
 		}
 		phone := strings.TrimSpace(req.Phone)
-		if len(phone) != 11 {
+		if !isValidPhone(phone) {
 			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "手机号格式不正确"})
 			return
 		}
@@ -245,7 +246,7 @@ func RegisterMiniprogramRoutes(r *gin.RouterGroup, authProcessor *processor.Auth
 		}
 		phone := strings.TrimSpace(req.Phone)
 		code := strings.TrimSpace(req.Code)
-		if len(phone) != 11 {
+		if !isValidPhone(phone) {
 			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "手机号格式不正确"})
 			return
 		}
@@ -316,7 +317,6 @@ func RegisterMiniprogramRoutes(r *gin.RouterGroup, authProcessor *processor.Auth
 			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "生成token失败: " + err.Error()})
 			return
 		}
-		isNewUser := processor.IsPhoneLoginNewUser()
 		c.JSON(http.StatusOK, gin.H{
 			"code": 0,
 			"msg":  "登录成功",
@@ -324,10 +324,10 @@ func RegisterMiniprogramRoutes(r *gin.RouterGroup, authProcessor *processor.Auth
 				"id":          result.User.ID,
 				"username":    result.User.Username,
 				"token":       token,
-				"is_new_user": isNewUser,
+				"is_new_user": result.IsNewUser,
 			},
 		})
-	})
+		})
 
 	// 获取当前用户信息
 	r.GET("/me", AuthRequired, func(c *gin.Context) {
@@ -1326,7 +1326,7 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 		}
 		phone := strings.TrimSpace(req.Phone)
 		code := strings.TrimSpace(req.Code)
-		if len(phone) != 11 {
+		if !isValidPhone(phone) {
 			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "手机号格式不正确"})
 			return
 		}
@@ -1374,7 +1374,7 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 		}
 		// 更新 profile 中的手机号
 		if userProfileModel != nil {
-			userProfileModel.UpdatePhone(userID, phone)
+				_ = userProfileModel.UpdatePhone(userID, phone)
 		}
 		c.JSON(http.StatusOK, gin.H{"code": 0, "msg": "绑定成功"})
 	})
@@ -3783,4 +3783,12 @@ func RegisterCheckinRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSessi
 			},
 		})
 	})
+}
+
+// phoneRegex 手机号正则：11位数字，以1开头
+var phoneRegex = regexp.MustCompile(`^1\d{10}$`)
+
+// isValidPhone 校验手机号格式
+func isValidPhone(phone string) bool {
+	return phoneRegex.MatchString(phone)
 }

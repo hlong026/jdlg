@@ -3,7 +3,6 @@ package component
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -97,16 +96,17 @@ func (dl *DownloadLimiter) RecordDownload(userID int64) {
 	// 每日计数器
 	today := time.Now().Format("20060102")
 	dailyKey := fmt.Sprintf("template:dl:%d:%s", userID, today)
-	dl.RDB.Incr(ctx, dailyKey)
-	// 设置过期时间到今天结束
-	now := time.Now()
-	endOfDay := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location())
-	dl.RDB.Expire(ctx, dailyKey, endOfDay.Sub(now)+time.Second)
+	if _, err := dl.RDB.Incr(ctx, dailyKey).Result(); err == nil {
+		now := time.Now()
+		endOfDay := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location())
+		dl.RDB.Expire(ctx, dailyKey, endOfDay.Sub(now)+time.Second)
+	}
 
 	// 每分钟计数器
 	minuteKey := fmt.Sprintf("template:rl:%d:%d", userID, time.Now().Unix()/60)
-	dl.RDB.Incr(ctx, minuteKey)
-	dl.RDB.Expire(ctx, minuteKey, 2*time.Minute)
+	if _, err := dl.RDB.Incr(ctx, minuteKey).Result(); err == nil {
+		dl.RDB.Expire(ctx, minuteKey, 2*time.Minute)
+	}
 }
 
 // countUserUnlocks 查询用户累计解锁/下载次数
@@ -118,10 +118,4 @@ func (dl *DownloadLimiter) countUserUnlocks(userID int64) (int64, error) {
 	var count int64
 	err := db.QueryRow("SELECT COUNT(*) FROM template_unlocks WHERE user_id = ?", userID).Scan(&count)
 	return count, err
-}
-
-// parseDownloadCount 从 template_unlocks 表查询计数（辅助方法）
-func parseDownloadCount(s string) int64 {
-	n, _ := strconv.ParseInt(s, 10, 64)
-	return n
 }

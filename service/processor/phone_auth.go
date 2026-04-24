@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"regexp"
 	"service/function"
 	"service/model"
 )
@@ -41,19 +42,18 @@ func (s *PhoneAuthStrategy) GetStrategyName() string {
 	return "phone"
 }
 
-// IsNewUser 标记是否为新注册用户
-var phoneLoginIsNewUser = false
+// phoneRegexp 手机号正则：11位纯数字，以1开头
+var phoneRegexp = regexp.MustCompile(`^1\d{10}$`)
 
 // Login 手机号验证码登录
 func (s *PhoneAuthStrategy) Login(ctx context.Context, req interface{}) (*AuthResult, error) {
-	phoneLoginIsNewUser = false
 	loginReq, ok := req.(*PhoneLoginRequest)
 	if !ok {
 		return nil, fmt.Errorf("invalid request type")
 	}
 
 	phone := loginReq.Phone
-	if len(phone) != 11 {
+	if !phoneRegexp.MatchString(phone) {
 		return nil, errors.New("手机号格式不正确")
 	}
 
@@ -63,6 +63,7 @@ func (s *PhoneAuthStrategy) Login(ctx context.Context, req interface{}) (*AuthRe
 		return nil, fmt.Errorf("查询用户失败: %w", err)
 	}
 
+	isNewUser := false
 	var user *model.User
 	if errors.Is(err, sql.ErrNoRows) {
 		// 新用户注册
@@ -73,21 +74,29 @@ func (s *PhoneAuthStrategy) Login(ctx context.Context, req interface{}) (*AuthRe
 
 		// 创建 profile
 		if s.userProfileModel != nil {
-			s.userProfileModel.GetOrCreate(user.ID, loginReq.DeviceID)
+			if _, profileErr := s.userProfileModel.GetOrCreate(user.ID, loginReq.DeviceID); profileErr != nil {
+				return nil, fmt.Errorf("创建用户资料失败: %w", profileErr)
+			}
 			// 设置身份类型
 			if loginReq.IdentityType != "" {
-				s.userProfileModel.UpdateIdentityType(user.ID, loginReq.IdentityType)
+				if identityErr := s.userProfileModel.UpdateIdentityType(user.ID, loginReq.IdentityType); identityErr != nil {
+					return nil, fmt.Errorf("设置身份类型失败: %w", identityErr)
+				}
 			}
 			// 更新手机号到 profile
-			s.userProfileModel.UpdatePhone(user.ID, phone)
+			if phoneErr := s.userProfileModel.UpdatePhone(user.ID, phone); phoneErr != nil {
+				return nil, fmt.Errorf("更新手机号失败: %w", phoneErr)
+			}
 		}
 
 		// 绑定手机号到 user_identities
 		if s.userIdentityModel != nil {
-			s.userIdentityModel.BindPhone(user.ID, phone)
+			if bindErr := s.userIdentityModel.BindPhone(user.ID, phone); bindErr != nil {
+				return nil, fmt.Errorf("绑定手机号失败: %w", bindErr)
+			}
 		}
 
-		phoneLoginIsNewUser = true
+		isNewUser = true
 	} else {
 		// 已有用户，直接登录
 		user, err = s.userModel.GetByID(userID)
@@ -120,10 +129,6 @@ func (s *PhoneAuthStrategy) Login(ctx context.Context, req interface{}) (*AuthRe
 	return &AuthResult{
 		User:        user,
 		CodeSession: codeSession,
+		IsNewUser:   isNewUser,
 	}, nil
-}
-
-// IsPhoneLoginNewUser 检查最近一次手机登录是否是新注册用户
-func IsPhoneLoginNewUser() bool {
-	return phoneLoginIsNewUser
 }

@@ -15,6 +15,7 @@ type AuthStrategy interface {
 type AuthResult struct {
 	User        *model.User
 	CodeSession *model.CodeSession
+	IsNewUser   bool // 是否为新注册用户
 }
 
 // AuthProcessor 认证处理器
