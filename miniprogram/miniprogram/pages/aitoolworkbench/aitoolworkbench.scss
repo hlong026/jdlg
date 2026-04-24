@@ -220,6 +220,7 @@ page {
   margin-top: 18rpx;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
   gap: 14rpx;
 }
 
@@ -243,7 +244,6 @@ page {
 .aitoolworkbench-reference-media {
   position: relative;
   width: 100%;
-  height: 226rpx;
   border-radius: 18rpx;
   overflow: hidden;
   background: rgba(255, 250, 244, 0.78);
@@ -251,13 +251,12 @@ page {
 
 .aitoolworkbench-reference-image {
   width: 100%;
-  height: 100%;
   display: block;
 }
 
 .aitoolworkbench-reference-image-fallback {
   width: 100%;
-  height: 100%;
+  height: 226rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -295,25 +294,25 @@ page {
   left: 0;
   right: 0;
   bottom: 0;
-  min-height: 78rpx;
-  padding: 28rpx 16rpx 14rpx;
+  padding: 44rpx 18rpx 16rpx;
   display: flex;
   align-items: flex-end;
   justify-content: center;
   box-sizing: border-box;
-  background: linear-gradient(180deg, rgba(255, 250, 244, 0) 0%, rgba(255, 250, 244, 0.9) 78%, rgba(255, 250, 244, 0.96) 100%);
+  background: linear-gradient(180deg, rgba(37, 29, 23, 0) 0%, rgba(37, 29, 23, 0.08) 26%, rgba(37, 29, 23, 0.38) 62%, rgba(37, 29, 23, 0.62) 100%);
 }
 
 .aitoolworkbench-reference-name {
-  font-size: 26rpx;
-  font-weight: 600;
-  color: #4f4131;
-  line-height: 1.4;
+  font-size: 22rpx;
+  font-weight: 400;
+  color: rgba(255, 252, 247, 0.96);
+  line-height: 1.34;
   text-align: center;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-shadow: 0 2rpx 10rpx rgba(18, 13, 10, 0.2);
 }
 
 .aitoolworkbench-reference-desc {

@@ -52,7 +52,8 @@
               wx:if="{{item.imageUrl}}"
               class="aitoolworkbench-reference-image"
               src="{{item.imageUrl}}"
-              mode="aspectFit"
+              mode="widthFix"
+              lazy-load
             />
             <view wx:else class="aitoolworkbench-reference-image-fallback">
               <text>{{item.name[0]}}</text>
