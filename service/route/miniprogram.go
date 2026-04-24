@@ -13,12 +13,12 @@ import (
 	"io"
 	"net/http"
 	"path"
+	"regexp"
 	"service/component"
 	"service/config"
 	"service/function"
 	"service/model"
 	"service/processor"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -327,7 +327,7 @@ func RegisterMiniprogramRoutes(r *gin.RouterGroup, authProcessor *processor.Auth
 				"is_new_user": result.IsNewUser,
 			},
 		})
-		})
+	})
 
 	// 获取当前用户信息
 	r.GET("/me", AuthRequired, func(c *gin.Context) {
@@ -1374,7 +1374,7 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 		}
 		// 更新 profile 中的手机号
 		if userProfileModel != nil {
-				_ = userProfileModel.UpdatePhone(userID, phone)
+			_ = userProfileModel.UpdatePhone(userID, phone)
 		}
 		c.JSON(http.StatusOK, gin.H{"code": 0, "msg": "绑定成功"})
 	})
@@ -2083,6 +2083,163 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 		c.JSON(http.StatusOK, gin.H{"code": 0, "msg": "success", "data": data})
 	})
 
+	r.GET("/user/templates/detail/:id", simpleTokenAuth, func(c *gin.Context) {
+		codeSession := GetTokenCodeSession(c)
+		if codeSession == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": "未通过token验证"})
+			return
+		}
+		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "作品ID无效"})
+			return
+		}
+		if templateModel == nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "服务不可用"})
+			return
+		}
+		tpl, err := templateModel.GetByID(id)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"code": 404, "msg": "作品不存在或已删除"})
+			return
+		}
+		if tpl.CreatorUserID != codeSession.UserID {
+			c.JSON(http.StatusForbidden, gin.H{"code": 403, "msg": "只能查看自己发布的作品"})
+			return
+		}
+		imageURLs := make([]string, 0)
+		if strings.TrimSpace(tpl.Images) != "" {
+			_ = json.Unmarshal([]byte(tpl.Images), &imageURLs)
+		}
+		if len(imageURLs) == 0 {
+			if strings.TrimSpace(tpl.PreviewURL) != "" {
+				imageURLs = append(imageURLs, tpl.PreviewURL)
+			} else if strings.TrimSpace(tpl.Thumbnail) != "" {
+				imageURLs = append(imageURLs, tpl.Thumbnail)
+			}
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"code": 0,
+			"msg":  "success",
+			"data": gin.H{
+				"id":             tpl.ID,
+				"name":           tpl.Name,
+				"category":       tpl.Category,
+				"description":    tpl.Description,
+				"thumbnail":      tpl.Thumbnail,
+				"preview_url":    tpl.PreviewURL,
+				"image_urls":     imageURLs,
+				"publish_scope":  tpl.PublishScope,
+				"main_tab":       tpl.MainTab,
+				"sub_tab":        tpl.SubTab,
+				"third_tab":      tpl.ThirdTab,
+				"is_free":        tpl.IsFree,
+				"price":          tpl.Price,
+				"status":         tpl.Status,
+				"reject_reason":  tpl.RejectReason,
+				"source_type":    tpl.SourceType,
+				"download_count": tpl.DownloadCount,
+				"like_count":     tpl.LikeCount,
+				"created_at":     tpl.CreatedAt,
+				"updated_at":     tpl.UpdatedAt,
+			},
+		})
+	})
+
+	r.POST("/user/templates/batch-delete", simpleTokenAuth, func(c *gin.Context) {
+		codeSession := GetTokenCodeSession(c)
+		if codeSession == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"code": 401,
+				"msg":  "未通过token验证",
+			})
+			return
+		}
+		if templateModel == nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code": 500,
+				"msg":  "服务不可用",
+			})
+			return
+		}
+
+		var req struct {
+			IDs []int64 `json:"ids" binding:"required,min=1"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code": 400,
+				"msg":  "请选择要删除的作品",
+			})
+			return
+		}
+		if len(req.IDs) > 100 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code": 400,
+				"msg":  "单次最多删除100个作品",
+			})
+			return
+		}
+
+		seen := make(map[int64]struct{}, len(req.IDs))
+		ids := make([]int64, 0, len(req.IDs))
+		for _, id := range req.IDs {
+			if id <= 0 {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 400,
+					"msg":  "作品ID无效",
+				})
+				return
+			}
+			if _, ok := seen[id]; ok {
+				continue
+			}
+			seen[id] = struct{}{}
+			ids = append(ids, id)
+		}
+		if len(ids) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code": 400,
+				"msg":  "请选择要删除的作品",
+			})
+			return
+		}
+
+		for _, id := range ids {
+			tpl, err := templateModel.GetByID(id)
+			if err != nil {
+				c.JSON(http.StatusNotFound, gin.H{
+					"code": 404,
+					"msg":  "作品不存在或已删除",
+				})
+				return
+			}
+			if tpl.CreatorUserID != codeSession.UserID {
+				c.JSON(http.StatusForbidden, gin.H{
+					"code": 403,
+					"msg":  "只能删除自己发布的作品",
+				})
+				return
+			}
+		}
+
+		deletedCount, err := templateModel.BatchDeleteByCreatorUserID(codeSession.UserID, ids)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code": 500,
+				"msg":  "批量删除失败: " + err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"code": 0,
+			"msg":  "删除成功",
+			"data": gin.H{
+				"deleted_count": deletedCount,
+			},
+		})
+	})
+
 	// 我的方案：更新模板信息（仅能编辑自己发布的，允许修改名称、描述、分类与收费信息）
 	r.PUT("/user/templates/:id", simpleTokenAuth, func(c *gin.Context) {
 		codeSession := GetTokenCodeSession(c)
@@ -2112,14 +2269,17 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 
 		// 仅允许部分字段可选更新
 		var req struct {
-			Name        *string `json:"name"`
-			Description *string `json:"description"`
-			Category    *string `json:"category"`
-			MainTab     *string `json:"main_tab"`
-			SubTab      *string `json:"sub_tab"`
-			ThirdTab    *string `json:"third_tab"`
-			IsFree      *bool   `json:"is_free"`
-			Price       *int64  `json:"price"`
+			Name         *string  `json:"name"`
+			Description  *string  `json:"description"`
+			Category     *string  `json:"category"`
+			MainTab      *string  `json:"main_tab"`
+			SubTab       *string  `json:"sub_tab"`
+			ThirdTab     *string  `json:"third_tab"`
+			ImageURLs    []string `json:"image_urls"`
+			CoverURL     *string  `json:"cover_url"`
+			PublishScope *string  `json:"publish_scope"`
+			IsFree       *bool    `json:"is_free"`
+			Price        *int64   `json:"price"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -2162,6 +2322,17 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 		if req.ThirdTab != nil {
 			tpl.ThirdTab = *req.ThirdTab
 		}
+		if req.PublishScope != nil {
+			publishScope := strings.TrimSpace(*req.PublishScope)
+			if publishScope != "homepage_only" && publishScope != "square" {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 400,
+					"msg":  "发布范围无效",
+				})
+				return
+			}
+			tpl.PublishScope = publishScope
+		}
 		if err := validateTemplateTabAssignment(sharedTemplateSquareConfigModel, tpl.MainTab, tpl.SubTab, tpl.ThirdTab); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"code": 400,
@@ -2172,6 +2343,47 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 		if req.Description != nil {
 			// Description 中可能包含「提示词: xxx」，这里只替换描述部分，保留原有提示词
 			tpl.Description = strings.TrimSpace(*req.Description)
+		}
+		if req.ImageURLs != nil {
+			cleanImages := make([]string, 0, len(req.ImageURLs))
+			for _, item := range req.ImageURLs {
+				trimmed := strings.TrimSpace(item)
+				if trimmed != "" {
+					cleanImages = append(cleanImages, trimmed)
+				}
+			}
+			if len(cleanImages) == 0 {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 400,
+					"msg":  "请至少保留一张作品图",
+				})
+				return
+			}
+			coverURL := ""
+			if req.CoverURL != nil {
+				coverURL = strings.TrimSpace(*req.CoverURL)
+			}
+			if coverURL == "" {
+				coverURL = cleanImages[0]
+			}
+			imagesJSON, _ := json.Marshal(cleanImages)
+			tpl.Thumbnail = coverURL
+			tpl.PreviewURL = coverURL
+			tpl.Images = string(imagesJSON)
+			if err := validateTemplatePrimaryImage(tpl); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 400,
+					"msg":  err.Error(),
+				})
+				return
+			}
+			if err := generateTemplateDerivedImages(context.Background(), tpl, "templates/album_upload"); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"code": 500,
+					"msg":  "生成模板衍生图失败: " + err.Error(),
+				})
+				return
+			}
 		}
 		if req.IsFree != nil {
 			tpl.IsFree = *req.IsFree
@@ -2186,6 +2398,8 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			}
 			tpl.Price = price
 		}
+		tpl.Status = "pending"
+		tpl.RejectReason = ""
 
 		if err := templateModel.Update(tpl); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{

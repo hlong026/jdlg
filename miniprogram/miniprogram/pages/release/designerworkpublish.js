@@ -3,6 +3,22 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const parameter_1 = require("../../utils/parameter");
 const deviceFingerprint_1 = require("../../utils/deviceFingerprint");
 const API_BASE_URL = 'https://api.jiadilingguang.com';
+function normalizeImageUrl(url) {
+    const cleanUrl = String(url || '').trim();
+    if (!cleanUrl) {
+        return '';
+    }
+    if (/^(https?:\/\/|wxfile:\/\/|file:\/\/|data:)/i.test(cleanUrl)) {
+        return cleanUrl;
+    }
+    if (cleanUrl.startsWith('//')) {
+        return `https:${cleanUrl}`;
+    }
+    if (cleanUrl.startsWith('/')) {
+        return `${API_BASE_URL}${cleanUrl}`;
+    }
+    return `${API_BASE_URL}/${cleanUrl}`;
+}
 const DEFAULT_MAIN_TABS = [
     { label: '场景', value: 'scene' },
     { label: '风格', value: 'style' },
@@ -26,6 +42,8 @@ const DEFAULT_SUB_TABS = [
     { label: '功能创新', value: 'function_innovation', parent: 'inspiration' },
     { label: '案例精选', value: 'selected_cases', parent: 'inspiration' },
 ];
+void DEFAULT_MAIN_TABS;
+void DEFAULT_SUB_TABS;
 function normalizeMainTabs(raw) {
     if (!Array.isArray(raw)) {
         return [];
@@ -72,6 +90,9 @@ Page({
         deviceId: '',
         saving: false,
         uploading: false,
+        loadingWork: false,
+        editMode: false,
+        editId: 0,
         mainTabs: [],
         subTabs: [],
         allSubTabs: [],
@@ -93,10 +114,18 @@ Page({
             price: 0,
         },
     },
-    async onLoad() {
+    async onLoad(options) {
         await this.initDeviceId();
         this.initToken();
         await this.loadTabConfig();
+        const editId = Number(options?.id || 0);
+        if (options?.mode === 'edit' && editId > 0) {
+            this.setData({
+                editMode: true,
+                editId,
+            });
+            await this.loadWorkDetail(editId);
+        }
     },
     async initDeviceId() {
         let deviceId = (0, deviceFingerprint_1.getCachedDeviceFingerprint)();
@@ -208,6 +237,95 @@ Page({
                 title: '分类配置加载失败',
                 icon: 'none',
             });
+        }
+    },
+    applyTabSelection(mainTab, subTab, thirdTab) {
+        const mainTabs = this.data.mainTabs || [];
+        const allSubTabs = this.data.allSubTabs || [];
+        const allThirdTabs = this.data.allThirdTabs || [];
+        if (!mainTabs.length) {
+            return;
+        }
+        let mainTabIndex = mainTabs.findIndex((item) => item.value === mainTab);
+        if (mainTabIndex < 0) {
+            mainTabIndex = 0;
+        }
+        const currentMain = mainTabs[mainTabIndex];
+        const subTabs = getSubTabsByParent(allSubTabs, currentMain?.value || '');
+        let subTabIndex = subTabs.findIndex((item) => item.value === subTab);
+        if (subTabIndex < 0) {
+            subTabIndex = subTabs.length ? 0 : -1;
+        }
+        const currentSub = subTabIndex >= 0 ? subTabs[subTabIndex] : null;
+        const thirdTabs = getSubTabsByParent(allThirdTabs, currentSub?.value || '');
+        let thirdTabIndex = thirdTabs.findIndex((item) => item.value === thirdTab);
+        if (thirdTabIndex < 0) {
+            thirdTabIndex = thirdTabs.length ? 0 : -1;
+        }
+        this.setData({
+            mainTabIndex,
+            subTabs,
+            thirdTabs,
+            subTabIndex,
+            thirdTabIndex,
+            'form.mainTab': currentMain?.value || '',
+            'form.subTab': currentSub?.value || '',
+            'form.thirdTab': thirdTabIndex >= 0 ? thirdTabs[thirdTabIndex].value : '',
+        });
+    },
+    async loadWorkDetail(id) {
+        const apiPath = `/api/v1/miniprogram/user/templates/detail/${id}`;
+        const headers = this.getAuthHeaders(apiPath, '');
+        if (!headers) {
+            wx.showToast({
+                title: '请先登录',
+                icon: 'none',
+            });
+            return;
+        }
+        this.setData({ loadingWork: true });
+        try {
+            const detail = await new Promise((resolve, reject) => {
+                wx.request({
+                    url: `${API_BASE_URL}${apiPath}`,
+                    method: 'GET',
+                    header: headers,
+                    success: (res) => {
+                        const body = (res.data || {});
+                        if (res.statusCode === 200 && body.code === 0) {
+                            resolve(body.data || {});
+                            return;
+                        }
+                        reject(new Error(body.msg || '加载作品失败'));
+                    },
+                    fail: reject,
+                });
+            });
+            const imageUrls = (Array.isArray(detail.image_urls) ? detail.image_urls : [])
+                .map((item) => normalizeImageUrl(item))
+                .filter((item) => !!item);
+            const coverUrl = normalizeImageUrl(detail.thumbnail || detail.preview_url || imageUrls[0] || '');
+            const finalImages = imageUrls.length ? imageUrls : (coverUrl ? [coverUrl] : []);
+            const coverIndex = Math.max(0, finalImages.indexOf(coverUrl));
+            this.applyTabSelection(String(detail.main_tab || ''), String(detail.sub_tab || ''), String(detail.third_tab || ''));
+            this.setData({
+                imageUrls: finalImages,
+                coverIndex,
+                'form.name': String(detail.name || ''),
+                'form.description': String(detail.description || ''),
+                'form.publishScope': detail.publish_scope === 'square' ? 'square' : 'homepage_only',
+                'form.isFree': detail.is_free !== false,
+                'form.price': Number(detail.price || 0),
+            });
+        }
+        catch (error) {
+            wx.showToast({
+                title: error?.message || '加载作品失败',
+                icon: 'none',
+            });
+        }
+        finally {
+            this.setData({ loadingWork: false });
         }
     },
     onNameInput(e) {
@@ -468,7 +586,9 @@ Page({
         const coverUrl = imageUrls[Number(this.data.coverIndex || 0)] || imageUrls[0] || '';
         const price = form.isFree ? 0 : Math.max(1, Number(form.price || 0));
         const mappedCategory = String(form.thirdTab || form.subTab || form.mainTab || 'designer_portfolio').trim() || 'designer_portfolio';
-        const apiPath = '/api/v1/miniprogram/user/designer-works';
+        const apiPath = this.data.editMode && this.data.editId > 0
+            ? `/api/v1/miniprogram/user/templates/${this.data.editId}`
+            : '/api/v1/miniprogram/user/designer-works';
         const body = {
             name,
             description,
@@ -491,12 +611,12 @@ Page({
             return;
         }
         this.setData({ saving: true });
-        wx.showLoading({ title: '提交中...', mask: true });
+        wx.showLoading({ title: this.data.editMode ? '保存中...' : '提交中...', mask: true });
         try {
             const data = await new Promise((resolve, reject) => {
                 wx.request({
                     url: `${API_BASE_URL}${apiPath}`,
-                    method: 'POST',
+                    method: this.data.editMode ? 'PUT' : 'POST',
                     header: headers,
                     data: body,
                     success: (res) => {
@@ -512,8 +632,10 @@ Page({
             });
             console.log('作品提交成功:', data);
             wx.showModal({
-                title: '提交成功',
-                content: '作品已提交审核，审核通过后会按你选择的范围展示。',
+                title: this.data.editMode ? '保存成功' : '提交成功',
+                content: this.data.editMode
+                    ? '作品修改已提交审核，审核通过后会按你选择的范围展示。'
+                    : '作品已提交审核，审核通过后会按你选择的范围展示。',
                 showCancel: false,
                 success: () => {
                     wx.navigateBack();

@@ -1,6 +1,6 @@
 <view class="page">
   <!-- 统一导航栏 -->
-  <navigation-bar title="上传设计作品" subtitle="先上传到主页，可选同步到模板广场" background="#e6daca" />
+  <navigation-bar title="{{editMode ? '编辑发布作品' : '上传设计作品'}}" subtitle="{{editMode ? '调整作品信息后重新提交审核' : '先上传到主页，可选同步到模板广场'}}" background="#e6daca" />
 
   <view class="content">
     <view class="panel-card hero-card">
@@ -86,7 +86,7 @@
     </view>
 
     <view class="submit-bar">
-      <view class="submit-btn" bindtap="onSubmit">{{saving ? '提交中...' : '提交审核'}}</view>
+      <view class="submit-btn" bindtap="onSubmit">{{saving ? (editMode ? '保存中...' : '提交中...') : (editMode ? '保存修改' : '提交审核')}}</view>
     </view>
   </view>
 </view>

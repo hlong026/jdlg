@@ -1,5 +1,5 @@
 <!--pages/release/release.wxml-->
-<view class="page">
+<view class="page {{isManageMode ? 'page-manage-mode' : ''}}">
   <!-- 统一导航栏 -->
   <navigation-bar title="我的发布" subtitle="作品数据 · 收益概览" background="#e6daca" />
 
@@ -69,6 +69,14 @@
     </view>
     <view class="filter-right">
       <view
+        wx:if="{{currentTab === 'works' && works.length > 0}}"
+        class="manage-tag {{isManageMode ? 'active' : ''}}"
+        bindtap="onToggleManageMode"
+      >
+        <text>{{isManageMode ? '完成' : '管理'}}</text>
+      </view>
+      <view
+        wx:if="{{!isManageMode}}"
         class="time-tag {{currentRange === '7d' ? 'active' : ''}}"
         data-range="7d"
         bindtap="onRangeChange"
@@ -76,6 +84,7 @@
         <text>近7天</text>
       </view>
       <view
+        wx:if="{{!isManageMode}}"
         class="time-tag {{currentRange === '30d' ? 'active' : ''}}"
         data-range="30d"
         bindtap="onRangeChange"
@@ -104,8 +113,14 @@
 
       <view
         class="work-item"
+        wx:if="{{!isManageMode}}"
         wx:for="{{works}}"
         wx:key="id"
+        data-id="{{item.id}}"
+        style="transform: translateX({{swipedWorkId === item.id ? '-126rpx' : '0'}})"
+        bindtouchstart="onWorkTouchStart"
+        bindtouchmove="onWorkTouchMove"
+        bindtouchend="onWorkTouchEnd"
       >
         <image
           class="work-cover"
@@ -144,8 +159,42 @@
                 <text>{{item.viewActionText}}</text>
               </view>
               <view class="action-btn" bindtap="onEditWork" data-id="{{item.id}}">
-                <text>发布预览</text>
+                <text>编辑</text>
               </view>
+            </view>
+          </view>
+        </view>
+        <view class="inline-delete-action" catchtap="onDeleteWork" data-id="{{item.id}}" data-title="{{item.title}}">
+          <t-icon name="delete" size="32rpx" color="#fffaf2" />
+          <text>删除</text>
+        </view>
+      </view>
+
+      <view class="manage-panel" wx:if="{{isManageMode}}">
+        <view class="manage-toolbar">
+          <text class="manage-count">已选择 {{selectedIds.length}} 项</text>
+          <view class="manage-select-all" bindtap="onToggleSelectAll">
+            <text>{{selectAll ? '取消全选' : '全选'}}</text>
+          </view>
+        </view>
+        <view class="manage-grid">
+          <view
+            class="manage-card {{selectedMap[item.id] ? 'selected' : ''}}"
+            wx:for="{{works}}"
+            wx:key="id"
+            catchtap="onToggleSelect"
+            data-id="{{item.id}}"
+          >
+            <view class="manage-card-media">
+              <image src="{{item.cover}}" mode="aspectFill" />
+              <view class="manage-select-indicator {{selectedMap[item.id] ? 'checked' : ''}}">
+                <text wx:if="{{selectedMap[item.id]}}">✓</text>
+              </view>
+              <text class="manage-status {{item.status}}">{{item.statusText}}</text>
+            </view>
+            <view class="manage-card-body">
+              <text class="manage-card-title">{{item.title}}</text>
+              <text class="manage-card-meta">{{item.time}}</text>
             </view>
           </view>
         </view>
@@ -192,7 +241,15 @@
       </view>
     </scroll-view>
   </view>
-  <view class="floating-upload-btn" bindtap="onCreateWork">
+  <view class="batch-action-bar" wx:if="{{isManageMode}}">
+    <view class="batch-selection-count">
+      <text>已选 {{selectedIds.length}} 项</text>
+    </view>
+    <view class="batch-delete-btn {{selectedIds.length > 0 ? 'active' : 'disabled'}}" bindtap="onBatchDeleteWorks">
+      <text>删除所选{{selectedIds.length > 0 ? ' (' + selectedIds.length + ')' : ''}}</text>
+    </view>
+  </view>
+  <view class="floating-upload-btn" wx:if="{{!isManageMode}}" bindtap="onCreateWork">
     <t-icon name="add" size="38rpx" color="#fffaf2" />
     <text class="floating-upload-text">上传</text>
   </view>

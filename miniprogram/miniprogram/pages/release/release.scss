@@ -147,6 +147,7 @@
   }
 
   .filter-tag,
+  .manage-tag,
   .time-tag {
     padding: 8rpx 16rpx;
     border-radius: 999rpx;
@@ -198,6 +199,7 @@
 
 /* 作品项 */
 .work-item {
+  position: relative;
   display: flex;
   gap: 14rpx;
   padding: 14rpx 14rpx 10rpx;
@@ -206,6 +208,7 @@
   border: 1px solid rgba(31, 41, 55, 0.9);
   box-shadow: 0 14rpx 28rpx rgba(15, 23, 42, 0.85);
   margin-bottom: 12rpx;
+  transition: transform 0.25s ease;
 
   .work-cover {
     width: 160rpx;
@@ -420,6 +423,202 @@
   box-shadow: 0 12rpx 20rpx rgba(169, 133, 91, 0.18);
 }
 
+.inline-delete-action {
+  position: absolute;
+  right: -126rpx;
+  top: 0;
+  bottom: 0;
+  width: 106rpx;
+  border-radius: 20rpx;
+  background: linear-gradient(180deg, #d06f58 0%, #b84f3a 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6rpx;
+  box-shadow: 0 12rpx 24rpx rgba(184, 79, 58, 0.22);
+
+  text {
+    color: #fffaf2;
+    font-size: 22rpx;
+    font-weight: 600;
+  }
+}
+
+.manage-panel {
+  padding-bottom: 168rpx;
+}
+
+.manage-toolbar {
+  margin-bottom: 14rpx;
+  padding: 0 4rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.manage-count {
+  font-size: 24rpx;
+  color: #806246;
+}
+
+.manage-select-all {
+  min-height: 56rpx;
+  padding: 0 22rpx;
+  border-radius: 999rpx;
+  border: 1px solid rgba(190, 169, 145, 0.82);
+  background: rgba(247, 241, 232, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  text {
+    font-size: 24rpx;
+    color: #6f5637;
+    font-weight: 600;
+  }
+}
+
+.manage-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16rpx;
+}
+
+.manage-card {
+  border-radius: 22rpx;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(247, 241, 232, 0.92) 0%, rgba(239, 231, 220, 0.86) 100%);
+  border: 1px solid rgba(176, 155, 130, 0.24);
+  box-shadow: 0 14rpx 28rpx rgba(113, 80, 63, 0.08);
+
+  &.selected {
+    border-color: rgba(184, 141, 91, 0.86);
+    box-shadow: 0 16rpx 30rpx rgba(169, 133, 91, 0.18);
+  }
+}
+
+.manage-card-media {
+  position: relative;
+  width: 100%;
+  height: 208rpx;
+  background: #ead9c6;
+
+  image {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.manage-select-indicator {
+  position: absolute;
+  right: 12rpx;
+  top: 12rpx;
+  width: 42rpx;
+  height: 42rpx;
+  border-radius: 50%;
+  border: 2rpx solid rgba(255, 250, 242, 0.92);
+  background: rgba(94, 65, 47, 0.36);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fffaf2;
+  font-size: 24rpx;
+  font-weight: 700;
+
+  &.checked {
+    background: linear-gradient(135deg, #cfad85 0%, #b68d63 100%);
+  }
+}
+
+.manage-status {
+  position: absolute;
+  left: 12rpx;
+  bottom: 12rpx;
+  padding: 6rpx 14rpx;
+  border-radius: 999rpx;
+  background: rgba(247, 241, 232, 0.92);
+  color: #6f5637;
+  font-size: 20rpx;
+  font-weight: 600;
+}
+
+.manage-card-body {
+  padding: 14rpx 16rpx 16rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.manage-card-title {
+  min-height: 64rpx;
+  font-size: 24rpx;
+  line-height: 1.35;
+  font-weight: 600;
+  color: #5e412f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.manage-card-meta {
+  font-size: 20rpx;
+  color: #9b8466;
+}
+
+.batch-action-bar {
+  position: fixed;
+  left: 24rpx;
+  right: 24rpx;
+  bottom: calc(24rpx + env(safe-area-inset-bottom));
+  z-index: 60;
+  min-height: 96rpx;
+  padding: 0 18rpx;
+  border-radius: 28rpx;
+  background: rgba(248, 242, 234, 0.96);
+  border: 1px solid rgba(190, 169, 145, 0.5);
+  box-shadow: 0 18rpx 38rpx rgba(113, 80, 63, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+}
+
+.batch-selection-count {
+  font-size: 24rpx;
+  color: #6f5637;
+  font-weight: 600;
+}
+
+.batch-delete-btn {
+  min-width: 220rpx;
+  height: 68rpx;
+  padding: 0 24rpx;
+  border-radius: 999rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  background: rgba(190, 169, 145, 0.3);
+
+  text {
+    font-size: 24rpx;
+    font-weight: 600;
+    color: #9b8466;
+  }
+
+  &.active {
+    background: linear-gradient(135deg, #d06f58 0%, #b84f3a 100%);
+    box-shadow: 0 12rpx 24rpx rgba(184, 79, 58, 0.22);
+
+    text {
+      color: #fffaf2;
+    }
+  }
+}
+
 .floating-upload-btn {
   position: fixed;
   left: 50%;
@@ -451,6 +650,7 @@
   margin: 0 24rpx 12rpx;
 
   .filter-tag,
+  .manage-tag,
   .time-tag {
     border: 1px solid rgba(190, 169, 145, 0.85);
     background: rgba(247, 241, 232, 0.78);

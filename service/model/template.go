@@ -538,6 +538,27 @@ func (m *TemplateModel) Delete(id int64) error {
 	return err
 }
 
+func (m *TemplateModel) BatchDeleteByCreatorUserID(creatorUserID int64, ids []int64) (int64, error) {
+	if creatorUserID <= 0 || len(ids) == 0 {
+		return 0, nil
+	}
+	placeholders := make([]string, 0, len(ids))
+	args := make([]interface{}, 0, len(ids)+1)
+	args = append(args, creatorUserID)
+	for _, id := range ids {
+		placeholders = append(placeholders, "?")
+		args = append(args, id)
+	}
+	result, err := m.DB.Exec(
+		`DELETE FROM templates WHERE creator_user_id = ? AND id IN (`+strings.Join(placeholders, ",")+`)`,
+		args...,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 func (m *TemplateModel) IncrementDownloadCount(id int64) error {
 	_, err := m.DB.Exec(`UPDATE templates SET download_count = download_count + 1 WHERE id = ?`, id)
 	return err

@@ -57,6 +57,14 @@ Page({
         // 数据
         works: [],
         incomeRecords: [],
+        isManageMode: false,
+        selectedIds: [],
+        selectedMap: {},
+        selectAll: false,
+        swipedWorkId: 0,
+        touchStartX: 0,
+        touchStartY: 0,
+        touchMoved: false,
     },
     async onLoad() {
         await this.initDeviceId();
@@ -231,10 +239,19 @@ Page({
                     viewActionText: item.publish_scope === 'square' && item.status === 'published' ? '查看作品' : '预览作品',
                 }));
                 const newList = reset ? mapped : this.data.works.concat(mapped);
+                const selectedIds = this.data.isManageMode
+                    ? this.data.selectedIds.filter((id) => newList.some((work) => work.id === id))
+                    : [];
                 this.setData({
                     works: newList,
                     page,
                     hasMore: newList.length < total,
+                    selectedIds,
+                    selectedMap: selectedIds.reduce((acc, id) => {
+                        acc[id] = true;
+                        return acc;
+                    }, {}),
+                    selectAll: selectedIds.length === newList.length && newList.length > 0,
                 });
             }
             else {
@@ -301,6 +318,11 @@ Page({
             return;
         this.setData({
             currentTab: tab,
+            isManageMode: false,
+            selectedIds: [],
+            selectedMap: {},
+            selectAll: false,
+            swipedWorkId: 0,
         });
         this.loadList(true);
     },
@@ -322,6 +344,8 @@ Page({
         this.loadList(false);
     },
     onCreateWork() {
+        if (this.data.isManageMode)
+            return;
         wx.navigateTo({
             url: '/pages/release/designerworkpublish',
             fail: () => {
@@ -333,6 +357,8 @@ Page({
         });
     },
     onViewWork(e) {
+        if (this.data.isManageMode)
+            return;
         const id = e.currentTarget.dataset.id;
         const canViewDetail = e.currentTarget.dataset.canViewDetail === true || e.currentTarget.dataset.canViewDetail === 'true';
         const cover = String(e.currentTarget.dataset.cover || '');
@@ -351,66 +377,220 @@ Page({
         }
     },
     onEditWork(e) {
-        const id = e.currentTarget.dataset.id;
+        if (this.data.isManageMode)
+            return;
+        const editId = Number(e.currentTarget.dataset.id || 0);
+        if (!editId)
+            return;
+        wx.navigateTo({
+            url: `/pages/release/designerworkpublish?id=${editId}&mode=edit`,
+            fail: () => {
+                wx.showToast({
+                    title: '页面跳转失败',
+                    icon: 'none',
+                });
+            },
+        });
+        return;
+    },
+    onToggleManageMode() {
+        const nextMode = !this.data.isManageMode;
+        this.setData({
+            isManageMode: nextMode,
+            selectedIds: [],
+            selectedMap: {},
+            selectAll: false,
+            swipedWorkId: 0,
+        });
+    },
+    onToggleSelect(e) {
+        const id = Number(e.currentTarget.dataset.id || 0);
         if (!id)
             return;
-        const work = (this.data.works || []).find((w) => w.id === id);
-        if (!work)
+        const selectedIds = [...this.data.selectedIds];
+        const index = selectedIds.indexOf(id);
+        if (index >= 0) {
+            selectedIds.splice(index, 1);
+        }
+        else {
+            selectedIds.push(id);
+        }
+        this.applySelectionState(selectedIds);
+    },
+    onToggleSelectAll() {
+        const selectAll = !this.data.selectAll;
+        const selectedIds = selectAll ? this.data.works.map((item) => item.id) : [];
+        this.applySelectionState(selectedIds);
+    },
+    applySelectionState(selectedIds) {
+        const selectedMap = selectedIds.reduce((acc, id) => {
+            acc[id] = true;
+            return acc;
+        }, {});
+        this.setData({
+            selectedIds,
+            selectedMap,
+            selectAll: selectedIds.length === this.data.works.length && this.data.works.length > 0,
+        });
+    },
+    onWorkTouchStart(e) {
+        if (this.data.isManageMode)
             return;
-        const userInfo = wx.getStorageSync('userInfo') || {};
-        const payload = {
-            title: work.title || '未命名作品',
-            description: work.desc || '',
-            imageUrl: work.cover || '',
-            userName: userInfo.username || userInfo.name || '预览用户',
-            userAvatar: userInfo.avatar || '',
-            createdAt: work.time || '',
-        };
-        try {
-            const json = JSON.stringify(payload);
-            const b64 = (function base64Encode(input) {
-                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-                const str = encodeURIComponent(input).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16)));
-                let output = '';
-                let i = 0;
-                while (i < str.length) {
-                    const chr1 = str.charCodeAt(i++);
-                    const chr2 = str.charCodeAt(i++);
-                    const chr3 = str.charCodeAt(i++);
-                    const enc1 = chr1 >> 2;
-                    const enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
-                    let enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
-                    let enc4 = chr3 & 63;
-                    if (isNaN(chr2)) {
-                        enc3 = enc4 = 64;
-                    }
-                    else if (isNaN(chr3)) {
-                        enc4 = 64;
-                    }
-                    output +=
-                        chars.charAt(enc1) +
-                            chars.charAt(enc2) +
-                            chars.charAt(enc3) +
-                            chars.charAt(enc4);
+        const touch = e.touches && e.touches[0];
+        if (!touch)
+            return;
+        this.setData({
+            touchStartX: touch.clientX,
+            touchStartY: touch.clientY,
+            touchMoved: false,
+        });
+    },
+    onWorkTouchMove(e) {
+        if (this.data.isManageMode)
+            return;
+        const touch = e.touches && e.touches[0];
+        if (!touch)
+            return;
+        const deltaX = touch.clientX - this.data.touchStartX;
+        const deltaY = touch.clientY - this.data.touchStartY;
+        if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 18) {
+            this.setData({ touchMoved: true });
+        }
+    },
+    onWorkTouchEnd(e) {
+        if (this.data.isManageMode)
+            return;
+        const touch = (e.changedTouches && e.changedTouches[0]) || null;
+        if (!touch)
+            return;
+        const id = Number(e.currentTarget.dataset.id || 0);
+        const deltaX = touch.clientX - this.data.touchStartX;
+        const deltaY = touch.clientY - this.data.touchStartY;
+        if (!id || Math.abs(deltaY) > Math.abs(deltaX)) {
+            return;
+        }
+        if (deltaX < -42) {
+            this.setData({ swipedWorkId: id, touchMoved: false });
+            return;
+        }
+        if (deltaX > 24 && this.data.swipedWorkId === id) {
+            this.setData({ swipedWorkId: 0, touchMoved: false });
+        }
+    },
+    onDeleteWork(e) {
+        const id = Number(e.currentTarget.dataset.id || 0);
+        const title = String(e.currentTarget.dataset.title || '该作品');
+        if (!id)
+            return;
+        wx.showModal({
+            title: '确认删除',
+            content: `确定要删除「${title}」吗？删除后无法恢复。`,
+            confirmText: '删除',
+            confirmColor: '#c4543a',
+            cancelText: '取消',
+            success: async (res) => {
+                if (!res.confirm)
+                    return;
+                try {
+                    await this.deleteWork(id);
+                    const works = this.data.works.filter((item) => item.id !== id);
+                    const selectedIds = this.data.selectedIds.filter((itemId) => itemId !== id);
+                    this.setData({
+                        works,
+                        swipedWorkId: 0,
+                    });
+                    this.applySelectionState(selectedIds);
+                    this.loadSummary();
+                    wx.showToast({ title: '已删除', icon: 'success' });
                 }
-                return output;
-            })(json);
-            wx.navigateTo({
-                url: `/pages/templatepreview/templatepreview?data=${encodeURIComponent(b64)}&readonly=1`,
-                fail: () => {
+                catch (err) {
                     wx.showToast({
-                        title: '预览页面跳转失败',
+                        title: err?.message || '删除失败',
                         icon: 'none',
                     });
-                },
-            });
+                }
+            },
+        });
+    },
+    async deleteWork(id) {
+        const apiPath = `/api/v1/miniprogram/user/templates/${id}`;
+        const headers = this.getAuthHeaders(apiPath, '');
+        if (!headers) {
+            throw new Error('请先登录');
         }
-        catch (err) {
-            console.error('作品预览构造失败:', err);
-            wx.showToast({
-                title: '预览失败',
-                icon: 'none',
+        const result = await new Promise((resolve, reject) => {
+            wx.request({
+                url: `${API_BASE_URL}${apiPath}`,
+                method: 'DELETE',
+                header: headers,
+                success: (res) => resolve(res.data),
+                fail: reject,
             });
+        });
+        if (!result || result.code !== 0) {
+            throw new Error(result?.msg || '删除失败');
+        }
+    },
+    onBatchDeleteWorks() {
+        const selectedIds = this.data.selectedIds;
+        if (!selectedIds.length)
+            return;
+        wx.showModal({
+            title: '确认删除',
+            content: `确定要删除选中的 ${selectedIds.length} 个作品吗？删除后无法恢复。`,
+            confirmText: '删除',
+            confirmColor: '#c4543a',
+            cancelText: '取消',
+            success: async (res) => {
+                if (!res.confirm)
+                    return;
+                try {
+                    wx.showLoading({ title: '删除中...', mask: true });
+                    await this.batchDeleteWorks(selectedIds);
+                    this.setData({
+                        isManageMode: false,
+                        selectedIds: [],
+                        selectedMap: {},
+                        selectAll: false,
+                        swipedWorkId: 0,
+                        page: 1,
+                        hasMore: true,
+                    });
+                    await this.loadSummary();
+                    await this.loadList(true);
+                    wx.showToast({ title: '已删除', icon: 'success' });
+                }
+                catch (err) {
+                    wx.showToast({
+                        title: err?.message || '删除失败',
+                        icon: 'none',
+                    });
+                }
+                finally {
+                    wx.hideLoading();
+                }
+            },
+        });
+    },
+    async batchDeleteWorks(ids) {
+        const apiPath = '/api/v1/miniprogram/user/templates/batch-delete';
+        const body = { ids };
+        const headers = this.getAuthHeaders(apiPath, body);
+        if (!headers) {
+            throw new Error('请先登录');
+        }
+        const result = await new Promise((resolve, reject) => {
+            wx.request({
+                url: `${API_BASE_URL}${apiPath}`,
+                method: 'POST',
+                header: headers,
+                data: body,
+                success: (res) => resolve(res.data),
+                fail: reject,
+            });
+        });
+        if (!result || result.code !== 0) {
+            throw new Error(result?.msg || '批量删除失败');
         }
     },
     onShareWork(e) {
