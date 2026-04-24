@@ -4,6 +4,7 @@ These guidelines apply to the entire repository.
 
 ## 1. Think Before Coding
 
+- After the user states a requirement, restate the requirement back to the user and wait for confirmation before starting code changes.
 - Do not silently guess when requirements are ambiguous.
 - State key assumptions before making non-trivial changes.
 - If multiple interpretations are possible, surface them instead of picking one invisibly.
