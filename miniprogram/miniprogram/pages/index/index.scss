@@ -412,6 +412,11 @@
   border: 1px solid rgba(181, 145, 108, 0.18);
 }
 
+.home-intro-item-active {
+  background: rgba(255, 255, 255, 0.76);
+  transform: scale(0.99);
+}
+
 .home-intro-icon {
   width: 58rpx;
   height: 58rpx;

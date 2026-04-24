@@ -111,6 +111,22 @@ Page({
             },
         });
     },
+    onHomeIntroItemTap(e) {
+        const { url } = e.currentTarget.dataset;
+        if (!url) {
+            return;
+        }
+        this.closeHomeIntroPopup();
+        wx.navigateTo({
+            url,
+            fail: () => {
+                wx.showToast({
+                    title: '页面跳转失败',
+                    icon: 'none',
+                });
+            },
+        });
+    },
     onHomeIntroContact() {
         this.closeHomeIntroPopup();
         void this.onContactService();

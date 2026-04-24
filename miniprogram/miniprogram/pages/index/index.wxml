@@ -131,21 +131,21 @@
       </view>
 
       <view class="home-intro-list">
-        <view class="home-intro-item">
+        <view class="home-intro-item" hover-class="home-intro-item-active" bindtap="onHomeIntroItemTap" data-url="/pages/aigenerate/aigenerate?source=home_intro">
           <view class="home-intro-icon">AI</view>
           <view class="home-intro-texts">
             <text class="home-intro-item-title">AI 设计灵感生成</text>
             <text class="home-intro-item-desc">上传图片或输入需求，生成建筑、庭院、室内等设计参考。</text>
           </view>
         </view>
-        <view class="home-intro-item">
+        <view class="home-intro-item" hover-class="home-intro-item-active" bindtap="onHomeIntroItemTap" data-url="/pages/template/template?source=home_intro">
           <view class="home-intro-icon">权</view>
           <view class="home-intro-texts">
             <text class="home-intro-item-title">模板下载与灵石权益</text>
             <text class="home-intro-item-desc">部分 AI 生成、模板下载和深度服务会消耗灵石或会员权益。</text>
           </view>
         </view>
-        <view class="home-intro-item">
+        <view class="home-intro-item" hover-class="home-intro-item-active" bindtap="onHomeIntroItemTap" data-url="/pages/topupcenter/topupcenter">
           <view class="home-intro-icon">付</view>
           <view class="home-intro-texts">
             <text class="home-intro-item-title">充值前确认金额与权益</text>

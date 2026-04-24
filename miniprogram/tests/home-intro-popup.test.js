@@ -19,10 +19,15 @@ for (const source of [indexTs, indexJs]) {
   assert.match(source, /showHomeIntroPopupOnce\(\)/, 'home intro popup should show once from lifecycle');
   assert.match(source, /closeHomeIntroPopup\(\)/, 'home intro popup should expose a close action');
   assert.match(source, /onHomeIntroTopup\(\)/, 'home intro popup should expose a recharge-rights action');
+  assert.match(source, /onHomeIntroItemTap\(/, 'home intro popup should expose item-level navigation');
   assert.match(source, /\/pages\/topupcenter\/topupcenter/, 'home intro popup should route to the existing topup center');
 }
 
 assert.match(indexWxml, /home-intro-popup/, 'home intro popup markup should be present');
+assert.match(indexWxml, /bindtap="onHomeIntroItemTap"/, 'popup intro items should be tappable');
+assert.match(indexWxml, /data-url="\/pages\/aigenerate\/aigenerate\?source=home_intro"/, 'AI intro item should carry its target URL');
+assert.match(indexWxml, /data-url="\/pages\/template\/template\?source=home_intro"/, 'template intro item should carry its target URL');
+assert.match(indexWxml, /data-url="\/pages\/topupcenter\/topupcenter"/, 'recharge intro item should carry its target URL');
 assert.match(indexWxml, /甲第灵光 AI 设计助手/, 'popup should introduce the mini program by name');
 assert.match(indexWxml, /AI 设计灵感生成/, 'popup should explain AI design generation');
 assert.match(indexWxml, /模板下载与灵石权益/, 'popup should explain template and stone rights');
