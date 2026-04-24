@@ -1398,6 +1398,7 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 					c.JSON(http.StatusForbidden, gin.H{"code": 403, "msg": reason})
 					return
 				}
+				dl2.RecordDownload(codeSession.UserID)
 			}
 
 			if !isPublicSquareTemplate(template) {

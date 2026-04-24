@@ -321,7 +321,10 @@ func RegisterUserProfileRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeS
 					c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "参数错误"})
 					return
 				}
-				_, _ = userProfileModel.GetOrCreate(codeSession.UserID, "")
+				if _, err := userProfileModel.GetOrCreate(codeSession.UserID, ""); err != nil {
+						c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "获取用户资料失败"})
+						return
+					}
 				if err := userProfileModel.UpdateIdentityType(codeSession.UserID, req.IdentityType); err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "修改身份失败: " + err.Error()})
 					return
