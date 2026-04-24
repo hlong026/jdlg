@@ -4,6 +4,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const parameter_1 = require("../../utils/parameter");
 // API基础地址
 const API_BASE_URL = 'https://api.jiadilingguang.com';
+const GENERATE_DRAFT_STORAGE_KEY = 'jdlg_ai_generate_local_draft_v1';
 Page({
     data: {
         list: [],
@@ -25,13 +26,88 @@ Page({
         touchStartX: 0,
         touchStartY: 0,
         swipedItemId: '',
+        hasLocalDraft: false,
+        localDraft: null,
     },
     onLoad() {
+        this.loadLocalDraft();
         this.loadAITools();
         this.loadHistory();
     },
     onShow() {
+        this.loadLocalDraft();
         // 每次显示页面时刷新列表（可能有新的生成记录）
+    },
+    loadLocalDraft() {
+        const rawDraft = wx.getStorageSync(GENERATE_DRAFT_STORAGE_KEY);
+        if (!rawDraft || typeof rawDraft !== 'object') {
+            this.setData({
+                hasLocalDraft: false,
+                localDraft: null,
+            });
+            return;
+        }
+        const prompt = String(rawDraft.promptText || '').trim();
+        const imageCount = [
+            ...(Array.isArray(rawDraft.originalImages) ? rawDraft.originalImages : []),
+            ...(Array.isArray(rawDraft.referenceImages) ? rawDraft.referenceImages : []),
+            ...(Array.isArray(rawDraft.uploadedImages) ? rawDraft.uploadedImages : []),
+        ].filter((item, index, array) => {
+            const value = String(item || '').trim();
+            return !!value && array.findIndex((inner) => String(inner || '').trim() === value) === index;
+        }).length;
+        const selectedStyle = String(rawDraft.selectedStyle || '').trim();
+        const generateCount = Number(rawDraft.selectedGenerateCount || 1);
+        const hasContent = !!prompt || imageCount > 0 || !!selectedStyle || generateCount > 1;
+        if (!hasContent) {
+            wx.removeStorageSync(GENERATE_DRAFT_STORAGE_KEY);
+            this.setData({
+                hasLocalDraft: false,
+                localDraft: null,
+            });
+            return;
+        }
+        const title = prompt
+            ? (prompt.length > 22 ? `${prompt.slice(0, 22)}...` : prompt)
+            : '未提交生成草稿';
+        const metaParts = [
+            imageCount > 0 ? `${imageCount} 张参考图` : '',
+            selectedStyle ? selectedStyle : '',
+            generateCount > 1 ? `计划生成 ${Math.floor(generateCount)} 张` : '',
+        ].filter(Boolean);
+        this.setData({
+            hasLocalDraft: true,
+            localDraft: {
+                ...rawDraft,
+                draftTitle: title,
+                draftMeta: metaParts.length ? metaParts.join(' · ') : '可继续编辑后提交生成',
+                draftTimeText: this.formatTime(String(rawDraft.updated_at || '')),
+            },
+        });
+    },
+    onContinueLocalDraft() {
+        wx.navigateTo({
+            url: '/pages/aigenerate/aigenerate?draft=1',
+        });
+    },
+    onDiscardLocalDraft() {
+        wx.showModal({
+            title: '丢弃草稿',
+            content: '确定丢弃这份未提交的生成草稿吗？',
+            confirmText: '丢弃',
+            confirmColor: '#c4543a',
+            cancelText: '取消',
+            success: (res) => {
+                if (!res.confirm)
+                    return;
+                wx.removeStorageSync(GENERATE_DRAFT_STORAGE_KEY);
+                this.setData({
+                    hasLocalDraft: false,
+                    localDraft: null,
+                });
+                wx.showToast({ title: '草稿已丢弃', icon: 'success' });
+            },
+        });
     },
     async loadAITools() {
         try {

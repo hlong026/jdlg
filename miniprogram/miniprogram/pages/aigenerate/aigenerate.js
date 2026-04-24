@@ -17,6 +17,7 @@ const DEFAULT_SELECTED_GENERATE_COUNT = 1;
 const MAX_REFERENCE_IMAGE_COUNT = 6;
 const FIXED_ORIGINAL_IMAGE_COUNT = 2;
 const MAX_MAKE_SAME_REFERENCE_IMAGE_COUNT = 4;
+const GENERATE_DRAFT_STORAGE_KEY = 'jdlg_ai_generate_local_draft_v1';
 function getTaskStatusPollDelay(attempt) {
     if (attempt < 2) {
         return 3000;
@@ -263,10 +264,13 @@ Page({
         eventChannel.on('prefillGenerateData', (prefill) => {
             this.applyPrefillData(prefill);
         });
+        if (options.draft === '1' && this.restoreGenerateDraft()) {
+            return;
+        }
         if (options.prompt && !this.data.promptDirty) {
             this.setData({
                 promptText: pickPreferredPrompt(this.data.promptText, decodeURIComponent(options.prompt))
-            });
+            }, () => this.saveGenerateDraft());
         }
         const incomingReferenceImages = parseIncomingReferenceImageUrls(options);
         if (incomingReferenceImages.length > 0) {
@@ -288,6 +292,90 @@ Page({
                 await this.loadTaskInfo(taskId);
             }
         }
+    },
+    buildGenerateDraftData() {
+        return {
+            updated_at: new Date().toISOString(),
+            source: String(this.data.entrySource || ''),
+            showSceneTabs: !!this.data.showSceneTabs,
+            selectedSceneTab: this.data.selectedSceneTab === 'interior' ? 'interior' : 'exterior',
+            selectedType: String(this.data.selectedType || DEFAULT_SERVICE_TYPE),
+            selectedService: String(this.data.selectedService || DEFAULT_SERVICE),
+            selectedStyle: String(this.data.selectedStyle || ''),
+            selectedQuality: String(this.data.selectedQuality || 'uhd'),
+            selectedCanvas: String(this.data.selectedCanvas || '16:9'),
+            selectedGenerateCount: this.getCurrentGenerateCount(),
+            promptText: String(this.data.promptText || '').trim(),
+            useFixedSlots: !!this.data.useFixedSlots,
+            originalImages: buildOriginalImageSlots(this.data.originalImages || []),
+            referenceImages: normalizeReferenceImageUrls(this.data.referenceImages || [], MAX_MAKE_SAME_REFERENCE_IMAGE_COUNT),
+            uploadedImages: normalizeReferenceImageUrls(this.data.uploadedImages || []),
+            templateId: Number(this.data.templateId || 0),
+        };
+    },
+    hasGenerateDraftContent(draft) {
+        const hasImages = [
+            ...draft.originalImages,
+            ...draft.referenceImages,
+            ...draft.uploadedImages,
+        ].some((item) => typeof item === 'string' && item.trim() !== '');
+        return !!draft.promptText
+            || hasImages
+            || !!draft.selectedStyle
+            || draft.selectedQuality !== 'uhd'
+            || draft.selectedCanvas !== '16:9'
+            || draft.selectedGenerateCount !== DEFAULT_SELECTED_GENERATE_COUNT
+            || draft.useFixedSlots
+            || draft.templateId > 0;
+    },
+    saveGenerateDraft() {
+        if (this.data.generating) {
+            return;
+        }
+        const draft = this.buildGenerateDraftData();
+        if (!this.hasGenerateDraftContent(draft)) {
+            wx.removeStorageSync(GENERATE_DRAFT_STORAGE_KEY);
+            return;
+        }
+        wx.setStorageSync(GENERATE_DRAFT_STORAGE_KEY, draft);
+    },
+    clearGenerateDraft() {
+        wx.removeStorageSync(GENERATE_DRAFT_STORAGE_KEY);
+    },
+    restoreGenerateDraft() {
+        const rawDraft = wx.getStorageSync(GENERATE_DRAFT_STORAGE_KEY);
+        if (!rawDraft || typeof rawDraft !== 'object') {
+            wx.showToast({ title: '暂无可恢复草稿', icon: 'none' });
+            return false;
+        }
+        const useFixedSlots = !!rawDraft.useFixedSlots;
+        const originalImages = buildOriginalImageSlots(rawDraft.originalImages || []);
+        const referenceImages = normalizeReferenceImageUrls(rawDraft.referenceImages || [], MAX_MAKE_SAME_REFERENCE_IMAGE_COUNT);
+        const uploadedImages = useFixedSlots
+            ? buildOrderedImageUrls(originalImages, referenceImages)
+            : normalizeReferenceImageUrls(rawDraft.uploadedImages || rawDraft.referenceImages || []);
+        this.setData({
+            entrySource: String(rawDraft.source || ''),
+            showSceneTabs: !!rawDraft.showSceneTabs,
+            selectedSceneTab: rawDraft.selectedSceneTab === 'interior' ? 'interior' : 'exterior',
+            selectedType: String(rawDraft.selectedType || DEFAULT_SERVICE_TYPE),
+            selectedService: String(rawDraft.selectedService || DEFAULT_SERVICE),
+            selectedStyle: String(rawDraft.selectedStyle || ''),
+            selectedQuality: String(rawDraft.selectedQuality || 'uhd'),
+            selectedCanvas: String(rawDraft.selectedCanvas || '16:9'),
+            selectedGenerateCount: Math.min(3, Math.max(1, Math.floor(Number(rawDraft.selectedGenerateCount || DEFAULT_SELECTED_GENERATE_COUNT)))),
+            promptText: String(rawDraft.promptText || ''),
+            promptDirty: !!String(rawDraft.promptText || '').trim(),
+            useFixedSlots,
+            originalImages,
+            referenceImages,
+            uploadedImages,
+            templateId: Number(rawDraft.templateId || 0),
+        }, () => {
+            this.syncStyleOptions();
+            this.syncCurrentCost();
+        });
+        return true;
     },
     getOrderedImages() {
         if (this.data.useFixedSlots) {
@@ -316,6 +404,7 @@ Page({
             uploadedImages: nextUploadedImages,
         }, () => {
             this.syncCurrentCost();
+            this.saveGenerateDraft();
             if (callback) {
                 callback();
             }
@@ -477,19 +566,19 @@ Page({
         const style = String(e.currentTarget.dataset.style || '');
         this.setData({
             selectedStyle: style
-        });
+        }, () => this.saveGenerateDraft());
     },
     onSelectQuality(e) {
         const value = e.currentTarget.dataset.value;
         this.setData({
             selectedQuality: value
-        });
+        }, () => this.saveGenerateDraft());
     },
     onSelectCanvas(e) {
         const value = e.currentTarget.dataset.value;
         this.setData({
             selectedCanvas: value
-        });
+        }, () => this.saveGenerateDraft());
     },
     onSelectGenerateCount(e) {
         const value = Number(e.currentTarget.dataset.count);
@@ -504,13 +593,17 @@ Page({
             selectedGenerateCount: nextGenerateCount,
         }, () => {
             this.syncCurrentCost();
+            this.saveGenerateDraft();
         });
     },
     onSelectSceneTab(e) {
         const value = e.currentTarget.dataset.tab === 'interior' ? 'interior' : 'exterior';
         this.setData({
             selectedSceneTab: value,
-        }, () => this.syncStyleOptions(undefined, value));
+        }, () => {
+            this.syncStyleOptions(undefined, value);
+            this.saveGenerateDraft();
+        });
     },
     onOpenVideoPage() {
         const prompt = (this.data.promptText || '').trim();
@@ -866,7 +959,7 @@ Page({
         this.setData({
             promptText: e.detail.value,
             promptDirty: true
-        });
+        }, () => this.saveGenerateDraft());
     },
     async onGenerate() {
         if (this.data.generating) {
@@ -1038,6 +1131,7 @@ Page({
             });
             if (res.task_no) {
                 wx.hideLoading();
+                this.clearGenerateDraft();
                 this.setData({ generating: false });
                 const sourceQuery = this.data.entrySource
                     ? `&source=${encodeURIComponent(this.data.entrySource)}`

@@ -28,6 +28,23 @@
     </view>
   </view>
 
+  <view class="draft-card" wx:if="{{hasLocalDraft && !isEditMode}}" bindtap="onContinueLocalDraft">
+    <view class="draft-card-main">
+      <view class="draft-card-icon">
+        <t-icon name="edit-1" size="38rpx" color="#8a5a2f" />
+      </view>
+      <view class="draft-card-copy">
+        <text class="draft-card-label">本机草稿</text>
+        <text class="draft-card-title">{{localDraft.draftTitle}}</text>
+        <text class="draft-card-meta">{{localDraft.draftMeta}}{{localDraft.draftTimeText ? ' · ' + localDraft.draftTimeText : ''}}</text>
+      </view>
+    </view>
+    <view class="draft-card-actions">
+      <view class="draft-card-action secondary" catchtap="onDiscardLocalDraft">丢弃</view>
+      <view class="draft-card-action primary" catchtap="onContinueLocalDraft">继续编辑</view>
+    </view>
+  </view>
+
   <view class="tool-filter" wx:if="{{hasAITools && !isEditMode}}">
     <text class="filter-label">AI工具：</text>
     <view class="filter-options">

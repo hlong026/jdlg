@@ -81,6 +81,96 @@
   }
 }
 
+.draft-card {
+  width: 694rpx;
+  margin: 16rpx auto 0;
+  padding: 22rpx;
+  box-sizing: border-box;
+  border-radius: 24rpx;
+  background: rgba(255, 250, 243, 0.98);
+  border: 1rpx solid rgba(183, 141, 91, 0.28);
+  box-shadow: 0 14rpx 30rpx rgba(103, 79, 52, 0.08);
+}
+
+.draft-card-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 18rpx;
+}
+
+.draft-card-icon {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 20rpx;
+  background: rgba(214, 180, 139, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.draft-card-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.draft-card-label {
+  font-size: 22rpx;
+  color: #9a6c3d;
+  font-weight: 600;
+}
+
+.draft-card-title {
+  font-size: 30rpx;
+  line-height: 1.35;
+  color: #4a321d;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.draft-card-meta {
+  font-size: 23rpx;
+  line-height: 1.45;
+  color: #7c6449;
+}
+
+.draft-card-actions {
+  margin-top: 18rpx;
+  display: flex;
+  justify-content: flex-end;
+  gap: 14rpx;
+}
+
+.draft-card-action {
+  min-width: 120rpx;
+  height: 56rpx;
+  padding: 0 20rpx;
+  border-radius: 28rpx;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+.draft-card-action.secondary {
+  color: #72573b;
+  background: rgba(234, 223, 210, 0.78);
+  border: 1rpx solid rgba(185, 153, 116, 0.35);
+}
+
+.draft-card-action.primary {
+  color: #fffaf2;
+  background: linear-gradient(180deg, #d6b48b 0%, #b88e61 100%);
+  box-shadow: 0 8rpx 18rpx rgba(130, 93, 57, 0.16);
+}
+
 .manage-toolbar {
   margin: 0 auto;
   min-height: 96rpx;
