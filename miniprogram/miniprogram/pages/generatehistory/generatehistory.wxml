@@ -94,11 +94,11 @@
         bindtap="onItemClick"
       >
         <view class="item-main">
-          <view class="item-image">
+          <view class="item-thumbnail">
             <image
-              wx:if="{{item.imageUrl}}"
-              src="{{item.imageUrl}}"
-              mode="aspectFill"
+              wx:if="{{item.displayThumbnailUrl}}"
+              src="{{item.displayThumbnailUrl}}"
+              mode="aspectFit"
               lazy-load
             />
             <view class="no-image" wx:else>
@@ -196,9 +196,9 @@
       >
         <view class="manage-card-media">
           <image
-            wx:if="{{item.imageUrl}}"
-            src="{{item.imageUrl}}"
-            mode="aspectFill"
+            wx:if="{{item.displayThumbnailUrl}}"
+            src="{{item.displayThumbnailUrl}}"
+            mode="aspectFit"
             lazy-load
           />
           <view class="manage-no-image" wx:else>

@@ -7,6 +7,18 @@ const currentPageSelection_1 = require("../../utils/currentPageSelection");
 const API_BASE_URL = 'https://api.jiadilingguang.com';
 const GENERATE_DRAFT_STORAGE_KEY = 'jdlg_ai_generate_local_draft_v1';
 const MANAGE_VISIBLE_FALLBACK_COUNT = 9;
+function normalizeUrlValue(value) {
+    return typeof value === 'string' ? value.trim() : '';
+}
+function pickFirstUrl(values) {
+    for (const value of values) {
+        const url = normalizeUrlValue(value);
+        if (url) {
+            return url;
+        }
+    }
+    return '';
+}
 Page({
     data: {
         list: [],
@@ -288,7 +300,18 @@ Page({
                 ...(Array.isArray(result.image_urls) ? result.image_urls : []),
                 ...(Array.isArray(result.urls) ? result.urls : []),
             ];
-            const imageUrl = imageCandidates.find((item) => typeof item === 'string' && item.trim()) || '';
+            const imageUrl = pickFirstUrl(imageCandidates);
+            const displayThumbnailUrl = pickFirstUrl([
+                result.thumbnail_url,
+                result.thumbnail,
+                result.thumb_url,
+                result.list_thumb,
+                result.cover_image,
+                result.preview_url,
+                task.thumbnail_url,
+                task.thumbnail,
+                imageUrl,
+            ]);
             const excelUrl = (task.result && task.result.excel_url) ? task.result.excel_url : '';
             let prompt = '';
             if (task.user_prompt) {
@@ -328,6 +351,7 @@ Page({
                     : (sceneMap[task.scene] || task.scene),
                 createdAtText: this.formatTime(task.created_at),
                 imageUrl,
+                displayThumbnailUrl,
                 prompt,
                 reference_image_url: referenceImages[0] || '',
                 reference_image_urls: referenceImages,
