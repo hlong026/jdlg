@@ -82,6 +82,7 @@ Page({
         heroDefaultHeight: DEFAULT_HERO_HEIGHT_PX,
         price: 0,
         isFree: true,
+        selectedAction: '',
         primaryActionText: '做同款',
         primaryActionHint: '直接按当前效果图快速生成相似风格',
         statusBadgeText: '免费模板',
@@ -348,7 +349,11 @@ Page({
         }
     },
     async onMakeSame() {
+        this.setData({ selectedAction: 'make_same' });
         await this.startUseTemplateFlow('make_same');
+    },
+    clearActionSelection() {
+        this.setData({ selectedAction: '' });
     },
     getSimpleToken() {
         const token = String(wx.getStorageSync('token') || '').trim();
@@ -716,6 +721,7 @@ Page({
         });
     },
     onDownloadTemplateImage() {
+        this.setData({ selectedAction: '' });
         const targetIndex = Number(this.data.currentImageIndex || 0);
         if (!(this.data.imageList || []).length && !this.data.mainImage) {
             wx.showToast({ title: '暂无可下载图片', icon: 'none' });
