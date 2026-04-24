@@ -152,6 +152,19 @@
         </view>
       </view>
     </view>
+
+    <view class="tab-content parent-workshop-content" wx:if="{{activeTab === 'parentWorkshop'}}">
+      <view class="form-section">
+        <view class="section-title">亲子工坊</view>
+        <view class="section-content">
+          <view class="parent-workshop-card">
+            <text class="parent-workshop-title">把亲子创意放进综合设计</text>
+            <text class="parent-workshop-desc">适合亲子共创、儿童空间灵感、手作活动方案等轻量设计场景。</text>
+            <button class="parent-workshop-btn" bindtap="onOpenParentWorkshop">进入亲子工坊</button>
+          </view>
+        </view>
+      </view>
+    </view>
   </view>
 
   <!-- AI生成按钮（完成必填步骤后显示） -->

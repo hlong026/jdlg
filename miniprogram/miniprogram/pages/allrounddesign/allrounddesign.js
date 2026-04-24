@@ -11,11 +11,12 @@ Page({
      * 页面的初始数据
      */
     data: {
-        activeTab: 'style', // style, poster, cultural
+        activeTab: 'style', // style, poster, cultural, parentWorkshop
         tabs: [
             { label: '风格变换', value: 'style' },
             { label: '海报设计', value: 'poster' },
-            { label: '文创设计', value: 'cultural' }
+            { label: '文创设计', value: 'cultural' },
+            { label: '亲子工坊', value: 'parentWorkshop' }
         ],
         // 风格变换相关
         originalImage: '', // 原图
@@ -89,6 +90,17 @@ Page({
             activeTab: value
         });
         this.checkAllStepsCompleted();
+    },
+    onOpenParentWorkshop() {
+        wx.navigateTo({
+            url: '/pages/Parentchildcreativity/Parentchildcreativity',
+            fail: () => {
+                wx.showToast({
+                    title: '页面跳转失败',
+                    icon: 'none'
+                });
+            }
+        });
     },
     // ========== 风格变换相关 ==========
     /**

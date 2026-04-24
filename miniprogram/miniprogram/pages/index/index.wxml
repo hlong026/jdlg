@@ -11,7 +11,8 @@
 
     <image class="service-card rural-card" src="{{ruralVillaImage}}" mode="scaleToFill" bindtap="onOpenPage" data-url="/pages/aigenerate/aigenerate?source=rural_villa&showSceneTabs=1&tab=exterior" />
     <image class="service-card city-card" src="{{cityRenewalImage}}" mode="scaleToFill" bindtap="onOpenPage" data-url="/pages/aigenerate/aigenerate?source=urban_renewal&showSceneTabs=0" />
-    <image class="service-card parent-card" src="{{parentWorkshopImage}}" mode="scaleToFill" bindtap="onOpenPage" data-url="/pages/Parentchildcreativity/Parentchildcreativity" />
+    <image class="service-card parent-card" src="{{parentWorkshopImage}}" mode="scaleToFill" bindtap="onOpenPage" data-url="/pages/aicost/aicost" />
+    <view class="cost-entry-label" bindtap="onOpenPage" data-url="/pages/aicost/aicost">造价生成</view>
     <image class="service-card all-card" src="{{allRoundDesignImage}}" mode="scaleToFill" bindtap="onOpenPage" data-url="/pages/allrounddesign/allrounddesign" />
   </view>
   <view class="content">
