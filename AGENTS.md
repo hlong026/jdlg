@@ -36,8 +36,3 @@ These guidelines apply to the entire repository.
 - Commit messages must be written in Chinese.
 - Keep each commit scoped to the task that was actually completed.
 
-## 6. Daily Remote Sync Requirement
-
-- On the first time each day this software is opened for work on this repository, sync the latest remote code to the local repository before starting other tasks.
-- Prefer pulling the latest remote changes when the local working tree is clean.
-- If the local working tree is dirty or there is a conflict risk, stop and report the situation before syncing.
