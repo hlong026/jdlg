@@ -155,9 +155,9 @@ Page({
 
       this.setData({
         totalOrders: data.total_orders || 0,
-        totalAmount: (data.total_amount || 0).toFixed(2),
+        totalAmount: this.formatAmount(data.total_amount || 0),
         monthOrders: data.month_orders || 0,
-        monthAmount: (data.month_amount || 0).toFixed(2),
+        monthAmount: this.formatAmount(data.month_amount || 0),
       });
     } catch (err) {
       console.error('获取订单统计失败:', err);
@@ -233,9 +233,9 @@ Page({
         designerUserId: Number(item.designer_user_id) || 0,
         typeText: this.getTypeText(item.type),
         title: this.formatOrderTitle(item.title || item.name || '订单', item.order_category || ''),
-        description: this.formatOrderDescription(item.description || item.desc || '', item.order_category || ''),
+        description: this.formatOrderDescription(item.description || item.desc || ''),
         amount: item.amount || 0,
-        amountText: Math.abs(item.amount || 0).toFixed(2),
+        amountText: this.formatAmount(Math.abs(item.amount || 0)),
         status: item.status || 'success',
         statusText: this.getStatusText(item.status),
         reviewStatus: item.review_status || 'not_applicable',
@@ -302,6 +302,14 @@ Page({
     return map[status] || '暂无';
   },
 
+  formatAmount(value: number): string {
+    const amount = Number(value) || 0;
+    const sign = amount < 0 ? '-' : '';
+    const fixedAmount = Math.abs(amount).toFixed(2);
+    const [integerPart, decimalPart] = fixedAmount.split('.');
+    return `${sign}${integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${decimalPart}`;
+  },
+
   formatOrderTitle(title: string, orderCategory?: string): string {
     const safeTitle = String(title || '').trim();
     if (!safeTitle) {
@@ -316,12 +324,12 @@ Page({
     return safeTitle;
   },
 
-  formatOrderDescription(description: string, orderCategory?: string): string {
+  formatOrderDescription(description: string): string {
     const safeDescription = String(description || '').trim();
     if (safeDescription) {
       return safeDescription;
     }
-    return this.getOrderCategoryText(orderCategory);
+    return '';
   },
 
   getOrderCategoryText(orderCategory?: string): string {

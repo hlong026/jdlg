@@ -9,15 +9,13 @@
       <view class="summary-item">
         <text class="summary-label">总订单数</text>
         <view class="summary-value-row">
-          <t-icon name="file-copy" size="40rpx" color="#b79066" />
           <text class="summary-value">{{totalOrders}}</text>
         </view>
       </view>
       <view class="summary-item">
         <text class="summary-label">总金额（元）</text>
         <view class="summary-value-row">
-          <t-icon name="money" size="40rpx" color="#a9855b" />
-          <text class="summary-value highlight">￥{{totalAmount}}</text>
+          <text class="summary-value highlight">¥{{totalAmount}}</text>
         </view>
       </view>
     </view>
@@ -25,15 +23,13 @@
       <view class="summary-item">
         <text class="summary-label">本月订单</text>
         <view class="summary-value-row">
-          <t-icon name="calendar" size="40rpx" color="#c39a6b" />
           <text class="summary-value">{{monthOrders}}</text>
         </view>
       </view>
       <view class="summary-item">
         <text class="summary-label">本月金额</text>
         <view class="summary-value-row">
-          <t-icon name="chart-bar" size="40rpx" color="#b79066" />
-          <text class="summary-value">￥{{monthAmount}}</text>
+          <text class="summary-value">¥{{monthAmount}}</text>
         </view>
       </view>
     </view>
@@ -114,82 +110,37 @@
       >
         <view class="order-header">
           <view class="order-left">
-            <view class="order-icon {{item.type}}">
-              <t-icon
-                wx:if="{{item.type === 'recharge'}}"
-                name="money"
-                size="36rpx"
-                color="#b79066"
-              />
-              <t-icon
-                wx:elif="{{item.type === 'consume'}}"
-                name="edit"
-                size="36rpx"
-                color="#d37a74"
-              />
-              <t-icon
-                wx:elif="{{item.type === 'culture'}}"
-                name="image"
-                size="36rpx"
-                color="#b79066"
-              />
-              <t-icon
-                wx:elif="{{item.type === 'withdraw'}}"
-                name="wallet"
-                size="36rpx"
-                color="#a9855b"
-              />
-              <t-icon
-                wx:else
-                name="file-copy"
-                size="36rpx"
-                color="#8c7553"
-              />
-            </view>
             <view class="order-info">
               <text class="order-title">{{item.title}}</text>
               <text class="order-subtitle">{{item.orderNo}}</text>
             </view>
           </view>
           <view class="order-header-right">
-            <text class="order-delete-badge" wx:if="{{item.canDelete}}">长按可删除</text>
             <view class="order-status {{item.status}}">
               <text class="status-text">{{item.statusText}}</text>
             </view>
           </view>
         </view>
 
-        <view class="order-body">
-          <view class="order-detail-row">
-            <text class="detail-label">订单类型</text>
-            <text class="detail-value">{{item.typeText}}</text>
+        <view class="order-body compact">
+          <view class="order-meta-row">
+            <text class="meta-pill">{{item.typeText}}</text>
+            <text class="meta-pill review-status {{item.reviewStatus}}">{{item.reviewStatusText}}</text>
           </view>
-          <view class="order-detail-row">
-            <text class="detail-label">评价状态</text>
-            <text class="detail-value review-status {{item.reviewStatus}}">{{item.reviewStatusText}}</text>
+          <view class="order-time-block">
+            <text class="time-text">下单 {{item.time}}</text>
+            <text class="time-text" wx:if="{{item.completedAt}}">完成 {{item.completedAt}}</text>
           </view>
-          <view class="order-detail-row" wx:if="{{item.description}}">
-            <text class="detail-label">订单描述</text>
-            <text class="detail-value">{{item.description}}</text>
-          </view>
-          <view class="order-detail-row" wx:if="{{item.completedAt}}">
-            <text class="detail-label">完成时间</text>
-            <text class="detail-value">{{item.completedAt}}</text>
-          </view>
-          <view class="order-detail-row">
-            <text class="detail-label">订单时间</text>
-            <text class="detail-value">{{item.time}}</text>
-          </view>
+          <text class="order-desc" wx:if="{{item.description}}">{{item.description}}</text>
         </view>
 
         <view class="order-footer">
           <view class="order-amount-row">
             <text class="amount-label">订单金额</text>
             <text class="amount-value {{item.amount > 0 ? 'plus' : 'minus'}}">
-              {{item.amount > 0 ? '+' : ''}}￥{{item.amountText}}
+              {{item.amount > 0 ? '+' : ''}}¥{{item.amountText}}
             </text>
           </view>
-          <text class="order-longpress-tip" wx:if="{{item.canDelete}}">长按卡片可删除该订单记录</text>
           <view class="order-actions" wx:if="{{item.canAction}}">
             <view class="action-btn" bindtap="onViewOrder" data-id="{{item.id}}">
               <text>查看详情</text>

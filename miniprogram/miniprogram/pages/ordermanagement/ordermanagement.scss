@@ -759,3 +759,165 @@
     box-shadow: 0 10rpx 24rpx rgba(169, 133, 91, 0.24);
   }
 }
+
+/* 紧凑版订单列表 */
+.summary-card {
+  padding: 26rpx 28rpx 24rpx;
+
+  .summary-top,
+  .summary-bottom {
+    gap: 32rpx;
+
+    .summary-item {
+      .summary-value-row {
+        gap: 0;
+        min-height: 46rpx;
+
+        .summary-value {
+          font-size: 34rpx;
+          line-height: 46rpx;
+          letter-spacing: 0;
+        }
+      }
+    }
+  }
+
+  .summary-bottom {
+    margin-bottom: 0;
+  }
+}
+
+.order-item {
+  padding: 24rpx;
+  border-color: rgba(176, 155, 130, 0.3);
+  box-shadow: 0 8rpx 20rpx rgba(113, 80, 63, 0.08);
+
+  &.deletable {
+    border-color: rgba(176, 155, 130, 0.3);
+    box-shadow: 0 8rpx 20rpx rgba(113, 80, 63, 0.08);
+  }
+
+  .order-header {
+    align-items: flex-start;
+    margin-bottom: 14rpx;
+
+    .order-left {
+      min-width: 0;
+      flex: 1;
+      gap: 0;
+
+      .order-info {
+        min-width: 0;
+
+        .order-title {
+          display: block;
+          max-width: 470rpx;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          line-height: 36rpx;
+        }
+
+        .order-subtitle {
+          font-size: 21rpx;
+          line-height: 30rpx;
+        }
+      }
+    }
+
+    .order-header-right {
+      flex-shrink: 0;
+    }
+  }
+
+  .order-body.compact {
+    margin-bottom: 12rpx;
+    padding-top: 14rpx;
+
+    .order-meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10rpx;
+      margin-bottom: 10rpx;
+    }
+
+    .meta-pill {
+      padding: 5rpx 12rpx;
+      border-radius: 999rpx;
+      background: rgba(246, 239, 230, 0.88);
+      border: 1px solid rgba(190, 169, 145, 0.58);
+      color: #8c7553;
+      font-size: 21rpx;
+      line-height: 28rpx;
+
+      &.pending_review {
+        color: #a47b2d;
+        border-color: rgba(216, 183, 106, 0.74);
+        background: rgba(252, 246, 220, 0.88);
+      }
+
+      &.reviewed {
+        color: #5c8851;
+        border-color: rgba(138, 179, 129, 0.72);
+        background: rgba(230, 241, 224, 0.88);
+      }
+    }
+
+    .order-time-block {
+      display: flex;
+      flex-direction: column;
+      gap: 4rpx;
+    }
+
+    .time-text,
+    .order-desc {
+      font-size: 22rpx;
+      line-height: 32rpx;
+      color: #8c7553;
+    }
+
+    .order-desc {
+      display: block;
+      margin-top: 6rpx;
+      color: #6f5637;
+    }
+  }
+
+  .order-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16rpx;
+
+    .order-amount-row {
+      flex: 1;
+      min-width: 0;
+      margin-bottom: 0;
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 2rpx;
+
+      .amount-value {
+        font-size: 32rpx;
+        line-height: 42rpx;
+
+        &.plus {
+          color: #5c8851;
+        }
+
+        &.minus {
+          color: #e26568;
+        }
+      }
+    }
+
+    .order-actions {
+      flex-shrink: 0;
+      flex-wrap: wrap;
+
+      .action-btn {
+        padding: 9rpx 18rpx;
+      }
+    }
+  }
+}
