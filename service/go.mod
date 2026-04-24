@@ -12,6 +12,8 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/redis/go-redis/v9 v9.17.2
 	github.com/shirou/gopsutil/v3 v3.24.5
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.3.85
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/sms v1.3.83
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.72
 	github.com/tencentyun/qcloud-cos-sts-sdk v0.0.0-20250515025012-e0eec8a5d123
 	github.com/tjfoc/gmsm v1.4.1

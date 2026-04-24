@@ -1324,6 +1324,19 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 				c.JSON(http.StatusNotFound, gin.H{"code": 404, "msg": "当前模板暂无可下载图片"})
 				return
 			}
+			// 会员下载限制检查
+			_, _, _, dlMembership, _, _ := resolveTemplateDownloadAccess(userOrderModel, userProfileModel, userMembershipModel, codeSession.UserID)
+			if dlMembership != nil {
+				dl := component.NewDownloadLimiter(model.NewMembershipPlanModel(component.GetDB()), component.GetRedis())
+				if allowed, reason, limErr := dl.CheckDownloadAccess(codeSession.UserID, dlMembership); limErr != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "检查下载限制失败: " + limErr.Error()})
+					return
+				} else if !allowed {
+					c.JSON(http.StatusForbidden, gin.H{"code": 403, "msg": reason})
+					return
+				}
+				dl.RecordDownload(codeSession.UserID)
+			}
 			downloadURLs := make([]string, 0, len(imageURLs))
 			for index := range imageURLs {
 				downloadURLs = append(downloadURLs, "/api/v1/miniprogram/templates/"+strconv.FormatInt(id, 10)+"/download-file?image_index="+strconv.Itoa(index))
@@ -1372,6 +1385,19 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 			if !canDownload {
 				c.JSON(http.StatusForbidden, gin.H{"code": 403, "msg": "当前账号暂不具备模板下载权限"})
 				return
+			}
+
+			// 会员下载限制检查（文件下载也需受限）
+			_, _, _, dlMembership2, _, _ := resolveTemplateDownloadAccess(userOrderModel, userProfileModel, userMembershipModel, codeSession.UserID)
+			if dlMembership2 != nil {
+				dl2 := component.NewDownloadLimiter(model.NewMembershipPlanModel(component.GetDB()), component.GetRedis())
+				if allowed, reason, limErr := dl2.CheckDownloadAccess(codeSession.UserID, dlMembership2); limErr != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "检查下载限制失败: " + limErr.Error()})
+					return
+				} else if !allowed {
+					c.JSON(http.StatusForbidden, gin.H{"code": 403, "msg": reason})
+					return
+				}
 			}
 
 			if !isPublicSquareTemplate(template) {

@@ -210,6 +210,125 @@ func RegisterMiniprogramRoutes(r *gin.RouterGroup, authProcessor *processor.Auth
 		})
 	})
 
+	// 发送短信验证码
+	r.POST("/sms/send", func(c *gin.Context) {
+		var req struct {
+			Phone string `json:"phone" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "请输入手机号"})
+			return
+		}
+		phone := strings.TrimSpace(req.Phone)
+		if len(phone) != 11 {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "手机号格式不正确"})
+			return
+		}
+		rdb := component.GetRedis()
+		if rdb == nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "服务暂不可用"})
+			return
+		}
+		if err := component.SendVerificationCode(phone, rdb); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"code": 0, "msg": "验证码已发送"})
+	})
+
+	// 手机号验证码登录/注册
+	r.POST("/login/phone", func(c *gin.Context) {
+		var req processor.PhoneLoginRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": FormatValidationError("参数错误: " + err.Error())})
+			return
+		}
+		phone := strings.TrimSpace(req.Phone)
+		code := strings.TrimSpace(req.Code)
+		if len(phone) != 11 {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "手机号格式不正确"})
+			return
+		}
+		if code == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "请输入验证码"})
+			return
+		}
+		rdb := component.GetRedis()
+		if rdb == nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "服务暂不可用"})
+			return
+		}
+		matched, err := component.VerifyCode(phone, code, rdb)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": err.Error()})
+			return
+		}
+		if !matched {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "验证码错误"})
+			return
+		}
+		strategy, ok := authProcessor.GetStrategy("phone")
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "登录策略未配置"})
+			return
+		}
+		result, err := strategy.Login(context.Background(), &req)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "登录失败: " + err.Error()})
+			return
+		}
+		// 邀请码绑定与奖励
+		if req.InviteCode != "" && inviteRelationModel != nil && userModel != nil && stoneRecordModel != nil && userDBModel != nil {
+			inviteeID := result.User.ID
+			hasInviter, _ := inviteRelationModel.HasInviter(inviteeID)
+			if !hasInviter {
+				var inviterID int64
+				var inviteOK bool
+				if userInviteCodeModel != nil {
+					inviterID, inviteOK = userInviteCodeModel.ResolveInviteCodeToUserID(req.InviteCode)
+				} else {
+					inviterID, inviteOK = model.ParseInviteCodeToUserID(req.InviteCode)
+				}
+				if inviteOK && inviterID > 0 && inviterID != inviteeID {
+					inviter, invErr := userDBModel.GetByID(inviterID)
+					if invErr == nil && inviter != nil {
+						if err := inviteRelationModel.Create(inviterID, inviteeID); err == nil {
+							userModel.AddStones(inviterID, 50)
+							userModel.AddStones(inviteeID, 50)
+							stoneRecordModel.Create(inviterID, "invite", 50, "邀请好友奖励", "")
+							stoneRecordModel.Create(inviteeID, "invite", 50, "被邀请注册奖励", "")
+						}
+					}
+				}
+			}
+		}
+		codeSession := result.CodeSession
+		if codeSession == nil || codeSession.SessionID == "" {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "登录会话创建失败"})
+			return
+		}
+		if err := SetUserSession(c, result.User.ID, result.User.Username, result.User.UserType); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "保存会话失败"})
+			return
+		}
+		token, err := function.GenerateToken(codeSession.SessionID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "生成token失败: " + err.Error()})
+			return
+		}
+		isNewUser := processor.IsPhoneLoginNewUser()
+		c.JSON(http.StatusOK, gin.H{
+			"code": 0,
+			"msg":  "登录成功",
+			"data": gin.H{
+				"id":          result.User.ID,
+				"username":    result.User.Username,
+				"token":       token,
+				"is_new_user": isNewUser,
+			},
+		})
+	})
+
 	// 获取当前用户信息
 	r.GET("/me", AuthRequired, func(c *gin.Context) {
 		userID := GetUserID(c)
@@ -1189,6 +1308,76 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 	}
 
 	enterpriseWechatBindTicketModel := model.NewEnterpriseWechatBindTicketModel(component.GetDB())
+
+	// 绑定手机号（需登录）
+	r.POST("/phone/bind", simpleTokenAuth, func(c *gin.Context) {
+		codeSession := GetTokenCodeSession(c)
+		if codeSession == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": "未通过token验证"})
+			return
+		}
+		var req struct {
+			Phone string `json:"phone" binding:"required"`
+			Code  string `json:"code" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "参数错误"})
+			return
+		}
+		phone := strings.TrimSpace(req.Phone)
+		code := strings.TrimSpace(req.Code)
+		if len(phone) != 11 {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "手机号格式不正确"})
+			return
+		}
+		rdb := component.GetRedis()
+		if rdb == nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "服务暂不可用"})
+			return
+		}
+		matched, err := component.VerifyCode(phone, code, rdb)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": err.Error()})
+			return
+		}
+		if !matched {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "验证码错误"})
+			return
+		}
+		userID := codeSession.UserID
+		// 解析有效用户（处理已合并账号）
+		effectiveUser, resolveErr := userDBModel.GetEffectiveUserByID(userID)
+		if resolveErr == nil && effectiveUser != nil {
+			userID = effectiveUser.ID
+		}
+		userIdentityModel := model.NewUserIdentityModel(component.GetDB())
+		// 检查手机号是否已被其他用户绑定（user_identities 表）
+		existingUserID, err := userIdentityModel.GetUserIDByPhone(phone)
+		if err == nil && existingUserID > 0 && existingUserID != userID {
+			// 解析对方的有效用户（可能是已合并到当前用户的账号）
+			existingEffective, resolveErr2 := userDBModel.GetEffectiveUserByID(existingUserID)
+			if resolveErr2 == nil && existingEffective != nil && existingEffective.ID == userID {
+				// 对方已合并到当前用户，可放行更新绑定
+			} else {
+				c.JSON(http.StatusConflict, gin.H{
+					"code": 40901,
+					"msg":  "该手机号已绑定其他账号，如需合并请联系客服",
+					"data": gin.H{"conflict": true},
+				})
+				return
+			}
+		}
+		// 绑定手机号
+		if err := userIdentityModel.BindPhone(userID, phone); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "绑定手机号失败: " + err.Error()})
+			return
+		}
+		// 更新 profile 中的手机号
+		if userProfileModel != nil {
+			userProfileModel.UpdatePhone(userID, phone)
+		}
+		c.JSON(http.StatusOK, gin.H{"code": 0, "msg": "绑定成功"})
+	})
 
 	r.POST("/wecom/enterprise-wechat/callback", func(c *gin.Context) {
 		cfg := config.Get()

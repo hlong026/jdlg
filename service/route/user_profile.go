@@ -233,6 +233,8 @@ func RegisterUserProfileRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeS
   				response["enterprise_wechat_contact"] = profileData.EnterpriseWechatContact
   				response["enterprise_wechat_verified_at"] = profileData.EnterpriseWechatVerifiedAt
 				response["has_password"] = profileData.HasPassword
+				response["phone"] = profileData.Phone
+				response["identity_type"] = profileData.IdentityType
 			} else {
 				response["nickname"] = ""
 				response["avatar"] = ""
@@ -248,6 +250,8 @@ func RegisterUserProfileRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeS
   				response["enterprise_wechat_contact"] = ""
   				response["enterprise_wechat_verified_at"] = nil
 				response["has_password"] = false
+				response["phone"] = ""
+				response["identity_type"] = ""
 			}
 
 			c.JSON(http.StatusOK, gin.H{
@@ -302,6 +306,28 @@ func RegisterUserProfileRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeS
 				"msg":  "修改成功",
 			})
 		})
+
+			// 修改身份类型
+			profile.PUT("/identity", func(c *gin.Context) {
+				codeSession := GetTokenCodeSession(c)
+				if codeSession == nil {
+					c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": "未登录"})
+					return
+				}
+				var req struct {
+					IdentityType string `json:"identity_type" binding:"required"`
+				}
+				if err := c.ShouldBindJSON(&req); err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "参数错误"})
+					return
+				}
+				_, _ = userProfileModel.GetOrCreate(codeSession.UserID, "")
+				if err := userProfileModel.UpdateIdentityType(codeSession.UserID, req.IdentityType); err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "修改身份失败: " + err.Error()})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{"code": 0, "msg": "修改成功"})
+			})
 
 		// 修改头像
 		profile.PUT("/avatar", func(c *gin.Context) {

@@ -182,6 +182,11 @@ func main() {
 	if err := userProfileModel.InitTable(); err != nil {
 		log.Fatalf("初始化 user_profiles 表失败: %v", err)
 	}
+	// 10.6.1. 初始化用户身份凭证表（手机号、微信等）
+	userIdentityModel := model.NewUserIdentityModel(db)
+	if err := userIdentityModel.InitTable(); err != nil {
+		log.Fatalf("初始化 user_identities 表失败: %v", err)
+	}
 
 	// 10.7. 初始化灵石明细表
 	stoneRecordModel := model.NewStoneRecordModel(db)
@@ -330,6 +335,10 @@ func main() {
 	// 注册账号密码登录策略（管理后台）
 	passwordStrategy := processor.NewPasswordAuthStrategy(userDBModel, "management", nil)
 	authProcessor.RegisterStrategy(passwordStrategy)
+
+	// 注册手机号验证码登录策略
+	phoneStrategy := processor.NewPhoneAuthStrategy(userDBModel, userProfileModel, codeSessionModel, userIdentityModel)
+	authProcessor.RegisterStrategy(phoneStrategy)
 
 	// 6. 初始化错误处理器
 	route.InitErrorHandler(cfg)
