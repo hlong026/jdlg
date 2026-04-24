@@ -86,6 +86,7 @@ type Config struct {
 	COS       COSConfig
 	AI        AIConfig
 	AliyunSMS AliyunSMSConfig
+	TencentSMS TencentSMSConfig
 }
 
 // AIConfig AI服务配置
@@ -178,6 +179,16 @@ type AliyunSMSConfig struct {
 	EnterpriseAuthCode string // 企业认证授权码
 }
 
+// TencentSMSConfig 腾讯云短信配置
+type TencentSMSConfig struct {
+	SecretID      string // 腾讯云 SecretID
+	SecretKey     string // 腾讯云 SecretKey
+	SdkAppID      string // 短信应用 SdkAppID
+	SignName      string // 短信签名
+	TemplateID    string // 验证码模板ID
+	ExpireMinutes int64  // 验证码有效期(分钟)，默认5
+}
+
 var globalConfig *Config
 
 // Init 初始化配置
@@ -238,6 +249,14 @@ func Init() *Config {
 			AccessKeySecret:    getEnv("ALIYUN_SMS_ACCESS_KEY_SECRET", ""),
 			PersonalAuthCode:   getEnv("ALIYUN_SMS_PERSONAL_AUTH_CODE", ""),
 			EnterpriseAuthCode: getEnv("ALIYUN_SMS_ENTERPRISE_AUTH_CODE", ""),
+		},
+		TencentSMS: TencentSMSConfig{
+			SecretID:      getEnv("TENCENT_SMS_SECRET_ID", ""),
+			SecretKey:     getEnv("TENCENT_SMS_SECRET_KEY", ""),
+			SdkAppID:      getEnv("TENCENT_SMS_SDK_APP_ID", ""),
+			SignName:      getEnv("TENCENT_SMS_SIGN_NAME", ""),
+			TemplateID:    getEnv("TENCENT_SMS_TEMPLATE_ID", ""),
+			ExpireMinutes: getEnvInt64("TENCENT_SMS_EXPIRE_MINUTES", 5),
 		},
 	}
 	return globalConfig
