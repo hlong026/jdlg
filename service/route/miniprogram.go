@@ -574,6 +574,42 @@ func buildFilteredAITaskResult(task *model.AITask) gin.H {
 	return filteredResult
 }
 
+func stringValueFromMap(data map[string]interface{}, key string) string {
+	if data == nil {
+		return ""
+	}
+	value, ok := data[key].(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(value)
+}
+
+func stringSliceValueFromMap(data map[string]interface{}, key string) []string {
+	if data == nil {
+		return nil
+	}
+	rawValues, ok := data[key].([]interface{})
+	if !ok || len(rawValues) == 0 {
+		return nil
+	}
+	result := make([]string, 0, len(rawValues))
+	for _, item := range rawValues {
+		value, ok := item.(string)
+		if !ok {
+			continue
+		}
+		value = strings.TrimSpace(value)
+		if value != "" {
+			result = append(result, value)
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
 func buildAITaskResponseData(task *model.AITask, aiToolModel *model.AIToolModel) gin.H {
 	userPrompt := parseUserPromptFromPayload(task.RequestPayload)
 	originalImageURLs := parseOriginalImagesFromPayload(task.RequestPayload)
@@ -606,6 +642,12 @@ func buildAITaskResponseData(task *model.AITask, aiToolModel *model.AIToolModel)
 	}
 	if filteredResult := buildFilteredAITaskResult(task); len(filteredResult) > 0 {
 		responseData["result"] = filteredResult
+		if thumbnailURL := stringValueFromMap(filteredResult, "thumbnail_url"); thumbnailURL != "" {
+			responseData["thumbnail_url"] = thumbnailURL
+		}
+		if thumbnailURLs := stringSliceValueFromMap(filteredResult, "thumbnail_urls"); len(thumbnailURLs) > 0 {
+			responseData["thumbnail_urls"] = thumbnailURLs
+		}
 		for _, key := range []string{"requested_count", "generated_count", "refunded_stones", "refunded_image_count", "stones_used"} {
 			if value, ok := filteredResult[key]; ok {
 				responseData[key] = value

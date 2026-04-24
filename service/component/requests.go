@@ -6,6 +6,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/color"
+	stddraw "image/draw"
+	_ "image/gif"
+	"image/jpeg"
+	_ "image/png"
 	"io"
 	"log"
 	"net/http"
@@ -21,16 +27,19 @@ import (
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
 	cos "github.com/tencentyun/cos-go-sdk-v5"
+	xdraw "golang.org/x/image/draw"
+	_ "golang.org/x/image/webp"
 )
 
 const (
-	primaryAIRequestTimeout     = 150 * time.Second
-	firstFallbackRequestTimeout = 150 * time.Second
+	primaryAIRequestTimeout      = 150 * time.Second
+	firstFallbackRequestTimeout  = 150 * time.Second
 	secondFallbackRequestTimeout = 60 * time.Second
-	defaultAIRequestTimeout     = 300 * time.Second
-	seedreamAIRequestTimeout    = 90 * time.Second
-	remoteResultDownloadTimeout = 150 * time.Second
-	aiTaskContextTimeout        = 600 * time.Second
+	defaultAIRequestTimeout      = 300 * time.Second
+	seedreamAIRequestTimeout     = 90 * time.Second
+	remoteResultDownloadTimeout  = 150 * time.Second
+	aiTaskContextTimeout         = 600 * time.Second
+	aiTaskListThumbWidth         = 480
 )
 
 // SystemResources 系统资源信息
@@ -167,20 +176,22 @@ type AIAPIConfigData struct {
 
 // AITaskResult AI任务结果
 type AITaskResult struct {
-	TaskID       string                 `json:"task_id"`
-	TaskNo       string                 `json:"task_no"`
-	Success      bool                   `json:"success"`
-	ResultURL    string                 `json:"result_url"`     // OSS 带水印图 URL（默认返回）
-	ResultURLRaw string                 `json:"result_url_raw"` // OSS 原图 URL（无水印，按规则下载）
-	ResultURLs   []string               `json:"result_urls"`
-	ResultURLsRaw []string              `json:"result_urls_raw"`
-	UsedModel    string                 `json:"used_model"`
-	APIEndpoint  string                 `json:"api_endpoint"`
-	AttemptedModels    []string         `json:"attempted_models"`
-	AttemptedEndpoints []string         `json:"attempted_endpoints"`
-	ResultData   map[string]interface{} `json:"result_data"`
-	Error        string                 `json:"error"`
-	Duration     time.Duration          `json:"duration"`
+	TaskID             string                 `json:"task_id"`
+	TaskNo             string                 `json:"task_no"`
+	Success            bool                   `json:"success"`
+	ResultURL          string                 `json:"result_url"`     // OSS 带水印图 URL（默认返回）
+	ResultURLRaw       string                 `json:"result_url_raw"` // OSS 原图 URL（无水印，按规则下载）
+	ResultURLs         []string               `json:"result_urls"`
+	ResultURLsRaw      []string               `json:"result_urls_raw"`
+	ThumbnailURL       string                 `json:"thumbnail_url"`
+	ThumbnailURLs      []string               `json:"thumbnail_urls"`
+	UsedModel          string                 `json:"used_model"`
+	APIEndpoint        string                 `json:"api_endpoint"`
+	AttemptedModels    []string               `json:"attempted_models"`
+	AttemptedEndpoints []string               `json:"attempted_endpoints"`
+	ResultData         map[string]interface{} `json:"result_data"`
+	Error              string                 `json:"error"`
+	Duration           time.Duration          `json:"duration"`
 }
 
 // TaskCallbackFunc 任务完成回调函数类型
@@ -651,6 +662,7 @@ func (p *RequestPool) processImageBatchHTTPResponse(taskCtx *AITaskContext, http
 	responseList := make([]interface{}, 0, len(dataList))
 	watermarkedURLs := make([]string, 0, len(dataList))
 	rawURLs := make([]string, 0, len(dataList))
+	thumbnailURLs := make([]string, 0, len(dataList))
 
 	for index, item := range dataList {
 		itemMap, ok := item.(map[string]interface{})
@@ -675,6 +687,9 @@ func (p *RequestPool) processImageBatchHTTPResponse(taskCtx *AITaskContext, http
 		if rawURL != "" {
 			rawURLs = append(rawURLs, rawURL)
 		}
+		if thumbnailURL := extractThumbnailURLFromResponse(singleResponseData); thumbnailURL != "" {
+			thumbnailURLs = append(thumbnailURLs, thumbnailURL)
+		}
 	}
 
 	if len(watermarkedURLs) == 0 {
@@ -682,11 +697,16 @@ func (p *RequestPool) processImageBatchHTTPResponse(taskCtx *AITaskContext, http
 	}
 	log.Printf("[AI任务] 原生批量结果汇总: expected_count=%d, upstream_count=%d, saved_count=%d", generateCount, len(dataList), len(watermarkedURLs))
 
-	return map[string]interface{}{
+	resultData := map[string]interface{}{
 		"responses":       responseList,
 		"generated_count": len(watermarkedURLs),
 		"expected_count":  generateCount,
-	}, watermarkedURLs, rawURLs, nil
+	}
+	if len(thumbnailURLs) > 0 {
+		resultData["thumbnail_url"] = thumbnailURLs[0]
+		resultData["thumbnail_urls"] = thumbnailURLs
+	}
+	return resultData, watermarkedURLs, rawURLs, nil
 }
 
 func isGeminiGenerateContentConfig(apiConfig *AIAPIConfigData) bool {
@@ -976,11 +996,15 @@ func (p *RequestPool) executeImageTaskWithFallbacks(taskCtx *AITaskContext, resu
 			result.ResultData = responseData
 			result.ResultURLs = watermarkedURLs
 			result.ResultURLsRaw = rawURLs
+			result.ThumbnailURLs = extractThumbnailURLsFromResponse(responseData)
 			if len(watermarkedURLs) > 0 {
 				result.ResultURL = watermarkedURLs[0]
 			}
 			if len(rawURLs) > 0 {
 				result.ResultURLRaw = rawURLs[0]
+			}
+			if len(result.ThumbnailURLs) > 0 {
+				result.ThumbnailURL = result.ThumbnailURLs[0]
 			}
 			log.Printf("[AI任务] ✓ 当前命中%s: model=%s, endpoint=%s, requested_generate_count=%d, generated_count=%d", routeLabel, usedModel, usedEndpoint, generateCount, len(watermarkedURLs))
 			return nil
@@ -1105,6 +1129,7 @@ func (p *RequestPool) executeImageTaskAttempt(taskCtx *AITaskContext, generateCo
 	responses := DoHTTPRequestBatch(taskCtx.ctx, requests, generateCount)
 	watermarkedURLs := make([]string, 0, generateCount)
 	rawURLs := make([]string, 0, generateCount)
+	thumbnailURLs := make([]string, 0, generateCount)
 	responseList := make([]interface{}, 0, generateCount)
 
 	for index, httpResp := range responses {
@@ -1131,6 +1156,9 @@ func (p *RequestPool) executeImageTaskAttempt(taskCtx *AITaskContext, generateCo
 		if rawURL != "" {
 			rawURLs = append(rawURLs, rawURL)
 		}
+		if thumbnailURL := extractThumbnailURLFromResponse(responseData); thumbnailURL != "" {
+			thumbnailURLs = append(thumbnailURLs, thumbnailURL)
+		}
 		log.Printf("[AI任务] ✓ 第 %d 张生成成功: watermarked_url=%s", index+1, watermarkedURL)
 	}
 
@@ -1139,11 +1167,16 @@ func (p *RequestPool) executeImageTaskAttempt(taskCtx *AITaskContext, generateCo
 	}
 	log.Printf("[AI任务] 并发抽卡结果汇总: model=%s, requested_generate_count=%d, success_count=%d, failed_count=%d", usedModel, generateCount, len(watermarkedURLs), generateCount-len(watermarkedURLs))
 
-	return map[string]interface{}{
+	resultData := map[string]interface{}{
 		"responses":       responseList,
 		"generated_count": len(watermarkedURLs),
 		"expected_count":  generateCount,
-	}, watermarkedURLs, rawURLs, usedModel, usedEndpoint, nil
+	}
+	if len(thumbnailURLs) > 0 {
+		resultData["thumbnail_url"] = thumbnailURLs[0]
+		resultData["thumbnail_urls"] = thumbnailURLs
+	}
+	return resultData, watermarkedURLs, rawURLs, usedModel, usedEndpoint, nil
 }
 
 func (p *RequestPool) buildRequestBody(taskCtx *AITaskContext) (map[string]interface{}, error) {
@@ -1506,6 +1539,69 @@ func (p *RequestPool) parseHeaders(headersJSON string) (map[string]string, error
 	return headers, nil
 }
 
+func buildListThumbnail(imageBytes []byte, maxWidth int, quality int) ([]byte, error) {
+	if len(imageBytes) == 0 {
+		return nil, fmt.Errorf("image bytes are empty")
+	}
+	if maxWidth <= 0 {
+		return nil, fmt.Errorf("max width must be positive")
+	}
+	if quality <= 0 || quality > 100 {
+		quality = 74
+	}
+
+	src, _, err := image.Decode(bytes.NewReader(imageBytes))
+	if err != nil {
+		return nil, err
+	}
+	bounds := src.Bounds()
+	srcWidth := bounds.Dx()
+	srcHeight := bounds.Dy()
+	if srcWidth <= 0 || srcHeight <= 0 {
+		return nil, fmt.Errorf("invalid source size")
+	}
+
+	targetWidth := srcWidth
+	targetHeight := srcHeight
+	if srcWidth > maxWidth {
+		targetWidth = maxWidth
+		targetHeight = int(float64(srcHeight) * float64(maxWidth) / float64(srcWidth))
+	}
+	if targetWidth <= 0 || targetHeight <= 0 {
+		return nil, fmt.Errorf("invalid target size")
+	}
+
+	dst := image.NewRGBA(image.Rect(0, 0, targetWidth, targetHeight))
+	stddraw.Draw(dst, dst.Bounds(), &image.Uniform{C: color.White}, image.Point{}, stddraw.Src)
+	xdraw.CatmullRom.Scale(dst, dst.Bounds(), src, bounds, xdraw.Over, nil)
+
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, dst, &jpeg.Options{Quality: quality}); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (p *RequestPool) populateThumbnailURL(taskCtx *AITaskContext, responseData map[string]interface{}, upload func(string, []byte, string) (string, error), imageBytes []byte) {
+	if taskCtx == nil || responseData == nil || len(imageBytes) == 0 || upload == nil {
+		return
+	}
+	thumbnailBytes, err := buildListThumbnail(imageBytes, aiTaskListThumbWidth, 74)
+	if err != nil {
+		log.Printf("[AI浠诲姟] 鈿?缂╃暐鍥剧敓鎴愬け璐? task_no=%s err=%v", taskCtx.TaskNo, err)
+		return
+	}
+	thumbnailURL, err := upload("list_thumb", thumbnailBytes, "image/jpeg")
+	if err != nil {
+		log.Printf("[AI浠诲姟] 鈿?缂╃暐鍥句笂浼犲け璐? task_no=%s err=%v", taskCtx.TaskNo, err)
+		return
+	}
+	if thumbnailURL == "" {
+		return
+	}
+	responseData["thumbnail_url"] = strings.TrimSpace(thumbnailURL)
+}
+
 func (p *RequestPool) saveResultToOSS(taskCtx *AITaskContext, data []byte, responseData map[string]interface{}) (watermarkedURL, rawURL string, err error) {
 	if taskCtx == nil {
 		return "", "", fmt.Errorf("任务上下文为空")
@@ -1632,6 +1728,7 @@ func (p *RequestPool) saveResultToOSS(taskCtx *AITaskContext, data []byte, respo
 	watermarkedData, wErr := AddWatermark(imageData, "")
 	if wErr != nil {
 		log.Printf("[AI任务] ⚠ 水印生成失败: %v，原图 URL 仍返回", wErr)
+		p.populateThumbnailURL(taskCtx, responseData, uploadOne, imageData)
 		return rawURL, rawURL, nil
 	}
 	watermarkedURL, err = uploadOne("watermarked", watermarkedData, contentType)
@@ -1639,6 +1736,7 @@ func (p *RequestPool) saveResultToOSS(taskCtx *AITaskContext, data []byte, respo
 		return "", rawURL, err
 	}
 	log.Printf("[AI任务] 带水印图已上传: %s", watermarkedURL)
+	p.populateThumbnailURL(taskCtx, responseData, uploadOne, watermarkedData)
 	return watermarkedURL, rawURL, nil
 }
 
@@ -1811,6 +1909,45 @@ func extractImageURLsFromResponse(responseData map[string]interface{}) []string 
 	}
 
 	return urls
+}
+
+func extractThumbnailURLFromResponse(responseData map[string]interface{}) string {
+	if responseData == nil {
+		return ""
+	}
+	value, ok := responseData["thumbnail_url"].(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(value)
+}
+
+func extractThumbnailURLsFromResponse(responseData map[string]interface{}) []string {
+	if responseData == nil {
+		return nil
+	}
+	values, ok := responseData["thumbnail_urls"].([]interface{})
+	if !ok || len(values) == 0 {
+		if single := extractThumbnailURLFromResponse(responseData); single != "" {
+			return []string{single}
+		}
+		return nil
+	}
+	result := make([]string, 0, len(values))
+	for _, item := range values {
+		value, ok := item.(string)
+		if !ok {
+			continue
+		}
+		value = strings.TrimSpace(value)
+		if value != "" {
+			result = append(result, value)
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
 }
 
 func fetchRemoteImage(imageURL string) ([]byte, string, string, error) {

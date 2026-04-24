@@ -623,6 +623,9 @@ func (p *AITaskProcessor) handleTaskResult(task *model.AITask, result *AITaskRes
 			"generated_count": generatedCount,
 			"stones_used":     settledStones,
 		}
+		if strings.TrimSpace(result.ThumbnailURL) != "" {
+			resultPayload["thumbnail_url"] = strings.TrimSpace(result.ThumbnailURL)
+		}
 		if result.UsedModel != "" || result.APIEndpoint != "" || len(result.AttemptedModels) > 0 || len(result.AttemptedEndpoints) > 0 {
 			resultPayload["execution_meta"] = map[string]interface{}{
 				"used_model":          result.UsedModel,
@@ -636,6 +639,9 @@ func (p *AITaskProcessor) handleTaskResult(task *model.AITask, result *AITaskRes
 		}
 		if len(result.ResultURLsRaw) > 0 {
 			resultPayload["raw_images"] = result.ResultURLsRaw
+		}
+		if len(result.ThumbnailURLs) > 0 {
+			resultPayload["thumbnail_urls"] = result.ThumbnailURLs
 		}
 		if refundedStones > 0 {
 			resultPayload["refunded_stones"] = refundedStones

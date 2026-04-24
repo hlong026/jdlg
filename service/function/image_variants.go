@@ -61,13 +61,51 @@ func GenerateRemoteImageVariants(ctx context.Context, cfg *config.Config, client
 		return nil, err
 	}
 
+	return generateImageVariants(ctx, cfg, client, cleanURL, srcImage, width, height, namespace, specs)
+}
+
+func GenerateImageVariantsFromBytes(ctx context.Context, cfg *config.Config, client *cos.Client, sourceKey string, imageBytes []byte, namespace string, specs []ImageVariantSpec) (*ImageVariantResult, error) {
+	cleanKey := strings.TrimSpace(sourceKey)
+	if cleanKey == "" {
+		return nil, fmt.Errorf("source key is empty")
+	}
+	if len(imageBytes) == 0 {
+		return nil, fmt.Errorf("image bytes are empty")
+	}
+	if cfg == nil {
+		cfg = config.Get()
+	}
+	if client == nil {
+		client = component.GetCOSClient()
+	}
+	if cfg == nil || client == nil {
+		return nil, fmt.Errorf("COS client is not initialized")
+	}
+
+	img, _, err := image.Decode(bytes.NewReader(imageBytes))
+	if err != nil {
+		return nil, err
+	}
+	bounds := img.Bounds()
+	return generateImageVariants(ctx, cfg, client, cleanKey, img, bounds.Dx(), bounds.Dy(), namespace, specs)
+}
+
+func generateImageVariants(ctx context.Context, cfg *config.Config, client *cos.Client, sourceIdentity string, srcImage image.Image, width int, height int, namespace string, specs []ImageVariantSpec) (*ImageVariantResult, error) {
+	cleanIdentity := strings.TrimSpace(sourceIdentity)
+	if cleanIdentity == "" {
+		return nil, fmt.Errorf("source identity is empty")
+	}
+	if srcImage == nil || width <= 0 || height <= 0 {
+		return nil, fmt.Errorf("source image is invalid")
+	}
+
 	result := &ImageVariantResult{
 		SourceWidth:  width,
 		SourceHeight: height,
 		URLs:         make(map[string]string, len(specs)),
 	}
 
-	hash := buildVariantHash(cleanURL)
+	hash := buildVariantHash(cleanIdentity)
 	for _, spec := range specs {
 		if strings.TrimSpace(spec.Name) == "" || spec.MaxWidth <= 0 {
 			continue
