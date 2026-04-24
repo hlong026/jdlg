@@ -117,14 +117,6 @@
               </view>
             </view>
 
-            <view class="prompt-preview" wx:if="{{item.prompt}}">
-              <view class="prompt-preview-head">
-                <text class="prompt-label">提示词</text>
-                <text class="prompt-hint">点击卡片查看完整内容</text>
-              </view>
-              <text class="prompt-text">{{item.prompt}}</text>
-            </view>
-
             <view class="ref-image-wrap" wx:if="{{item.referencePreviewUrls && item.referencePreviewUrls.length}}">
               <text class="ref-label">参考图</text>
               <view class="ref-thumb-list">
