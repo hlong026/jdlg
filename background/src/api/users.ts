@@ -16,6 +16,8 @@ export interface User {
     specialty_styles?: string;
     designer_experience_years?: number;
     service_title?: string;
+    phone?: string;
+    identity_type?: string;
     created_at: string;
     updated_at: string;
 }

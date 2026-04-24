@@ -377,6 +377,22 @@
   color: #6b7280;
 }
 
+.user-phone-text {
+  font-size: 14px;
+  color: #374151;
+  font-variant-numeric: tabular-nums;
+}
+
+.identity-type-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  background: #eff6ff;
+  color: #3b82f6;
+}
+
 .member-code {
   font-family: monospace;
   font-size: 13px;

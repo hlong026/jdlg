@@ -12,6 +12,10 @@ export interface MembershipPlanItem {
     template_download_enabled: boolean;
     is_enabled: boolean;
     sort_order: number;
+    download_validity_days: number;
+    max_total_downloads: number;
+    daily_download_limit: number;
+    rate_limit_per_minute: number;
     benefit_text?: string;
     created_at?: string;
     updated_at?: string;

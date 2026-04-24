@@ -20,6 +20,10 @@ const defaultForm = {
     template_download_enabled: true,
     is_enabled: true,
     sort_order: 0,
+    download_validity_days: 30,
+    max_total_downloads: 0,
+    daily_download_limit: 0,
+    rate_limit_per_minute: 0,
 };
 
 const MembershipPlans: React.FC = () => {
@@ -61,6 +65,10 @@ const MembershipPlans: React.FC = () => {
                 template_download_enabled: Boolean(item.template_download_enabled),
                 is_enabled: Boolean(item.is_enabled),
                 sort_order: item.sort_order || 0,
+                download_validity_days: item.download_validity_days ?? 30,
+                max_total_downloads: item.max_total_downloads ?? 0,
+                daily_download_limit: item.daily_download_limit ?? 0,
+                rate_limit_per_minute: item.rate_limit_per_minute ?? 0,
             });
         } catch (error) {
             console.error('加载会员计划详情失败:', error);
@@ -147,6 +155,10 @@ const MembershipPlans: React.FC = () => {
                                                 <div>计划编码：{item.plan_code}</div>
                                                 <div>充值金额：￥{(item.recharge_amount_fen / 100).toFixed(2)}</div>
                                                 <div>有效时长：{item.duration_days} 天</div>
+                                                <div>下载有效期：{item.download_validity_days ?? '-'} 天</div>
+                                                <div>累计可下载：{item.max_total_downloads ? item.max_total_downloads + ' 个' : '不限'}</div>
+                                                <div>每日下载上限：{item.daily_download_limit ? item.daily_download_limit + ' 个' : '不限'}</div>
+                                                <div>每分钟请求：{item.rate_limit_per_minute ? item.rate_limit_per_minute + ' 次' : '不限'}</div>
                                                 <div>权益说明：{item.benefit_text || item.description || '模板下载会员'}</div>
                                             </div>
                                         </div>
@@ -223,6 +235,45 @@ const MembershipPlans: React.FC = () => {
                                         type="number"
                                         value={formData.sort_order}
                                         onChange={(e) => setFormData((prev) => ({ ...prev, sort_order: Number(e.target.value || 0) }))}
+                                    />
+                                </div>
+                            </div>
+                            <div className="form-section-title">下载限制配置</div>
+                            <div className="form-grid form-grid-2col">
+                                <div className="form-group">
+                                    <label>下载有效期天数 *</label>
+                                    <input
+                                        className="form-input"
+                                        type="number"
+                                        value={formData.download_validity_days}
+                                        onChange={(e) => setFormData((prev) => ({ ...prev, download_validity_days: Number(e.target.value || 0) }))}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>累计可下载模板数（0 = 不限）</label>
+                                    <input
+                                        className="form-input"
+                                        type="number"
+                                        value={formData.max_total_downloads}
+                                        onChange={(e) => setFormData((prev) => ({ ...prev, max_total_downloads: Number(e.target.value || 0) }))}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>每日下载上限（0 = 不限）</label>
+                                    <input
+                                        className="form-input"
+                                        type="number"
+                                        value={formData.daily_download_limit}
+                                        onChange={(e) => setFormData((prev) => ({ ...prev, daily_download_limit: Number(e.target.value || 0) }))}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>频控：每分钟请求次数（0 = 不限）</label>
+                                    <input
+                                        className="form-input"
+                                        type="number"
+                                        value={formData.rate_limit_per_minute}
+                                        onChange={(e) => setFormData((prev) => ({ ...prev, rate_limit_per_minute: Number(e.target.value || 0) }))}
                                     />
                                 </div>
                             </div>

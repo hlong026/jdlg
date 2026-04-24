@@ -28,6 +28,8 @@ interface User {
     specialtyStyles?: string;
     designerExperienceYears?: number;
     serviceTitle?: string;
+    phone?: string;
+    identityType?: string;
 }
 
 const pageSizeOptions = [20, 50, 100];
@@ -87,6 +89,8 @@ const Users: React.FC = () => {
             specialtyStyles: apiUser.specialty_styles || '',
             designerExperienceYears: apiUser.designer_experience_years || 0,
             serviceTitle: apiUser.service_title || '',
+            phone: apiUser.phone || '',
+            identityType: apiUser.identity_type || '',
         };
     };
 
@@ -408,6 +412,8 @@ const Users: React.FC = () => {
                             <tr>
                                 <th>用户ID</th>
                                 <th>用户名</th>
+                                <th>手机号</th>
+                                <th>身份类型</th>
                                 <th>手机号授权</th>
                                 <th>灵石余额</th>
                                 <th>创建时间</th>
@@ -417,7 +423,7 @@ const Users: React.FC = () => {
                         <tbody>
                             {users.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="empty-state">
+                                    <td colSpan={8} className="empty-state">
                                         暂无用户数据
                                     </td>
                                 </tr>
@@ -433,6 +439,12 @@ const Users: React.FC = () => {
                                             >
                                                 {user.username}
                                             </button>
+                                        </td>
+                                        <td>
+                                            <span className="user-phone-text">{user.phone || '-'}</span>
+                                        </td>
+                                        <td>
+                                            <span className="identity-type-badge">{user.identityType || '-'}</span>
                                         </td>
                                         <td>
                                             <div className="wechat-status-cell">
