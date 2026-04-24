@@ -21,7 +21,14 @@
         bindtap="switchLoginType"
         data-type="wechat"
       >
-        <text>微信登录/注册</text>
+        <text>微信登录</text>
+      </view>
+      <view
+        class="tab-item {{loginType === 'phone' ? 'active' : ''}}"
+        bindtap="switchLoginType"
+        data-type="phone"
+      >
+        <text>手机登录</text>
       </view>
       <view
         class="tab-item {{loginType === 'password' ? 'active' : ''}}"
@@ -90,6 +97,75 @@
         <view class="login-extra-row">
           <text class="login-extra-link" bindtap="goToPasswordRecovery">忘记密码</text>
         </view>
+      </view>
+    </view>
+
+    <!-- 手机号验证码登录 -->
+    <view class="login-content" wx:if="{{loginType === 'phone'}}">
+      <view class="form-card">
+        <view class="form-group">
+          <view class="input-wrapper">
+            <t-icon name="call" size="40rpx" color="#b79066" />
+            <input
+              class="form-input"
+              type="number"
+              maxlength="11"
+              placeholder="请输入手机号"
+              placeholder-class="input-placeholder"
+              value="{{phone}}"
+              bindinput="onPhoneInput"
+              disabled="{{loading}}"
+            />
+          </view>
+        </view>
+        <view class="form-group">
+          <view class="input-wrapper sms-input-wrapper">
+            <t-icon name="lock-on" size="40rpx" color="#b79066" />
+            <input
+              class="form-input"
+              type="number"
+              maxlength="6"
+              placeholder="请输入验证码"
+              placeholder-class="input-placeholder"
+              value="{{smsCode}}"
+              bindinput="onSmsCodeInput"
+              disabled="{{loading}}"
+            />
+            <view
+              class="sms-send-btn {{smsCountdown > 0 || !phone || phone.length !== 11 ? 'disabled' : ''}}"
+              bindtap="sendSmsCode"
+            >
+              <text>{{smsCountdown > 0 ? smsCountdown + 's' : '获取验证码'}}</text>
+            </view>
+          </view>
+        </view>
+        <button
+          class="login-button phone-button"
+          bindtap="handlePhoneLogin"
+          disabled="{{loading || !phone || !smsCode || !agreedPrivacy}}"
+        >
+          {{loading ? '登录中...' : '登录/注册'}}
+        </button>
+      </view>
+    </view>
+
+    <!-- 身份选择弹窗（新注册用户） -->
+    <view class="identity-popup-mask" wx:if="{{identityPopupVisible}}" bindtap="skipIdentity">
+      <view class="identity-popup" catchtap="">
+        <text class="identity-popup-title">选择您的身份</text>
+        <text class="identity-popup-desc">选择后可随时在个人中心修改</text>
+        <view class="identity-options">
+          <view
+            class="identity-option-card"
+            wx:for="{{identityOptions}}"
+            wx:key="index"
+            data-identity="{{item}}"
+            bindtap="onIdentitySelect"
+          >
+            <text class="identity-option-text">{{item}}</text>
+          </view>
+        </view>
+        <text class="identity-skip-link" bindtap="skipIdentity">跳过</text>
       </view>
     </view>
 

@@ -102,6 +102,7 @@ function buildCommonMenuItems(): MyMenuItem[] {
 
 function buildServiceMenuItems(): MyMenuItem[] {
   return [
+    { action: 'bindPhone', label: '绑定手机', shortLabel: '机', meta: '' },
     { action: 'settings', label: '账号设置', shortLabel: '设' },
     { action: 'tools', label: '实用工具', shortLabel: '工' },
     { action: 'message', label: '消息中心', shortLabel: '信' },
@@ -978,6 +979,18 @@ Page({
 
   onAccountMenuTap(e: any) {
     const action = e.currentTarget.dataset.action;
+
+    if (action === 'bindPhone') {
+      if (!this.isLoggedIn()) {
+        wx.showToast({ title: '请先登录', icon: 'none' });
+        return;
+      }
+      wx.navigateTo({
+        url: '/pages/phonebind/phonebind',
+        fail: () => wx.showToast({ title: '页面跳转失败', icon: 'none' }),
+      });
+      return;
+    }
 
     if (action === 'message') {
       if (!this.isLoggedIn()) {

@@ -14,12 +14,19 @@ Page({
    * 页面的初始数据
    */
   data: {
-    loginType: 'wechat', // 'wechat' 或 'password'
+    loginType: 'wechat', // 'wechat' | 'password' | 'phone'
     username: '',
     password: '',
+    phone: '',
+    smsCode: '',
+    smsCountdown: 0,
     loading: false,
     inviteCode: '', // 邀请码（从分享链接或上一页传入，注册时填写可得双方奖励）
     agreedPrivacy: false,
+    identityPopupVisible: false,
+    identityOptions: ['业主', '设计师', '施工队', '企业'],
+    selectedIdentity: '',
+    pendingLoginResult: null as any,
   },
 
   /**
@@ -73,6 +80,8 @@ Page({
       loginType: type,
       username: '',
       password: '',
+      phone: '',
+      smsCode: '',
     });
   },
 
@@ -106,6 +115,153 @@ Page({
         });
       },
     });
+  },
+
+  onPhoneInput(e: any) {
+    this.setData({ phone: e.detail.value });
+  },
+
+  onSmsCodeInput(e: any) {
+    this.setData({ smsCode: e.detail.value });
+  },
+
+  async sendSmsCode() {
+    const phone = (this.data.phone || '').trim();
+    if (phone.length !== 11) {
+      wx.showToast({ title: '请输入11位手机号', icon: 'none' });
+      return;
+    }
+    if (this.data.smsCountdown > 0) return;
+
+    try {
+      const res: any = await new Promise((resolve, reject) => {
+        wx.request({
+          url: `${API_BASE_URL}/api/v1/miniprogram/sms/send`,
+          method: 'POST',
+          data: { phone },
+          header: { 'Content-Type': 'application/json' },
+          success: resolve,
+          fail: reject,
+        });
+      });
+      const data = res.data as any;
+      if (res.statusCode === 200 && data && data.code === 0) {
+        wx.showToast({ title: '验证码已发送', icon: 'success' });
+        this.startSmsCountdown();
+      } else {
+        wx.showToast({ title: (data && data.msg) || '发送失败', icon: 'none' });
+      }
+    } catch (err: any) {
+      wx.showToast({ title: '发送失败', icon: 'none' });
+    }
+  },
+
+  startSmsCountdown() {
+    this.setData({ smsCountdown: 60 });
+    const timer = setInterval(() => {
+      if (this.data.smsCountdown <= 1) {
+        clearInterval(timer);
+        this.setData({ smsCountdown: 0 });
+      } else {
+        this.setData({ smsCountdown: this.data.smsCountdown - 1 });
+      }
+    }, 1000);
+  },
+
+  async handlePhoneLogin() {
+    if (this.data.loading) return;
+    const phone = (this.data.phone || '').trim();
+    const code = (this.data.smsCode || '').trim();
+    if (phone.length !== 11) {
+      wx.showToast({ title: '请输入11位手机号', icon: 'none' });
+      return;
+    }
+    if (!code) {
+      wx.showToast({ title: '请输入验证码', icon: 'none' });
+      return;
+    }
+    if (!this.ensureAgreementAccepted()) return;
+
+    this.setData({ loading: true });
+    try {
+      const deviceID = await this.ensureDeviceId();
+      const inviteCode = this.data.inviteCode || '';
+      const loginResult = await new Promise<any>((resolve, reject) => {
+        wx.request({
+          url: `${API_BASE_URL}/api/v1/miniprogram/login/phone`,
+          method: 'POST',
+          data: {
+            phone,
+            code,
+            device_id: deviceID || '',
+            invite_code: inviteCode || undefined,
+          },
+          header: { 'Content-Type': 'application/json' },
+          success: (res) => {
+            const data = res.data as any;
+            if (res.statusCode === 200 && data && data.code === 0) {
+              resolve(data.data || {});
+            } else {
+              reject(new Error((data && data.msg) || '登录失败'));
+            }
+          },
+          fail: reject,
+        });
+      });
+
+      const token = loginResult.token;
+      if (!token) throw new Error('登录结果缺少 token');
+      wx.setStorageSync('token', token);
+      wx.setStorageSync('userInfo', {
+        id: loginResult.id,
+        username: loginResult.username,
+        token: loginResult.token,
+        ...loginResult,
+      });
+
+      // 新用户弹出身份选择
+      if (loginResult.is_new_user) {
+        this.setData({ loading: false, identityPopupVisible: true, pendingLoginResult: loginResult });
+      } else {
+        wx.showToast({ title: '登录成功', icon: 'success', duration: 1000 });
+        this.setData({ loading: false });
+        setTimeout(() => {
+          wx.switchTab({ url: '/pages/index/index', fail: () => wx.reLaunch({ url: '/pages/index/index' }) });
+        }, 1000);
+      }
+    } catch (error: any) {
+      console.error('手机登录失败:', error);
+      wx.showToast({ title: error.message || '登录失败', icon: 'none', duration: 2000 });
+      this.setData({ loading: false });
+    }
+  },
+
+  onIdentitySelect(e: any) {
+    const identity = e.currentTarget.dataset.identity;
+    const loginResult = this.data.pendingLoginResult;
+    this.setData({ identityPopupVisible: false, selectedIdentity: identity, pendingLoginResult: null });
+
+    // 提交身份类型到后端
+    const token = wx.getStorageSync('token');
+    wx.request({
+      url: `${API_BASE_URL}/api/v1/miniprogram/profile/identity`,
+      method: 'PUT',
+      data: { identity_type: identity },
+      header: { 'Content-Type': 'application/json', token },
+    });
+
+    wx.showToast({ title: '登录成功', icon: 'success', duration: 1000 });
+    setTimeout(() => {
+      wx.switchTab({ url: '/pages/index/index', fail: () => wx.reLaunch({ url: '/pages/index/index' }) });
+    }, 1000);
+  },
+
+  skipIdentity() {
+    this.setData({ identityPopupVisible: false, pendingLoginResult: null });
+    wx.showToast({ title: '登录成功', icon: 'success', duration: 1000 });
+    setTimeout(() => {
+      wx.switchTab({ url: '/pages/index/index', fail: () => wx.reLaunch({ url: '/pages/index/index' }) });
+    }, 1000);
   },
 
   toggleAgreement() {

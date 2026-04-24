@@ -10,6 +10,7 @@
     "pages/voicecall/voicecall",
     "pages/login/login",
     "pages/passwordrecovery/passwordrecovery",
+    "pages/phonebind/phonebind",
     "pages/privacy/privacy",
     "pages/aigenerate/aigenerate",
     "pages/generateprogress/generateprogress",
