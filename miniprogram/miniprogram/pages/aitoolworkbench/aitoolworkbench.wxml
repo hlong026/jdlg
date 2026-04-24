@@ -37,7 +37,7 @@
     </view>
 
     <view class="aitoolworkbench-panel" wx:if="{{visualStyleOptions.length > 0}}">
-      <view class="aitoolworkbench-panel-title">参考风格（可选）</view>
+      <view class="aitoolworkbench-panel-title">参考风格</view>
       <view class="aitoolworkbench-panel-desc">点击一张风格图，AI 会参考该风格图片和名称提示来处理你的图片。</view>
       <view class="aitoolworkbench-reference-grid">
         <view
@@ -47,17 +47,19 @@
           data-key="{{item.key}}"
           bindtap="onSelectStyle"
         >
-          <image
-            wx:if="{{item.imageUrl}}"
-            class="aitoolworkbench-reference-image"
-            src="{{item.imageUrl}}"
-            mode="aspectFit"
-          />
-          <view wx:else class="aitoolworkbench-reference-image-fallback">
-            <text>{{item.name[0]}}</text>
-          </view>
-          <view class="aitoolworkbench-reference-body">
-            <view class="aitoolworkbench-reference-name">{{item.name}}</view>
+          <view class="aitoolworkbench-reference-media">
+            <image
+              wx:if="{{item.imageUrl}}"
+              class="aitoolworkbench-reference-image"
+              src="{{item.imageUrl}}"
+              mode="aspectFit"
+            />
+            <view wx:else class="aitoolworkbench-reference-image-fallback">
+              <text>{{item.name[0]}}</text>
+            </view>
+            <view class="aitoolworkbench-reference-title">
+              <view class="aitoolworkbench-reference-name">{{item.name}}</view>
+            </view>
           </view>
           <view class="aitoolworkbench-reference-check" wx:if="{{selectedStyleOptionKey === item.key}}">&#10003;</view>
         </view>
