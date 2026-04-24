@@ -1505,6 +1505,8 @@ Page({
               } else {
                 reject(new Error(data.msg || '获取失败'));
               }
+            } else if (requestRes.statusCode === 404) {
+              resolve({});
             } else {
               reject(new Error(`请求失败: ${requestRes.statusCode}`));
             }
@@ -1515,7 +1517,6 @@ Page({
       this.applyPrefillData(res);
     } catch (error: any) {
       console.error('加载模板原始任务失败:', error);
-      wx.showToast({ title: error.message || '加载失败', icon: 'none' });
     }
   },
 

@@ -352,7 +352,19 @@ func isPublicSquareTemplate(template *model.Template) bool {
 
 // templateToResponse 组装模板详情响应，保证返回 name、description、thumbnail、preview_url、images 等字段；
 // showPrompt 为 true 时返回 prompt 字段；paidLocked 为 true 时 description 不含提示词
-func templateToResponse(template *model.Template, paidLocked bool, creatorInfo *gin.H) gin.H {
+type originalTaskLookup interface {
+	GetByID(id int64) (*model.AITask, error)
+}
+
+func templateHasUsableOriginalTask(template *model.Template, taskLookup originalTaskLookup) bool {
+	if template == nil || template.OriginalTaskID <= 0 || taskLookup == nil {
+		return false
+	}
+	task, err := taskLookup.GetByID(template.OriginalTaskID)
+	return err == nil && task != nil
+}
+
+func templateToResponse(template *model.Template, paidLocked bool, creatorInfo *gin.H, taskLookup originalTaskLookup) gin.H {
 	_ = paidLocked
 	resp := gin.H{
 		"id":                template.ID,
@@ -379,7 +391,7 @@ func templateToResponse(template *model.Template, paidLocked bool, creatorInfo *
 		"creator_user_id":   template.CreatorUserID,
 		"created_at":        template.CreatedAt,
 		"updated_at":        template.UpdatedAt,
-		"has_original_task": template.OriginalTaskID > 0,
+		"has_original_task": templateHasUsableOriginalTask(template, taskLookup),
 	}
 	resp["unlocked"] = !paidLocked
 	// 添加创建者用户信息
@@ -891,7 +903,7 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 					continue
 				}
 				creatorInfo := buildTemplateCreatorInfo(template.CreatorUserID, userProfileModel, userDBModel)
-				item := templateToResponse(template, false, creatorInfo)
+				item := templateToResponse(template, false, creatorInfo, taskModel)
 				item["main_tab"] = template.MainTab
 				item["sub_tab"] = template.SubTab
 				item["third_tab"] = template.ThirdTab
@@ -936,7 +948,7 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 			// 获取创建者用户信息
 			creatorInfo := buildTemplateCreatorInfo(template.CreatorUserID, userProfileModel, userDBModel)
 
-			data := templateToResponse(template, paidLocked, creatorInfo)
+			data := templateToResponse(template, paidLocked, creatorInfo, taskModel)
 			fillTemplateStats(data, template.ID, templateCommentModel, templateShareModel)
 			appendTemplateDownloadState(data, false, false, false, nil, false)
 			c.JSON(http.StatusOK, gin.H{
@@ -1067,7 +1079,7 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 			// 获取创建者用户信息
 			creatorInfo := buildTemplateCreatorInfo(template.CreatorUserID, userProfileModel, userDBModel)
 
-			data := templateToResponse(template, paidLocked, creatorInfo)
+			data := templateToResponse(template, paidLocked, creatorInfo, taskModel)
 			fillTemplateStats(data, template.ID, templateCommentModel, templateShareModel)
 			phoneVerified, rechargeMember, canDownload, activeMembership, legacyRecharge, accessErr := resolveTemplateDownloadAccess(userOrderModel, userProfileModel, userMembershipModel, codeSession.UserID)
 			if accessErr != nil {

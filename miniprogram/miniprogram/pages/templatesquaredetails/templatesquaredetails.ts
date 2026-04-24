@@ -917,7 +917,7 @@ Page({
         };
       }
 
-      const hasOriginalTask = typeof res.has_original_task === 'boolean' ? res.has_original_task : true;
+      const hasOriginalTask = typeof res.has_original_task === 'boolean' ? res.has_original_task : false;
       const isAdminTemplate = res.creator === 'admin';
 
       this.setData({
