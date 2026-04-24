@@ -34,9 +34,6 @@
           <view class="login-hint" wx:if="{{!hasLoginToken}}">点击登录后查看完整信息</view>
         </view>
       </view>
-      <view class="check-in-button" bindtap="onCheckInTap">
-        <image class="check-in-image" src="{{checkInImage}}" mode="widthFix" />
-      </view>
     </view>
 
     <view class="content">

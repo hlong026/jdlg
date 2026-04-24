@@ -96,7 +96,6 @@ function buildCommonMenuItems(): MyMenuItem[] {
     { action: 'wallet', label: '充值中心', shortLabel: '充' },
     { action: 'orders', label: '我的订单', shortLabel: '单' },
     { action: 'favorite', label: '我的收藏', shortLabel: '藏' },
-    { action: 'invite', label: '邀请好友', shortLabel: '邀' },
   ];
 }
 
@@ -160,7 +159,6 @@ Page({
     } as any,
     defaultAvatarImage: resolveAssetPath('/assets/images/home.jpg'),
     pageBgImage: resolveAssetPath('/assets/my/页面背景.png'),
-    checkInImage: resolveAssetPath('/assets/my/签到.png'),
     projectMenuImage: resolveAssetPath('/assets/my/我的项目.png'),
     accountMenuImage: resolveAssetPath('/assets/my/账号设置.png'),
     commonMenuItems: buildCommonMenuItems(),
@@ -622,18 +620,6 @@ Page({
     }
   },
 
-  onCheckInTap() {
-    wx.navigateTo({
-      url: '/pages/checkin/checkin?source=my',
-      fail: () => {
-        wx.showToast({
-          title: '页面跳转失败',
-          icon: 'none',
-        });
-      },
-    });
-  },
-
   /**
    * 点击用户资料
    */
@@ -780,44 +766,6 @@ Page({
   },
 
   /**
-   * 点击分销项
-   */
-  onDistributionTap(e: any) {
-    const type = e.currentTarget.dataset.type
-    console.log('点击分销', type)
-
-    // 邀请好友：跳转到邀请好友页面
-    if (type === 'invite') {
-      wx.navigateTo({
-        url: '/pages/Invitefriends/Invitefriends?source=my',
-        fail: () => {
-          wx.showToast({
-            title: '页面跳转失败',
-            icon: 'none'
-          })
-        }
-      })
-      return
-    }
-
-    // 我的分销：暂时禁用，显示内测提示
-    if (type === 'distribution') {
-      wx.showModal({
-        title: '提示',
-        content: '功能为内测使用需管理员邀请',
-        showCancel: false,
-        confirmText: '知道了'
-      })
-      return
-    }
-
-    wx.showToast({
-      title: type === 'distribution' ? '我的分销' : '邀请好友',
-      icon: 'none'
-    })
-  },
-
-  /**
    * 点击设置项
    */
   onSettingTap(e: any) {
@@ -906,10 +854,6 @@ Page({
       return;
     }
 
-    if (action === 'invite') {
-      this.onDistributionTap({ currentTarget: { dataset: { type: 'invite' } } });
-      return;
-    }
   },
 
   onWorkbenchMenuTap(e: any) {
