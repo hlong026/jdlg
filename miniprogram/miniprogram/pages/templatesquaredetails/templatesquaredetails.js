@@ -1118,9 +1118,11 @@ Page({
             ordered_image_urls: referenceImages,
         };
         const query = [
-            `templateId=${this.data.templateId || 0}`,
             `source=${encodeURIComponent(source || 'make_same')}`,
         ];
+        if (this.data.hasOriginalTask) {
+            query.push(`templateId=${this.data.templateId || 0}`);
+        }
         if (referenceImage) {
             query.push(`reference_image_url=${encodeURIComponent(referenceImage)}`);
         }
