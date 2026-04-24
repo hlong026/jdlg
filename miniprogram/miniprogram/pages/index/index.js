@@ -6,6 +6,7 @@ const asset_1 = require("../../utils/asset");
 const perf_1 = require("../../utils/perf");
 const enterpriseWechat_1 = require("../../utils/enterpriseWechat");
 const API_BASE_URL = 'https://api.jiadilingguang.com';
+const HOME_INTRO_POPUP_STORAGE_KEY = 'homeIntroPopupSeen:v1';
 const TEMPLATE_DETAIL_CACHE_TTL = 2 * 60 * 1000;
 const featuredDetailPrefetching = new Set();
 function buildTemplateDetailCacheKey(templateId) {
@@ -16,6 +17,7 @@ Page({
         featuredGroups: [],
         featuredGroupsLoading: false,
         lastFeaturedGroupsFetchTime: 0,
+        homeIntroPopupVisible: false,
         contactPopupVisible: false,
         wechatPopupVisible: false,
         supplierPhone: enterpriseWechat_1.DEFAULT_ENTERPRISE_SERVICE_PHONE,
@@ -42,6 +44,9 @@ Page({
             tabBar.setCurrent(0);
         }
     },
+    onLoad() {
+        this.showHomeIntroPopupOnce();
+    },
     onShow() {
         this.syncTabBar();
         this.loadFeaturedGroups();
@@ -66,6 +71,49 @@ Page({
                 });
             },
         });
+    },
+    showHomeIntroPopupOnce() {
+        try {
+            if (wx.getStorageSync(HOME_INTRO_POPUP_STORAGE_KEY)) {
+                return;
+            }
+        }
+        catch (_error) {
+            // Storage failures should not block the homepage.
+        }
+        this.setData({
+            homeIntroPopupVisible: true,
+        });
+    },
+    rememberHomeIntroPopupSeen() {
+        try {
+            wx.setStorageSync(HOME_INTRO_POPUP_STORAGE_KEY, true);
+        }
+        catch (_error) {
+            // Ignore storage write failures; closing the popup still works for this session.
+        }
+    },
+    closeHomeIntroPopup() {
+        this.rememberHomeIntroPopupSeen();
+        this.setData({
+            homeIntroPopupVisible: false,
+        });
+    },
+    onHomeIntroTopup() {
+        this.closeHomeIntroPopup();
+        wx.navigateTo({
+            url: '/pages/topupcenter/topupcenter',
+            fail: () => {
+                wx.showToast({
+                    title: '充值中心跳转失败',
+                    icon: 'none',
+                });
+            },
+        });
+    },
+    onHomeIntroContact() {
+        this.closeHomeIntroPopup();
+        void this.onContactService();
     },
     loadFeaturedGroups(force = false) {
         const now = Date.now();

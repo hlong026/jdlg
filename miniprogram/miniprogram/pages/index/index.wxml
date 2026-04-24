@@ -116,6 +116,52 @@
     </view>
   </view>
 
+  <view wx:if="{{homeIntroPopupVisible}}" class="popup-mask" bindtap="closeHomeIntroPopup" catchtouchmove="noop">
+    <view class="home-intro-popup" catchtap="noop">
+      <view class="home-intro-header">
+        <view class="home-intro-logo">
+          <text>甲</text>
+        </view>
+        <view class="home-intro-close" bindtap="closeHomeIntroPopup">×</view>
+      </view>
+
+      <view class="home-intro-title-wrap">
+        <text class="home-intro-title">甲第灵光 AI 设计助手</text>
+        <text class="home-intro-subtitle">用 AI 帮你快速整理设计灵感、生成方案参考，并按需使用模板与会员权益。</text>
+      </view>
+
+      <view class="home-intro-list">
+        <view class="home-intro-item">
+          <view class="home-intro-icon">AI</view>
+          <view class="home-intro-texts">
+            <text class="home-intro-item-title">AI 设计灵感生成</text>
+            <text class="home-intro-item-desc">上传图片或输入需求，生成建筑、庭院、室内等设计参考。</text>
+          </view>
+        </view>
+        <view class="home-intro-item">
+          <view class="home-intro-icon">权</view>
+          <view class="home-intro-texts">
+            <text class="home-intro-item-title">模板下载与灵石权益</text>
+            <text class="home-intro-item-desc">部分 AI 生成、模板下载和深度服务会消耗灵石或会员权益。</text>
+          </view>
+        </view>
+        <view class="home-intro-item">
+          <view class="home-intro-icon">付</view>
+          <view class="home-intro-texts">
+            <text class="home-intro-item-title">充值前确认金额与权益</text>
+            <text class="home-intro-item-desc">充值由你自主选择，支付前会展示金额、权益和到账说明。</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="home-intro-actions">
+        <view class="home-intro-primary" bindtap="onHomeIntroTopup">了解充值权益</view>
+        <view class="home-intro-secondary" bindtap="closeHomeIntroPopup">先逛逛</view>
+      </view>
+      <view class="home-intro-service" bindtap="onHomeIntroContact">联系客服</view>
+    </view>
+  </view>
+
   <view wx:if="{{contactPopupVisible}}" class="popup-mask" bindtap="closeContactPopup">
     <view class="contact-popup" catchtap="noop">
       <view class="popup-header">
