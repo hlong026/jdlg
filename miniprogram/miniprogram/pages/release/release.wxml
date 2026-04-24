@@ -5,46 +5,48 @@
 
   <!-- 顶部统计卡片 -->
   <view class="summary-card">
-    <view class="summary-top">
+    <view class="summary-header">
+      <view>
+        <text class="summary-title">发布概览</text>
+        <text class="summary-subtitle">创作影响力与作品经营数据</text>
+      </view>
+    </view>
+    <view class="influence-row">
       <view class="summary-item">
-        <text class="summary-label">提交作品</text>
-        <view class="summary-value-row">
-          <t-icon name="image" size="40rpx" color="#b79066" />
-          <text class="summary-value">{{totalWorks}}</text>
-        </view>
+        <text class="summary-label">粉丝</text>
+        <text class="summary-value">{{fansCount}}</text>
       </view>
       <view class="summary-item">
-        <text class="summary-label">累计曝光</text>
-        <view class="summary-value-row">
-          <t-icon name="browse" size="40rpx" color="#c39a6b" />
-          <text class="summary-value">{{totalViews}}</text>
+        <text class="summary-label">获赞</text>
+        <text class="summary-value">{{receivedLikes}}</text>
+      </view>
+      <view class="summary-item">
+        <text class="summary-label">关注</text>
+        <text class="summary-value">{{followingCount}}</text>
+      </view>
+    </view>
+    <view class="business-grid">
+      <view class="business-line">
+        <view class="summary-item">
+          <text class="summary-label">作品</text>
+          <text class="summary-mini-value">{{totalWorks}}</text>
+        </view>
+        <view class="summary-item">
+          <text class="summary-label">曝光</text>
+          <text class="summary-mini-value">{{totalViews}}</text>
+        </view>
+      </view>
+      <view class="business-line">
+        <view class="summary-item">
+          <text class="summary-label">累计收益</text>
+          <text class="summary-mini-value highlight">{{totalIncome}} 灵石</text>
+        </view>
+        <view class="summary-item">
+          <text class="summary-label">本月收益</text>
+          <text class="summary-mini-value">{{monthIncome}} 灵石</text>
         </view>
       </view>
     </view>
-    <view class="summary-bottom">
-      <view class="summary-item">
-        <text class="summary-label">累计收益（灵石）</text>
-        <view class="summary-value-row">
-          <t-icon name="money" size="40rpx" color="#a9855b" />
-          <text class="summary-value highlight">{{totalIncome}} 灵石</text>
-        </view>
-      </view>
-      <view class="summary-item">
-        <text class="summary-label">本月收益（灵石）</text>
-        <view class="summary-value-row">
-          <t-icon name="chart-bar" size="40rpx" color="#b79066" />
-          <text class="summary-value">{{monthIncome}} 灵石</text>
-        </view>
-      </view>
-    </view>
-  </view>
-
-  <view class="quick-action-bar">
-    <view class="quick-action-copy">
-      <text class="quick-action-title">上传新作品</text>
-      <text class="quick-action-desc">先展示到主页，再决定是否同步到模板广场</text>
-    </view>
-    <view class="quick-action-btn" bindtap="onCreateWork">上传作品</view>
   </view>
 
   <!-- 筛选与时间段 -->
@@ -189,5 +191,9 @@
         </view>
       </view>
     </scroll-view>
+  </view>
+  <view class="floating-upload-btn" bindtap="onCreateWork">
+    <t-icon name="add" size="38rpx" color="#fffaf2" />
+    <text class="floating-upload-text">上传</text>
   </view>
 </view>

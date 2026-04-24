@@ -1768,11 +1768,17 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 			c.JSON(http.StatusOK, gin.H{
 				"code": 0,
 				"msg":  "success",
-				"data": gin.H{"total_plans": 0, "total_views": 0},
+				"data": gin.H{
+					"total_plans":     0,
+					"total_views":     0,
+					"fans_count":      0,
+					"following_count": 0,
+					"received_likes":  0,
+				},
 			})
 			return
 		}
-		totalPlans, totalViews, err := templateModel.SummaryByCreatorUserID(codeSession.UserID)
+		totalPlans, totalViews, totalLikes, err := templateModel.SummaryByCreatorUserID(codeSession.UserID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"code": 500,
@@ -1784,17 +1790,25 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSess
 		if stoneRecordModel != nil {
 			totalEarnings, monthEarnings, _ = stoneRecordModel.TemplateEarningsSummary(codeSession.UserID)
 		}
+		fansCount, followingCount := int64(0), int64(0)
+		if designerFollowModel != nil {
+			fansCount, _ = designerFollowModel.CountFollowers(codeSession.UserID)
+			followingCount, _ = designerFollowModel.CountFollowing(codeSession.UserID)
+		}
 		c.JSON(http.StatusOK, gin.H{
 			"code": 0,
 			"msg":  "success",
 			"data": gin.H{
-				"total_plans":    totalPlans,
-				"total_views":    totalViews,
-				"total_earnings": totalEarnings,
-				"month_earnings": monthEarnings,
-				"total_works":    totalPlans,
-				"total_income":   totalEarnings,
-				"month_income":   monthEarnings,
+				"total_plans":     totalPlans,
+				"total_views":     totalViews,
+				"total_earnings":  totalEarnings,
+				"month_earnings":  monthEarnings,
+				"total_works":     totalPlans,
+				"total_income":    totalEarnings,
+				"month_income":    monthEarnings,
+				"fans_count":      fansCount,
+				"following_count": followingCount,
+				"received_likes":  totalLikes,
 			},
 		})
 	})

@@ -32,17 +32,14 @@ function formatDisplayTime(value: string): string {
   if (!text) {
     return '--';
   }
-  const normalized = text.replace('T', ' ').replace(/\.\d+Z?$/, '').trim();
-  const date = new Date(normalized.replace(/-/g, '/'));
-  if (Number.isNaN(date.getTime())) {
-    return normalized.slice(0, 16);
+
+  const matched = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::\d{1,2})?)?/);
+  if (matched) {
+    const [, year, month, day, hour = '00', minute = '00'] = matched;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} ${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
   }
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hour = String(date.getHours()).padStart(2, '0');
-  const minute = String(date.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day} ${hour}:${minute}`;
+
+  return text.replace('T', ' ').slice(0, 16);
 }
 
 interface WorkItem {
@@ -85,6 +82,9 @@ Page({
     totalViews: 0,
     totalIncome: '0.00',
     monthIncome: '0.00',
+    fansCount: 0,
+    receivedLikes: 0,
+    followingCount: 0,
 
     // 筛选
     currentTab: 'works' as 'works' | 'income',
@@ -188,6 +188,9 @@ Page({
         totalViews: data.total_views ?? 0,
         totalIncome: String(totalEarnings),
         monthIncome: String(monthEarnings),
+        fansCount: Number(data.fans_count || 0),
+        receivedLikes: Number(data.received_likes || 0),
+        followingCount: Number(data.following_count || 0),
       });
     } catch (err) {
       console.error('获取发布统计失败:', err);

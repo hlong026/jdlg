@@ -60,3 +60,9 @@ func (m *DesignerFollowModel) CountFollowers(designerUserID int64) (int64, error
 	err := m.DB.QueryRow(`SELECT COUNT(*) FROM designer_follows WHERE designer_user_id = ?`, designerUserID).Scan(&count)
 	return count, err
 }
+
+func (m *DesignerFollowModel) CountFollowing(followerUserID int64) (int64, error) {
+	var count int64
+	err := m.DB.QueryRow(`SELECT COUNT(*) FROM designer_follows WHERE follower_user_id = ?`, followerUserID).Scan(&count)
+	return count, err
+}

@@ -402,17 +402,18 @@ func (m *TemplateModel) CountByCreatorUserID(creatorUserID int64, category strin
 	return count, err
 }
 
-func (m *TemplateModel) SummaryByCreatorUserID(creatorUserID int64) (int64, int64, error) {
+func (m *TemplateModel) SummaryByCreatorUserID(creatorUserID int64) (int64, int64, int64, error) {
 	var totalPlans int64
 	var totalViews int64
+	var totalLikes int64
 	err := m.DB.QueryRow(
-		`SELECT COUNT(*), COALESCE(SUM(download_count), 0) FROM templates WHERE creator_user_id = ?`,
+		`SELECT COUNT(*), COALESCE(SUM(download_count), 0), COALESCE(SUM(like_count), 0) FROM templates WHERE creator_user_id = ?`,
 		creatorUserID,
-	).Scan(&totalPlans, &totalViews)
+	).Scan(&totalPlans, &totalViews, &totalLikes)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
-	return totalPlans, totalViews, nil
+	return totalPlans, totalViews, totalLikes, nil
 }
 
 func (m *TemplateModel) ListPublishedByCreatorUserID(creatorUserID int64, category string, limit int, offset int) ([]*Template, error) {
