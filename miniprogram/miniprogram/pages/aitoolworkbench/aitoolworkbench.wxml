@@ -62,7 +62,7 @@
               <view class="aitoolworkbench-reference-name">{{item.name}}</view>
             </view>
           </view>
-          <view class="aitoolworkbench-reference-check" wx:if="{{selectedStyleOptionKey === item.key}}">&#10003;</view>
+          <view class="aitoolworkbench-reference-check" wx:if="{{selectedStyleOptionKey === item.key}}">✓</view>
         </view>
       </view>
     </view>
