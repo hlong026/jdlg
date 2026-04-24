@@ -27,8 +27,9 @@
           </swiper-item>
         </swiper>
         <view class="hero-engagement">
-          <view class="hero-engagement-item" bindtap="onLike">
-            <text class="hero-symbol-icon liked">♥</text>
+          <view class="hero-engagement-item hero-favorite-item {{isLiked ? 'hero-favorite-active' : ''}}" bindtap="onLike">
+            <text class="hero-symbol-icon {{isLiked ? 'liked' : ''}}">♥</text>
+            <text>{{isLiked ? '已收藏' : '收藏'}}</text>
             <text>{{likeCount || 0}}</text>
           </view>
           <view class="hero-engagement-item" bindtap="onComment">

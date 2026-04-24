@@ -904,7 +904,7 @@ Page({
         }
     },
     /**
-     * 点赞模板
+     * 收藏模板
      */
     async onLike() {
         const token = wx.getStorageSync('token');
@@ -940,7 +940,7 @@ Page({
                                 resolve(data.data);
                             }
                             else {
-                                reject(new Error(data.msg || '点赞失败'));
+                                reject(new Error(data.msg || '收藏失败'));
                             }
                         }
                         else {
@@ -962,14 +962,14 @@ Page({
                 isLiked: nextLiked,
             });
             wx.showToast({
-                title: nextLiked ? '已点赞' : '已取消点赞',
+                title: nextLiked ? '已收藏' : '已取消收藏',
                 icon: 'none'
             });
         }
         catch (error) {
-            console.error('点赞失败:', error);
+            console.error('收藏失败:', error);
             wx.showToast({
-                title: error.message || '点赞失败',
+                title: error.message || '收藏失败',
                 icon: 'none'
             });
         }
@@ -1454,7 +1454,7 @@ Page({
                                 resolve(responseData.data || {});
                                 return;
                             }
-                            reject(new Error(responseData.msg || '获取点赞状态失败'));
+                            reject(new Error(responseData.msg || '获取收藏状态失败'));
                             return;
                         }
                         reject(new Error(`请求失败: ${res.statusCode}`));
@@ -1468,7 +1468,7 @@ Page({
             });
         }
         catch (error) {
-            console.error('获取点赞状态失败:', error);
+            console.error('获取收藏状态失败:', error);
         }
     },
 });

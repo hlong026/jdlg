@@ -130,10 +130,19 @@ page {
   }
 }
 
+.hero-favorite-item {
+  min-width: 142rpx;
+}
+
+.hero-favorite-active {
+  background: rgba(255, 244, 241, 0.82);
+  border-color: rgba(211, 122, 116, 0.3);
+}
+
 .hero-symbol-icon {
   font-size: 34rpx;
   line-height: 1;
-  color: #d37a74;
+  color: #9b8369;
   font-weight: 600;
 
   &.liked {

@@ -48,13 +48,19 @@ Page({
     defaultImage: resolveAssetPath('/assets/images/home.jpg'),
     searchInputValue: '',
     searchKeyword: '',
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    hasMore: true,
+    loadingMore: false,
+    removingId: 0,
   },
 
   async onLoad() {
     this.initToken();
     await this.initDeviceId();
     this.setData({ pageReady: true });
-    this.loadFavorites();
+    this.loadFavorites({ reset: true });
   },
 
   onShow() {
@@ -62,13 +68,17 @@ Page({
     if (!this.data.pageReady) {
       return;
     }
-    this.loadFavorites();
+    this.loadFavorites({ reset: true });
   },
 
   onPullDownRefresh() {
-    this.loadFavorites().finally(() => {
+    this.loadFavorites({ reset: true }).finally(() => {
       wx.stopPullDownRefresh();
     });
+  },
+
+  onReachBottom() {
+    this.loadNextPage();
   },
 
   getToken() {
@@ -126,7 +136,7 @@ Page({
       author,
       image: normalizeImageUrl(String(data.thumbnail || data.preview_url || ''), this.data.defaultImage),
       tags,
-      likeText: `${Number(data.like_count || 0)} 点赞`,
+      likeText: `${Number(data.like_count || 0)} 收藏`,
       useText: `${Number(data.download_count || 0)} 使用`,
       priceText: Number(data.price || 0) > 0 ? `${Number(data.price || 0)} 灵石` : '免费',
     };
@@ -227,22 +237,31 @@ Page({
     }
   },
 
-  async loadFavorites() {
+  async loadFavorites(options: { reset?: boolean; page?: number } = {}) {
     const token = this.data.token || this.getToken();
+    const reset = options.reset !== false;
+    const page = options.page || (reset ? 1 : Number(this.data.page || 1));
+    const pageSize = Number(this.data.pageSize || 20);
     if (!token) {
       this.setData({
         loading: false,
+        loadingMore: false,
         allItems: [],
         items: [],
+        page: 1,
+        total: 0,
+        hasMore: false,
         emptyText: '登录后查看我的收藏',
       });
       return;
     }
 
-    this.setData({ loading: true });
+    this.setData(reset ? { loading: true, hasMore: true } : { loadingMore: true });
 
     try {
       let items: any[] = [];
+      let total = 0;
+      let hasMore = false;
       try {
         const apiPath = '/api/v1/miniprogram/templates/favorites';
         const headers = this.getAuthHeaders(apiPath, {});
@@ -252,7 +271,7 @@ Page({
 
         const response = await new Promise<any>((resolve, reject) => {
           wx.request({
-            url: `${API_BASE_URL}${apiPath}`,
+            url: `${API_BASE_URL}${apiPath}?page=${page}&page_size=${pageSize}`,
             method: 'GET',
             header: headers,
             success: (res) => {
@@ -269,33 +288,115 @@ Page({
 
         const list = Array.isArray(response.list) ? response.list : [];
         items = list.map((data: any) => this.mapFavoriteItem(data)).filter((item: any) => item.id > 0);
+        total = Number(response.total || 0);
+        hasMore = page * pageSize < total;
       } catch (favoriteError) {
         console.warn('收藏聚合接口加载失败，回退到详情逐条加载:', favoriteError);
         items = await this.loadFavoriteItemsByLikedIds();
+        total = items.length;
+        hasMore = false;
       }
 
+      const mergedItems = reset ? items : [...(Array.isArray(this.data.allItems) ? this.data.allItems : []), ...items];
       if (!items.length) {
         this.setData({
           loading: false,
-          allItems: [],
-          items: [],
+          loadingMore: false,
+          allItems: reset ? [] : mergedItems,
+          page,
+          total,
+          hasMore: false,
           emptyText: this.data.searchKeyword ? `没有找到与“${this.data.searchKeyword}”相关的收藏模板` : '暂时还没有收藏模板',
-        });
+        }, () => this.applySearchFilter(this.data.searchInputValue || this.data.searchKeyword));
         return;
       }
       this.setData({
         loading: false,
-        allItems: items,
+        loadingMore: false,
+        allItems: mergedItems,
+        page,
+        total,
+        hasMore,
       }, () => this.applySearchFilter(this.data.searchInputValue || this.data.searchKeyword));
     } catch (error: any) {
       this.setData({
         loading: false,
+        loadingMore: false,
         allItems: [],
         items: [],
+        hasMore: false,
         emptyText: error?.message || '收藏加载失败',
       });
       wx.showToast({
         title: error?.message || '收藏加载失败',
+        icon: 'none',
+      });
+    }
+  },
+
+  loadNextPage() {
+    if (this.data.loading || this.data.loadingMore || !this.data.hasMore) {
+      return;
+    }
+    this.loadFavorites({
+      reset: false,
+      page: Number(this.data.page || 1) + 1,
+    });
+  },
+
+  async removeFavorite(e: any) {
+    const id = Number(e.currentTarget.dataset.id || 0);
+    if (!id || this.data.removingId) {
+      return;
+    }
+    const token = this.data.token || this.getToken();
+    if (!token) {
+      wx.showToast({
+        title: '请先登录',
+        icon: 'none',
+      });
+      return;
+    }
+
+    try {
+      const apiPath = `/api/v1/miniprogram/templates/${id}/like`;
+      const requestBody = {};
+      const headers = this.getAuthHeaders(apiPath, requestBody);
+      if (!headers) {
+        throw new Error('登录态已失效，请重新登录');
+      }
+      this.setData({ removingId: id });
+      await new Promise<void>((resolve, reject) => {
+        wx.request({
+          url: `${API_BASE_URL}${apiPath}`,
+          method: 'POST',
+          header: headers,
+          data: requestBody,
+          success: (res) => {
+            const body = (res.data || {}) as any;
+            if (res.statusCode === 200 && body.code === 0) {
+              resolve();
+              return;
+            }
+            reject(new Error(body.msg || `请求失败: ${res.statusCode}`));
+          },
+          fail: reject,
+        });
+      });
+      const allItems = (Array.isArray(this.data.allItems) ? this.data.allItems : []).filter((item: any) => item.id !== id);
+      this.setData({
+        allItems,
+        total: Math.max(0, Number(this.data.total || 0) - 1),
+        removingId: 0,
+      }, () => this.applySearchFilter(this.data.searchInputValue || this.data.searchKeyword));
+      wx.showToast({
+        title: '已取消收藏',
+        icon: 'none',
+      });
+    } catch (error: any) {
+      this.setData({ removingId: 0 });
+      wx.showToast({
+        title: error?.message || '取消收藏失败',
         icon: 'none',
       });
     }

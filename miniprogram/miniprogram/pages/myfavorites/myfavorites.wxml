@@ -38,8 +38,15 @@
             <text class="favorite-meta-text">{{item.likeText}}</text>
             <text class="favorite-meta-text">{{item.useText}}</text>
           </view>
+          <view class="favorite-actions">
+            <view class="favorite-remove {{removingId === item.id ? 'favorite-remove-disabled' : ''}}" catchtap="removeFavorite" data-id="{{item.id}}">
+              {{removingId === item.id ? '取消中' : '取消收藏'}}
+            </view>
+          </view>
         </view>
       </view>
+      <view class="load-more" wx:if="{{loadingMore}}">加载更多收藏...</view>
+      <view class="load-more load-more-end" wx:elif="{{!hasMore && items.length}}">已加载全部收藏</view>
     </view>
   </view>
 </view>
