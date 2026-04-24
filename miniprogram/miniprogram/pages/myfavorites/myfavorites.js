@@ -2,7 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const asset_1 = require("../../utils/asset");
 const favoriteApi_1 = require("../../utils/favoriteApi");
+const currentPageSelection_1 = require("../../utils/currentPageSelection");
 const API_BASE_URL = 'https://api.jiadilingguang.com';
+const MANAGE_VISIBLE_FALLBACK_COUNT = 9;
 const favoriteTabs = [
     { label: '全部', value: '' },
     { label: '模板', value: 'template' },
@@ -66,7 +68,14 @@ Page({
         hasMore: true,
         loadingMore: false,
         removingKey: '',
+        isEditMode: false,
+        selectedKeys: [],
+        selectedMap: {},
+        selectAll: false,
+        visibleKeys: [],
     },
+    manageVisibilityObserver: null,
+    visibleKeySet: {},
     onLoad() {
         this.setData({ pageReady: true });
         this.loadFavorites({ reset: true });
@@ -76,6 +85,9 @@ Page({
             return;
         }
         this.loadFavorites({ reset: true });
+    },
+    onUnload() {
+        this.disconnectManageVisibilityObserver();
     },
     onPullDownRefresh() {
         this.loadFavorites({ reset: true }).finally(() => {
@@ -118,7 +130,7 @@ Page({
             emptyText: normalizedKeyword
                 ? `没有找到与“${rawKeyword}”相关的收藏`
                 : '暂时还没有收藏内容',
-        });
+        }, () => this.syncManageSelectionAfterItemsChange());
     },
     onSearchInput(e) {
         this.setData({
@@ -224,6 +236,175 @@ Page({
                 icon: 'none',
             });
         }
+    },
+    onToggleEditMode() {
+        const isEditMode = !this.data.isEditMode;
+        this.setData({
+            isEditMode,
+            selectedKeys: [],
+            selectedMap: {},
+            selectAll: false,
+            visibleKeys: [],
+        }, () => {
+            if (isEditMode) {
+                this.startManageVisibilityObserver();
+            }
+            else {
+                this.disconnectManageVisibilityObserver();
+            }
+        });
+    },
+    onToggleSelect(e) {
+        const key = String(e.currentTarget.dataset.key || '').trim();
+        if (!key) {
+            return;
+        }
+        const selectedKeys = this.data.selectedKeys.slice();
+        const index = selectedKeys.indexOf(key);
+        if (index >= 0) {
+            selectedKeys.splice(index, 1);
+        }
+        else {
+            selectedKeys.push(key);
+        }
+        this.applySelectionState(selectedKeys);
+    },
+    onToggleSelectAll() {
+        const selectedKeys = (0, currentPageSelection_1.toggleCurrentSelection)(this.data.selectedKeys, this.getCurrentManageKeys());
+        this.applySelectionState(selectedKeys);
+    },
+    applySelectionState(selectedKeys) {
+        this.setData({
+            selectedKeys,
+            selectedMap: (0, currentPageSelection_1.buildSelectedMap)(selectedKeys),
+            selectAll: (0, currentPageSelection_1.isEveryCurrentSelected)(selectedKeys, this.getCurrentManageKeys()),
+        });
+    },
+    getCurrentManageKeys() {
+        return (0, currentPageSelection_1.getCurrentSelectableIds)(this.data.items, (item) => item.key, this.data.visibleKeys, MANAGE_VISIBLE_FALLBACK_COUNT);
+    },
+    syncManageSelectionAfterItemsChange() {
+        const availableMap = (0, currentPageSelection_1.buildSelectedMap)(this.data.items.map((item) => item.key));
+        const selectedKeys = this.data.selectedKeys.filter((key) => availableMap[key]);
+        this.visibleKeySet = Object.keys(this.visibleKeySet || {}).reduce((acc, key) => {
+            if (availableMap[key]) {
+                acc[key] = true;
+            }
+            return acc;
+        }, {});
+        this.applySelectionState(selectedKeys);
+        if (this.data.isEditMode) {
+            this.startManageVisibilityObserver();
+        }
+    },
+    refreshManageVisibleKeys() {
+        const nextVisibleKeys = this.data.items
+            .map((item) => item.key)
+            .filter((key) => this.visibleKeySet[key]);
+        const currentVisibleKeys = this.data.visibleKeys || [];
+        if (nextVisibleKeys.join('|') === currentVisibleKeys.join('|')) {
+            this.refreshManageSelectAllState();
+            return;
+        }
+        this.setData({ visibleKeys: nextVisibleKeys }, () => this.refreshManageSelectAllState());
+    },
+    refreshManageSelectAllState() {
+        const nextSelectAll = (0, currentPageSelection_1.isEveryCurrentSelected)(this.data.selectedKeys, this.getCurrentManageKeys());
+        if (nextSelectAll !== this.data.selectAll) {
+            this.setData({ selectAll: nextSelectAll });
+        }
+    },
+    startManageVisibilityObserver() {
+        this.disconnectManageVisibilityObserver();
+        this.visibleKeySet = {};
+        this.setData({ visibleKeys: [] });
+        if (!this.data.isEditMode) {
+            return;
+        }
+        wx.nextTick(() => {
+            if (!this.data.isEditMode) {
+                return;
+            }
+            const createObserver = this.createIntersectionObserver;
+            if (typeof createObserver !== 'function') {
+                return;
+            }
+            const observer = createObserver.call(this, { observeAll: true });
+            this.manageVisibilityObserver = observer;
+            observer.relativeToViewport().observe('.manage-card', (res) => {
+                const key = String(res?.dataset?.key || '').trim();
+                if (!key) {
+                    return;
+                }
+                if (Number(res?.intersectionRatio || 0) > 0) {
+                    this.visibleKeySet[key] = true;
+                }
+                else {
+                    delete this.visibleKeySet[key];
+                }
+                this.refreshManageVisibleKeys();
+            });
+        });
+    },
+    disconnectManageVisibilityObserver() {
+        if (this.manageVisibilityObserver && typeof this.manageVisibilityObserver.disconnect === 'function') {
+            this.manageVisibilityObserver.disconnect();
+        }
+        this.manageVisibilityObserver = null;
+        this.visibleKeySet = {};
+    },
+    onBatchRemove() {
+        const selectedKeys = this.data.selectedKeys.slice();
+        if (!selectedKeys.length || this.data.removingKey) {
+            return;
+        }
+        const selectedKeyMap = (0, currentPageSelection_1.buildSelectedMap)(selectedKeys);
+        const selectedItems = this.data.allItems.filter((item) => selectedKeyMap[item.key]);
+        if (!selectedItems.length) {
+            return;
+        }
+        wx.showModal({
+            title: '确认删除',
+            content: `确定要删除选中的 ${selectedItems.length} 条收藏吗？`,
+            confirmText: '删除',
+            confirmColor: '#c4543a',
+            cancelText: '取消',
+            success: async (res) => {
+                if (!res.confirm)
+                    return;
+                wx.showLoading({ title: '删除中...' });
+                const removedKeys = [];
+                let failCount = 0;
+                for (const item of selectedItems) {
+                    try {
+                        await (0, favoriteApi_1.removeFavorite)(item.targetType, item.targetId);
+                        removedKeys.push(item.key);
+                    }
+                    catch {
+                        failCount++;
+                    }
+                }
+                wx.hideLoading();
+                const removedMap = (0, currentPageSelection_1.buildSelectedMap)(removedKeys);
+                const allItems = this.data.allItems.filter((item) => !removedMap[item.key]);
+                this.setData({
+                    allItems,
+                    total: Math.max(0, Number(this.data.total || 0) - removedKeys.length),
+                    selectedKeys: [],
+                    selectedMap: {},
+                    selectAll: false,
+                    visibleKeys: [],
+                    isEditMode: false,
+                }, () => {
+                    this.disconnectManageVisibilityObserver();
+                    this.applySearchFilter(this.data.searchInputValue || this.data.searchKeyword);
+                });
+                wx.showToast({
+                    title: failCount > 0 ? `${failCount} 条删除失败` : '已删除',
+                    icon: failCount > 0 ? 'none' : 'success',
+                });
+            },
+        });
     },
     onFavoriteCardTap(e) {
         const targetType = String(e.currentTarget.dataset.targetType || '');

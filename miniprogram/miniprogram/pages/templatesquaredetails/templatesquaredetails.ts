@@ -11,7 +11,6 @@ const LOCAL_ENTERPRISE_WECHAT_QRCODE = resolveAssetPath('/assets/企业微信二
 const PAGE_BACKGROUND_TOP = '#e6daca';
 const PAGE_BACKGROUND_BOTTOM = '#ece4d9';
 const TEMPLATE_DETAIL_CACHE_TTL = 3 * 60 * 1000;
-const HERO_HORIZONTAL_PADDING_RPX = 48;
 const DEFAULT_HERO_HEIGHT_PX = 420;
 
 function buildTemplateDetailCacheKey(templateId: number) {
@@ -39,14 +38,6 @@ function mapDesignerCertStatusLabel(status: string): string {
   if (value === 'pending_payment') return '待支付';
   if (value === 'rejected') return '未通过';
   return '';
-}
-
-function normalizePositiveNumber(value: unknown): number {
-  const num = Number(value);
-  if (!Number.isFinite(num) || num <= 0) {
-    return 0;
-  }
-  return Math.round(num);
 }
 
 Page({
@@ -1106,29 +1097,9 @@ Page({
     }
   },
 
-  getHeroContainerWidthPx(): number {
-    try {
-      const systemInfo = wx.getSystemInfoSync();
-      const windowWidth = Number(systemInfo.windowWidth || 375);
-      return Math.max(1, Math.round(windowWidth * (750 - HERO_HORIZONTAL_PADDING_RPX) / 750));
-    } catch (error) {
-      return 351;
-    }
-  },
-
-  computeHeroDisplayHeight(width?: number, height?: number): number {
-    const normalizedWidth = normalizePositiveNumber(width);
-    const normalizedHeight = normalizePositiveNumber(height);
-    if (!normalizedWidth || !normalizedHeight) {
-      return Number(this.data.heroDefaultHeight || DEFAULT_HERO_HEIGHT_PX);
-    }
-    return Math.max(1, Math.round(this.getHeroContainerWidthPx() * normalizedHeight / normalizedWidth));
-  },
-
   refreshHeroHeightByIndex(index: number) {
-    const imageHeights = Array.isArray(this.data.imageHeights) ? this.data.imageHeights : [];
-    const safeIndex = Math.max(0, Math.min(Number(index || 0), Math.max(imageHeights.length - 1, 0)));
-    const nextHeroHeight = Number(imageHeights[safeIndex] || imageHeights[0] || this.data.heroDefaultHeight || DEFAULT_HERO_HEIGHT_PX);
+    void index;
+    const nextHeroHeight = Number(this.data.heroDefaultHeight || DEFAULT_HERO_HEIGHT_PX);
     this.setData({
       heroHeight: nextHeroHeight,
     });
@@ -1146,35 +1117,12 @@ Page({
 
     const defaultHeight = Number(this.data.heroDefaultHeight || DEFAULT_HERO_HEIGHT_PX);
     const nextHeights = nextUrls.map(() => defaultHeight);
-    const seedHeight = this.computeHeroDisplayHeight(firstWidth, firstHeight);
-    if (seedHeight > 0) {
-      nextHeights[0] = seedHeight;
-    }
+    void firstWidth;
+    void firstHeight;
 
     this.setData({
       imageHeights: nextHeights,
-      heroHeight: Number(nextHeights[0] || defaultHeight),
-    });
-
-    nextUrls.forEach((url, index) => {
-      wx.getImageInfo({
-        src: url,
-        success: (res) => {
-          const nextHeight = this.computeHeroDisplayHeight(res?.width, res?.height);
-          const currentHeights = Array.isArray(this.data.imageHeights) ? this.data.imageHeights.slice() : [];
-          if (!currentHeights.length) {
-            return;
-          }
-          if (Number(currentHeights[index] || 0) === nextHeight) {
-            return;
-          }
-          currentHeights[index] = nextHeight;
-          this.setData({
-            imageHeights: currentHeights,
-            heroHeight: Number(index === Number(this.data.currentImageIndex || 0) ? nextHeight : this.data.heroHeight),
-          });
-        },
-      });
+      heroHeight: defaultHeight,
     });
   },
 

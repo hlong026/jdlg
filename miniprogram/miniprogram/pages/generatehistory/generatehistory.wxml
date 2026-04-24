@@ -12,7 +12,7 @@
         <text>已选择 {{selectedIds.length}} 项</text>
       </view>
       <view class="manage-toolbar-action is-right" bindtap="onToggleSelectAll">
-        <text>{{selectAll ? '取消全选' : '全选'}}</text>
+        <text>{{selectAll ? '取消全选' : '全选当前页'}}</text>
       </view>
     </view>
   </view>

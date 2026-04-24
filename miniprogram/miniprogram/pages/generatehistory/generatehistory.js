@@ -2,9 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 // pages/generatehistory/generatehistory.ts
 const parameter_1 = require("../../utils/parameter");
+const currentPageSelection_1 = require("../../utils/currentPageSelection");
 // API基础地址
 const API_BASE_URL = 'https://api.jiadilingguang.com';
 const GENERATE_DRAFT_STORAGE_KEY = 'jdlg_ai_generate_local_draft_v1';
+const MANAGE_VISIBLE_FALLBACK_COUNT = 9;
 Page({
     data: {
         list: [],
@@ -22,6 +24,7 @@ Page({
         selectedIds: [],
         selectedMap: {},
         selectAll: false,
+        visibleIds: [],
         // 左滑相关
         touchStartX: 0,
         touchStartY: 0,
@@ -29,6 +32,8 @@ Page({
         hasLocalDraft: false,
         localDraft: null,
     },
+    manageVisibilityObserver: null,
+    visibleIdSet: {},
     onLoad() {
         this.loadLocalDraft();
         this.loadAITools();
@@ -37,6 +42,9 @@ Page({
     onShow() {
         this.loadLocalDraft();
         // 每次显示页面时刷新列表（可能有新的生成记录）
+    },
+    onUnload() {
+        this.disconnectManageVisibilityObserver();
     },
     loadLocalDraft() {
         const rawDraft = wx.getStorageSync(GENERATE_DRAFT_STORAGE_KEY);
@@ -199,7 +207,7 @@ Page({
                                 list: page === 1 ? formattedTasks : [...this.data.list, ...formattedTasks],
                                 total,
                                 hasMore: tasks.length >= pageSize,
-                            });
+                            }, () => this.syncManageSelectionAfterListChange());
                             resolve();
                         }
                         else {
@@ -249,7 +257,7 @@ Page({
                         this.setData({
                             list: [...this.data.list, ...formattedTasks],
                             hasMore: tasks.length >= pageSize,
-                        });
+                        }, () => this.syncManageSelectionAfterListChange());
                     }
                 },
                 complete: () => {
@@ -384,7 +392,15 @@ Page({
             selectedIds: [],
             selectedMap: {},
             selectAll: false,
+            visibleIds: [],
             swipedItemId: '',
+        }, () => {
+            if (isEditMode) {
+                this.startManageVisibilityObserver();
+            }
+            else {
+                this.disconnectManageVisibilityObserver();
+            }
         });
     },
     /** 左滑手势 - 开始 */
@@ -461,20 +477,89 @@ Page({
     },
     /** 全选/取消全选 */
     onToggleSelectAll() {
-        const selectAll = !this.data.selectAll;
-        const selectedIds = selectAll ? this.data.list.map(item => item.task_no) : [];
+        const selectedIds = (0, currentPageSelection_1.toggleCurrentSelection)(this.data.selectedIds, this.getCurrentManageIds());
         this.applySelectionState(selectedIds);
     },
     applySelectionState(selectedIds) {
-        const selectedMap = selectedIds.reduce((acc, taskNo) => {
-            acc[taskNo] = true;
-            return acc;
-        }, {});
+        const currentIds = this.getCurrentManageIds();
         this.setData({
             selectedIds,
-            selectedMap,
-            selectAll: selectedIds.length === this.data.list.length && this.data.list.length > 0,
+            selectedMap: (0, currentPageSelection_1.buildSelectedMap)(selectedIds),
+            selectAll: (0, currentPageSelection_1.isEveryCurrentSelected)(selectedIds, currentIds),
         });
+    },
+    getCurrentManageIds() {
+        return (0, currentPageSelection_1.getCurrentSelectableIds)(this.data.list, (item) => item.task_no, this.data.visibleIds, MANAGE_VISIBLE_FALLBACK_COUNT);
+    },
+    syncManageSelectionAfterListChange() {
+        const availableMap = (0, currentPageSelection_1.buildSelectedMap)(this.data.list.map((item) => item.task_no));
+        const selectedIds = this.data.selectedIds.filter((id) => availableMap[id]);
+        this.visibleIdSet = Object.keys(this.visibleIdSet || {}).reduce((acc, id) => {
+            if (availableMap[id]) {
+                acc[id] = true;
+            }
+            return acc;
+        }, {});
+        this.applySelectionState(selectedIds);
+        if (this.data.isEditMode) {
+            this.startManageVisibilityObserver();
+        }
+    },
+    refreshManageVisibleIds() {
+        const nextVisibleIds = this.data.list
+            .map((item) => item.task_no)
+            .filter((id) => this.visibleIdSet[id]);
+        const currentVisibleIds = this.data.visibleIds || [];
+        if (nextVisibleIds.join('|') === currentVisibleIds.join('|')) {
+            this.refreshManageSelectAllState();
+            return;
+        }
+        this.setData({ visibleIds: nextVisibleIds }, () => this.refreshManageSelectAllState());
+    },
+    refreshManageSelectAllState() {
+        const nextSelectAll = (0, currentPageSelection_1.isEveryCurrentSelected)(this.data.selectedIds, this.getCurrentManageIds());
+        if (nextSelectAll !== this.data.selectAll) {
+            this.setData({ selectAll: nextSelectAll });
+        }
+    },
+    startManageVisibilityObserver() {
+        this.disconnectManageVisibilityObserver();
+        this.visibleIdSet = {};
+        this.setData({ visibleIds: [] });
+        if (!this.data.isEditMode) {
+            return;
+        }
+        wx.nextTick(() => {
+            if (!this.data.isEditMode) {
+                return;
+            }
+            const createObserver = this.createIntersectionObserver;
+            if (typeof createObserver !== 'function') {
+                return;
+            }
+            const observer = createObserver.call(this, { observeAll: true });
+            this.manageVisibilityObserver = observer;
+            observer.relativeToViewport().observe('.manage-card', (res) => {
+                const id = String(res?.dataset?.id || '').trim();
+                if (!id) {
+                    return;
+                }
+                if (Number(res?.intersectionRatio || 0) > 0) {
+                    this.visibleIdSet[id] = true;
+                }
+                else {
+                    delete this.visibleIdSet[id];
+                }
+                this.refreshManageVisibleIds();
+            });
+        });
+    },
+    disconnectManageVisibilityObserver() {
+        if (this.manageVisibilityObserver && typeof this.manageVisibilityObserver.disconnect === 'function') {
+            this.manageVisibilityObserver.disconnect();
+        }
+        this.manageVisibilityObserver = null;
+        this.visibleIdSet = {};
     },
     /** 删除单条记录（左滑触发，二次确认） */
     onDelete(e) {
@@ -540,9 +625,10 @@ Page({
                     selectedIds: [],
                     selectedMap: {},
                     selectAll: false,
+                    visibleIds: [],
                     page: 1,
                     hasMore: true,
-                });
+                }, () => this.disconnectManageVisibilityObserver());
                 this.loadHistory();
             }
         });
