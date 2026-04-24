@@ -16,6 +16,10 @@ type MembershipPlan struct {
 	TemplateDownloadEnabled bool      `json:"template_download_enabled" db:"template_download_enabled"`
 	IsEnabled               bool      `json:"is_enabled" db:"is_enabled"`
 	SortOrder               int       `json:"sort_order" db:"sort_order"`
+	DownloadValidityDays    int       `json:"download_validity_days" db:"download_validity_days"`       // 下载有效期天数
+	MaxTotalDownloads       int       `json:"max_total_downloads" db:"max_total_downloads"`             // 累计可下载模板数，0=无限
+	DailyDownloadLimit      int       `json:"daily_download_limit" db:"daily_download_limit"`           // 每日下载上限，0=无限
+	RateLimitPerMinute      int       `json:"rate_limit_per_minute" db:"rate_limit_per_minute"`         // 频控：每分钟最多请求次数，0=无限
 	CreatedAt               time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt               time.Time `json:"updated_at" db:"updated_at"`
 }
@@ -57,6 +61,10 @@ CREATE TABLE IF NOT EXISTS membership_plans (
 	_, _ = m.DB.Exec(`ALTER TABLE membership_plans ADD COLUMN template_download_enabled TINYINT(1) NOT NULL DEFAULT 1`)
 	_, _ = m.DB.Exec(`ALTER TABLE membership_plans ADD COLUMN is_enabled TINYINT(1) NOT NULL DEFAULT 1`)
 	_, _ = m.DB.Exec(`ALTER TABLE membership_plans ADD COLUMN sort_order INT NOT NULL DEFAULT 0`)
+	_, _ = m.DB.Exec(`ALTER TABLE membership_plans ADD COLUMN download_validity_days INT NOT NULL DEFAULT 0 COMMENT '下载有效期天数'`)
+	_, _ = m.DB.Exec(`ALTER TABLE membership_plans ADD COLUMN max_total_downloads INT NOT NULL DEFAULT 0 COMMENT '累计可下载模板数，0=无限'`)
+	_, _ = m.DB.Exec(`ALTER TABLE membership_plans ADD COLUMN daily_download_limit INT NOT NULL DEFAULT 0 COMMENT '每日下载上限，0=无限'`)
+	_, _ = m.DB.Exec(`ALTER TABLE membership_plans ADD COLUMN rate_limit_per_minute INT NOT NULL DEFAULT 0 COMMENT '频控：每分钟最多请求次数，0=无限'`)
 	_, _ = m.DB.Exec(`ALTER TABLE membership_plans ADD UNIQUE KEY uk_plan_code (plan_code)`)
 	_, _ = m.DB.Exec(`ALTER TABLE membership_plans ADD KEY idx_enabled_sort (is_enabled, sort_order)`)
 	_, _ = m.DB.Exec(`ALTER TABLE membership_plans ADD KEY idx_recharge_amount_fen (recharge_amount_fen)`)
@@ -78,6 +86,10 @@ func scanMembershipPlan(scanner interface{ Scan(dest ...interface{}) error }) (*
 		&templateDownloadEnabled,
 		&isEnabled,
 		&item.SortOrder,
+		&item.DownloadValidityDays,
+		&item.MaxTotalDownloads,
+		&item.DailyDownloadLimit,
+		&item.RateLimitPerMinute,
 		&item.CreatedAt,
 		&item.UpdatedAt,
 	); err != nil {
@@ -90,7 +102,7 @@ func scanMembershipPlan(scanner interface{ Scan(dest ...interface{}) error }) (*
 
 func (m *MembershipPlanModel) List() ([]*MembershipPlan, error) {
 	rows, err := m.DB.Query(`
-		SELECT id, plan_code, title, description, badge_text, recharge_amount_fen, duration_days, template_download_enabled, is_enabled, sort_order, created_at, updated_at
+		SELECT id, plan_code, title, description, badge_text, recharge_amount_fen, duration_days, template_download_enabled, is_enabled, sort_order, download_validity_days, max_total_downloads, daily_download_limit, rate_limit_per_minute, created_at, updated_at
 		FROM membership_plans
 		ORDER BY sort_order ASC, recharge_amount_fen ASC, id ASC
 	`)
@@ -111,7 +123,7 @@ func (m *MembershipPlanModel) List() ([]*MembershipPlan, error) {
 
 func (m *MembershipPlanModel) ListEnabled() ([]*MembershipPlan, error) {
 	rows, err := m.DB.Query(`
-		SELECT id, plan_code, title, description, badge_text, recharge_amount_fen, duration_days, template_download_enabled, is_enabled, sort_order, created_at, updated_at
+		SELECT id, plan_code, title, description, badge_text, recharge_amount_fen, duration_days, template_download_enabled, is_enabled, sort_order, download_validity_days, max_total_downloads, daily_download_limit, rate_limit_per_minute, created_at, updated_at
 		FROM membership_plans
 		WHERE is_enabled = 1
 		ORDER BY sort_order ASC, recharge_amount_fen ASC, id ASC
@@ -133,16 +145,25 @@ func (m *MembershipPlanModel) ListEnabled() ([]*MembershipPlan, error) {
 
 func (m *MembershipPlanModel) GetByID(id int64) (*MembershipPlan, error) {
 	row := m.DB.QueryRow(`
-		SELECT id, plan_code, title, description, badge_text, recharge_amount_fen, duration_days, template_download_enabled, is_enabled, sort_order, created_at, updated_at
+		SELECT id, plan_code, title, description, badge_text, recharge_amount_fen, duration_days, template_download_enabled, is_enabled, sort_order, download_validity_days, max_total_downloads, daily_download_limit, rate_limit_per_minute, created_at, updated_at
 		FROM membership_plans
 		WHERE id = ?
 	`, id)
 	return scanMembershipPlan(row)
 }
 
+func (m *MembershipPlanModel) GetByCode(planCode string) (*MembershipPlan, error) {
+	row := m.DB.QueryRow(`
+		SELECT id, plan_code, title, description, badge_text, recharge_amount_fen, duration_days, template_download_enabled, is_enabled, sort_order, download_validity_days, max_total_downloads, daily_download_limit, rate_limit_per_minute, created_at, updated_at
+		FROM membership_plans
+		WHERE plan_code = ?
+	`, planCode)
+	return scanMembershipPlan(row)
+}
+
 func (m *MembershipPlanModel) FindMatchedByRechargeAmountFen(amountFen int64) (*MembershipPlan, error) {
 	row := m.DB.QueryRow(`
-		SELECT id, plan_code, title, description, badge_text, recharge_amount_fen, duration_days, template_download_enabled, is_enabled, sort_order, created_at, updated_at
+		SELECT id, plan_code, title, description, badge_text, recharge_amount_fen, duration_days, template_download_enabled, is_enabled, sort_order, download_validity_days, max_total_downloads, daily_download_limit, rate_limit_per_minute, created_at, updated_at
 		FROM membership_plans
 		WHERE is_enabled = 1 AND recharge_amount_fen = ?
 		ORDER BY sort_order ASC, id ASC
@@ -167,15 +188,15 @@ func (m *MembershipPlanModel) CreateOrUpdate(plan *MembershipPlan) error {
 	if plan.ID > 0 {
 		_, err := m.DB.Exec(`
 			UPDATE membership_plans
-			SET plan_code = ?, title = ?, description = ?, badge_text = ?, recharge_amount_fen = ?, duration_days = ?, template_download_enabled = ?, is_enabled = ?, sort_order = ?, updated_at = NOW()
+			SET plan_code = ?, title = ?, description = ?, badge_text = ?, recharge_amount_fen = ?, duration_days = ?, template_download_enabled = ?, is_enabled = ?, sort_order = ?, download_validity_days = ?, max_total_downloads = ?, daily_download_limit = ?, rate_limit_per_minute = ?, updated_at = NOW()
 			WHERE id = ?
-		`, plan.PlanCode, plan.Title, plan.Description, plan.BadgeText, plan.RechargeAmountFen, plan.DurationDays, templateDownloadEnabled, isEnabled, plan.SortOrder, plan.ID)
+		`, plan.PlanCode, plan.Title, plan.Description, plan.BadgeText, plan.RechargeAmountFen, plan.DurationDays, templateDownloadEnabled, isEnabled, plan.SortOrder, plan.DownloadValidityDays, plan.MaxTotalDownloads, plan.DailyDownloadLimit, plan.RateLimitPerMinute, plan.ID)
 		return err
 	}
 	result, err := m.DB.Exec(`
-		INSERT INTO membership_plans (plan_code, title, description, badge_text, recharge_amount_fen, duration_days, template_download_enabled, is_enabled, sort_order)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, plan.PlanCode, plan.Title, plan.Description, plan.BadgeText, plan.RechargeAmountFen, plan.DurationDays, templateDownloadEnabled, isEnabled, plan.SortOrder)
+		INSERT INTO membership_plans (plan_code, title, description, badge_text, recharge_amount_fen, duration_days, template_download_enabled, is_enabled, sort_order, download_validity_days, max_total_downloads, daily_download_limit, rate_limit_per_minute)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, plan.PlanCode, plan.Title, plan.Description, plan.BadgeText, plan.RechargeAmountFen, plan.DurationDays, templateDownloadEnabled, isEnabled, plan.SortOrder, plan.DownloadValidityDays, plan.MaxTotalDownloads, plan.DailyDownloadLimit, plan.RateLimitPerMinute)
 	if err != nil {
 		return err
 	}

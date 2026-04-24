@@ -26,6 +26,8 @@ type UserProfile struct {
 	DeviceBindTime       *time.Time `json:"device_bind_time" db:"device_bind_time"`       // 设备绑定时间
 	LastDeviceChangeTime *time.Time `json:"last_device_change_time" db:"last_device_change_time"` // 上次换绑设备时间
 	HasPassword          bool       `json:"has_password" db:"has_password"`               // 是否设置了密码
+	Phone                string     `json:"phone" db:"phone"`                             // 手机号
+	IdentityType         string     `json:"identity_type" db:"identity_type"`             // 用户身份类型：业主/设计师/施工队/企业
 	CreatedAt            time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt            time.Time  `json:"updated_at" db:"updated_at"`
 }
@@ -38,6 +40,22 @@ type UserProfileModel struct {
 // NewUserProfileModel 创建用户扩展信息模型
 func NewUserProfileModel(db *sql.DB) *UserProfileModel {
 	return &UserProfileModel{DB: db}
+}
+
+const userProfileSelectColumns = `id, user_id, nickname, avatar, designer_bio, specialty_styles, designer_experience_years, service_title, service_quote, service_intro, service_enabled, designer_visible, enterprise_wechat_verified, enterprise_wechat_verified_at, enterprise_wechat_contact, device_id, device_bind_time, last_device_change_time, has_password, phone, identity_type, created_at, updated_at`
+
+func scanUserProfile(scanner interface{ Scan(dest ...interface{}) error }) (*UserProfile, error) {
+	profile := &UserProfile{}
+	err := scanner.Scan(
+		&profile.ID, &profile.UserID, &profile.Nickname, &profile.Avatar, &profile.DesignerBio, &profile.SpecialtyStyles, &profile.DesignerExperienceYears, &profile.ServiceTitle, &profile.ServiceQuote, &profile.ServiceIntro, &profile.ServiceEnabled, &profile.DesignerVisible, &profile.EnterpriseWechatVerified, &profile.EnterpriseWechatVerifiedAt, &profile.EnterpriseWechatContact, &profile.DeviceID,
+		&profile.DeviceBindTime, &profile.LastDeviceChangeTime, &profile.HasPassword,
+		&profile.Phone, &profile.IdentityType,
+		&profile.CreatedAt, &profile.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return profile, nil
 }
 
 // InitTable 初始化用户扩展信息表
@@ -84,30 +102,22 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 	_, _ = m.DB.Exec(`ALTER TABLE user_profiles ADD COLUMN enterprise_wechat_verified TINYINT(1) NOT NULL DEFAULT 0`)
 	_, _ = m.DB.Exec(`ALTER TABLE user_profiles ADD COLUMN enterprise_wechat_verified_at TIMESTAMP NULL DEFAULT NULL`)
 	_, _ = m.DB.Exec(`ALTER TABLE user_profiles ADD COLUMN enterprise_wechat_contact VARCHAR(128) DEFAULT ''`)
+	_, _ = m.DB.Exec(`ALTER TABLE user_profiles ADD COLUMN phone VARCHAR(32) DEFAULT '' COMMENT '手机号'`)
+	_, _ = m.DB.Exec(`ALTER TABLE user_profiles ADD COLUMN identity_type VARCHAR(32) DEFAULT '' COMMENT '用户身份类型：业主/设计师/施工队/企业'`)
 	return nil
 }
 
 // GetByUserID 根据用户ID获取扩展信息
 func (m *UserProfileModel) GetByUserID(userID int64) (*UserProfile, error) {
-	profile := &UserProfile{}
-	query := `SELECT id, user_id, nickname, avatar, designer_bio, specialty_styles, designer_experience_years, service_title, service_quote, service_intro, service_enabled, designer_visible, enterprise_wechat_verified, enterprise_wechat_verified_at, enterprise_wechat_contact, device_id, device_bind_time, last_device_change_time, has_password, created_at, updated_at 
-	          FROM user_profiles WHERE user_id = ?`
-	err := m.DB.QueryRow(query, userID).Scan(
-		&profile.ID, &profile.UserID, &profile.Nickname, &profile.Avatar, &profile.DesignerBio, &profile.SpecialtyStyles, &profile.DesignerExperienceYears, &profile.ServiceTitle, &profile.ServiceQuote, &profile.ServiceIntro, &profile.ServiceEnabled, &profile.DesignerVisible, &profile.EnterpriseWechatVerified, &profile.EnterpriseWechatVerifiedAt, &profile.EnterpriseWechatContact, &profile.DeviceID,
-		&profile.DeviceBindTime, &profile.LastDeviceChangeTime, &profile.HasPassword,
-		&profile.CreatedAt, &profile.UpdatedAt,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return profile, nil
+	query := `SELECT ` + userProfileSelectColumns + ` FROM user_profiles WHERE user_id = ?`
+	return scanUserProfile(m.DB.QueryRow(query, userID))
 }
 
 // Create 创建用户扩展信息
 func (m *UserProfileModel) Create(profile *UserProfile) error {
-	query := `INSERT INTO user_profiles (user_id, nickname, avatar, designer_bio, specialty_styles, designer_experience_years, service_title, service_quote, service_intro, service_enabled, designer_visible, enterprise_wechat_verified, enterprise_wechat_verified_at, enterprise_wechat_contact, device_id, device_bind_time, has_password, created_at, updated_at) 
-	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`
-	result, err := m.DB.Exec(query, profile.UserID, profile.Nickname, profile.Avatar, profile.DesignerBio, profile.SpecialtyStyles, profile.DesignerExperienceYears, profile.ServiceTitle, profile.ServiceQuote, profile.ServiceIntro, profile.ServiceEnabled, profile.DesignerVisible, profile.EnterpriseWechatVerified, profile.EnterpriseWechatVerifiedAt, profile.EnterpriseWechatContact, profile.DeviceID, profile.DeviceBindTime, profile.HasPassword)
+	query := `INSERT INTO user_profiles (user_id, nickname, avatar, designer_bio, specialty_styles, designer_experience_years, service_title, service_quote, service_intro, service_enabled, designer_visible, enterprise_wechat_verified, enterprise_wechat_verified_at, enterprise_wechat_contact, device_id, device_bind_time, has_password, phone, identity_type, created_at, updated_at)
+	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`
+	result, err := m.DB.Exec(query, profile.UserID, profile.Nickname, profile.Avatar, profile.DesignerBio, profile.SpecialtyStyles, profile.DesignerExperienceYears, profile.ServiceTitle, profile.ServiceQuote, profile.ServiceIntro, profile.ServiceEnabled, profile.DesignerVisible, profile.EnterpriseWechatVerified, profile.EnterpriseWechatVerifiedAt, profile.EnterpriseWechatContact, profile.DeviceID, profile.DeviceBindTime, profile.HasPassword, profile.Phone, profile.IdentityType)
 	if err != nil {
 		return err
 	}
@@ -125,7 +135,7 @@ func (m *UserProfileModel) GetOrCreate(userID int64, deviceID string) (*UserProf
 	if err == nil {
 		return profile, nil
 	}
-	
+
 	// 不存在则创建
 	now := time.Now()
 	profile = &UserProfile{
@@ -189,6 +199,20 @@ func (m *UserProfileModel) SetServiceEnabled(userID int64, enabled bool) error {
 func (m *UserProfileModel) SetHasPassword(userID int64, hasPassword bool) error {
 	query := `UPDATE user_profiles SET has_password = ?, updated_at = NOW() WHERE user_id = ?`
 	_, err := m.DB.Exec(query, hasPassword, userID)
+	return err
+}
+
+// UpdateIdentityType 更新用户身份类型
+func (m *UserProfileModel) UpdateIdentityType(userID int64, identityType string) error {
+	query := `UPDATE user_profiles SET identity_type = ?, updated_at = NOW() WHERE user_id = ?`
+	_, err := m.DB.Exec(query, identityType, userID)
+	return err
+}
+
+// UpdatePhone 更新用户手机号
+func (m *UserProfileModel) UpdatePhone(userID int64, phone string) error {
+	query := `UPDATE user_profiles SET phone = ?, updated_at = NOW() WHERE user_id = ?`
+	_, err := m.DB.Exec(query, phone, userID)
 	return err
 }
 

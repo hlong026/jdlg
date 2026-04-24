@@ -37,6 +37,8 @@ type ManagementUserListItem struct {
 	EnterpriseWechatVerified   bool       `json:"enterprise_wechat_verified"`
 	EnterpriseWechatVerifiedAt *time.Time `json:"enterprise_wechat_verified_at"`
 	EnterpriseWechatContact    string     `json:"enterprise_wechat_contact"`
+	Phone                      string     `json:"phone"`
+	IdentityType               string     `json:"identity_type"`
 }
 
 // NewUserModel 创建用户模型
@@ -51,8 +53,8 @@ func buildManagementUserListWhere(filters ManagementUserListFilters) (string, []
 	keyword := strings.TrimSpace(filters.Keyword)
 	if keyword != "" {
 		likeKeyword := "%" + keyword + "%"
-		whereParts = append(whereParts, "(CAST(u.id AS CHAR) LIKE ? OR u.username LIKE ? OR COALESCE(p.nickname, '') LIKE ? OR COALESCE(p.enterprise_wechat_contact, '') LIKE ?)")
-		args = append(args, likeKeyword, likeKeyword, likeKeyword, likeKeyword)
+		whereParts = append(whereParts, "(CAST(u.id AS CHAR) LIKE ? OR u.username LIKE ? OR COALESCE(p.nickname, '') LIKE ? OR COALESCE(p.enterprise_wechat_contact, '') LIKE ? OR COALESCE(p.phone, '') LIKE ?)")
+		args = append(args, likeKeyword, likeKeyword, likeKeyword, likeKeyword, likeKeyword)
 	}
 
 	switch strings.TrimSpace(filters.EnterpriseWechatStatus) {
@@ -278,6 +280,39 @@ func (m *UserModel) CreateOrUpdateByOpenID(openid, unionid string) (*User, error
 	return nil, fmt.Errorf("create miniprogram user failed")
 }
 
+// GetByPhone 根据手机号查询用户（通过 user_identities 表联查）
+func (m *UserModel) GetByPhone(phone string) (*User, error) {
+	user := &User{}
+	query := `SELECT u.id, u.username, u.password, u.openid, u.unionid, u.user_type, COALESCE(u.can_withdraw,0), u.created_at, u.updated_at
+	          FROM users u
+	          INNER JOIN user_identities ui ON ui.user_id = u.id AND ui.identity_type = 'phone'
+	          WHERE ui.identity_key = ? AND u.user_type = 'miniprogram'`
+	var canWithdraw int
+	err := m.DB.QueryRow(query, phone).Scan(
+		&user.ID, &user.Username, &user.Password, &user.OpenID, &user.UnionID,
+		&user.UserType, &canWithdraw, &user.CreatedAt, &user.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	user.CanWithdraw = canWithdraw != 0
+	return user, nil
+}
+
+// CreateByPhone 用手机号创建用户
+func (m *UserModel) CreateByPhone(phone string) (*User, error) {
+	// 生成用户名：phone_138xxxx1234
+	username := "phone_" + phone
+	user := &User{
+		Username: username,
+		UserType: "miniprogram",
+	}
+	if err := m.Create(user); err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
 // InitTable 初始化用户表
 func (m *UserModel) InitTable() error {
 	schema := `
@@ -401,7 +436,8 @@ func (m *UserModel) GetEffectiveUserByID(userID int64) (*User, error) {
 func (m *UserModel) ListManagementUsers(filters ManagementUserListFilters, limit, offset int) ([]*ManagementUserListItem, error) {
 	whereSQL, args := buildManagementUserListWhere(filters)
 	query := `SELECT u.id, u.username, u.user_type, COALESCE(u.can_withdraw, 0), u.created_at, u.updated_at,
-	                  COALESCE(p.nickname, ''), COALESCE(p.enterprise_wechat_verified, 0), p.enterprise_wechat_verified_at, COALESCE(p.enterprise_wechat_contact, '')
+	                  COALESCE(p.nickname, ''), COALESCE(p.enterprise_wechat_verified, 0), p.enterprise_wechat_verified_at, COALESCE(p.enterprise_wechat_contact, ''),
+	                  COALESCE(p.phone, ''), COALESCE(p.identity_type, '')
 	          FROM users u
 	          LEFT JOIN user_profiles p ON p.user_id = u.id` + whereSQL + `
 	          ORDER BY u.id DESC
@@ -430,6 +466,8 @@ func (m *UserModel) ListManagementUsers(filters ManagementUserListFilters, limit
 			&enterpriseWechatVerified,
 			&item.EnterpriseWechatVerifiedAt,
 			&item.EnterpriseWechatContact,
+			&item.Phone,
+			&item.IdentityType,
 		); err != nil {
 			continue
 		}
