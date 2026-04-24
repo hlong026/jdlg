@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const asset_1 = require("../../utils/asset");
 const enterpriseWechat_1 = require("../../utils/enterpriseWechat");
+const favoriteApi_1 = require("../../utils/favoriteApi");
 const API_BASE_URL = 'https://api.jiadilingguang.com';
 const DEFAULT_CONSULT_WECHAT_TIP = '扫码添加企业微信，备注“设计咨询”，即可继续沟通服务内容、合作方式和报价。';
 const DEFAULT_DESIGNER_WORK_IMAGE = (0, asset_1.resolveAssetPath)('/assets/images/home.jpg');
@@ -111,6 +112,8 @@ Page({
         isSelfHomepage: false,
         loading: true,
         isFollowed: false,
+        isFavorited: false,
+        favoriteLoading: false,
         contactPopupVisible: false,
         supplierWechatQr: enterpriseWechat_1.DEFAULT_ENTERPRISE_WECHAT_QRCODE,
         supplierWechatQrAvailable: true,
@@ -190,10 +193,12 @@ Page({
         });
         this.loadDesignerHomepage();
         this.loadFollowState();
+        this.loadFavoriteState();
     },
     onPullDownRefresh() {
         this.loadDesignerHomepage();
         this.loadFollowState();
+        this.loadFavoriteState();
     },
     splitWorks(works) {
         const left = [];
@@ -301,6 +306,20 @@ Page({
         catch (error) {
             console.error('加载关注状态失败:', error);
             this.setData({ isFollowed: false });
+        }
+    },
+    async loadFavoriteState() {
+        const userId = Number(this.data.userId || 0);
+        if (!userId || this.data.isSelfHomepage) {
+            this.setData({ isFavorited: false });
+            return;
+        }
+        try {
+            const data = await (0, favoriteApi_1.fetchFavoriteStatus)('designer', userId);
+            this.setData({ isFavorited: data.favorited === true });
+        }
+        catch (error) {
+            this.setData({ isFavorited: false });
         }
     },
     async loadDesignerHomepage() {
@@ -587,6 +606,31 @@ Page({
         catch (error) {
             wx.showToast({
                 title: error?.message || '操作失败',
+                icon: 'none',
+            });
+        }
+    },
+    async toggleFavorite() {
+        const userId = Number(this.data.userId || 0);
+        if (!userId || this.data.isSelfHomepage || this.data.favoriteLoading) {
+            return;
+        }
+        try {
+            this.setData({ favoriteLoading: true });
+            const data = await (0, favoriteApi_1.toggleFavorite)('designer', userId, this.data.isFavorited);
+            this.setData({
+                isFavorited: data.favorited === true,
+                favoriteLoading: false,
+            });
+            wx.showToast({
+                title: data.favorited === true ? '已收藏设计师' : '已取消收藏',
+                icon: 'none',
+            });
+        }
+        catch (error) {
+            this.setData({ favoriteLoading: false });
+            wx.showToast({
+                title: error?.message || '收藏操作失败',
                 icon: 'none',
             });
         }

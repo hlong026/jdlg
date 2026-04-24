@@ -118,10 +118,22 @@
   box-shadow: 0 14rpx 28rpx rgba(113, 80, 63, 0.12);
 
   &.share {
-    flex: 0 0 42%;
+    flex: 0 0 30%;
     background: rgba(255, 255, 255, 0.82);
     border: 1px solid rgba(188, 168, 145, 0.4);
     color: #6f5945;
+  }
+
+  &.favorite {
+    flex: 0 0 24%;
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(188, 168, 145, 0.4);
+    color: #6f5945;
+  }
+
+  &.favorite.active {
+    background: #5d4731;
+    color: #fffaf2;
   }
 
   &.primary {

@@ -37,6 +37,9 @@
             <view wx:if="{{!isSelfHomepage}}" class="profile-action-button profile-action-button-secondary" bindtap="onToggleFollowDesigner">
               <text class="profile-action-button-text-secondary">{{isFollowed ? '已关注设计师' : '关注设计师'}}</text>
             </view>
+            <view wx:if="{{!isSelfHomepage}}" class="profile-action-button profile-action-button-secondary {{isFavorited ? 'profile-action-button-favorited' : ''}}" bindtap="toggleFavorite">
+              <text class="profile-action-button-text-secondary">{{favoriteLoading ? '处理中' : (isFavorited ? '已收藏' : '收藏')}}</text>
+            </view>
             <view wx:if="{{!isSelfHomepage}}" class="profile-action-button profile-action-button-primary" bindtap="onConsultDesigner">
               <text class="profile-action-button-text-primary">咨询设计师</text>
             </view>

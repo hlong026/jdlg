@@ -227,11 +227,12 @@
   color: #fff8ef;
 }
 
-.profile-action-row {
-  margin-top: 16rpx;
-  display: flex;
-  gap: 14rpx;
-}
+  .profile-action-row {
+    margin-top: 16rpx;
+    display: flex;
+    gap: 14rpx;
+    flex-wrap: wrap;
+  }
 
 .profile-action-button {
   flex: 1;
@@ -244,10 +245,20 @@
   box-sizing: border-box;
 }
 
-.profile-action-button-secondary {
-  background: rgba(241, 233, 223, 0.92);
-  border: 1rpx solid rgba(188, 168, 145, 0.4);
-}
+  .profile-action-button-secondary {
+    background: rgba(241, 233, 223, 0.92);
+    border: 1rpx solid rgba(188, 168, 145, 0.4);
+  }
+
+  .profile-action-button-favorited {
+    background: #5d4731;
+    border-color: #5d4731;
+
+    .profile-action-button-text-secondary {
+      color: #fff8ef;
+      font-weight: 600;
+    }
+  }
 
 .profile-action-button-primary {
   background: linear-gradient(180deg, #c8a679 0%, #aa865d 100%);

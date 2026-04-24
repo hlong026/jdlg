@@ -1,6 +1,7 @@
 import { AIToolItem, getCategoryLabel } from '../../utils/aiTools'
 import { fetchAIToolDetail } from '../../utils/aiToolApi'
 import { shouldUseMinimalAIToolPresentation } from '../../utils/aiToolPresentation'
+import { fetchFavoriteStatus, toggleFavorite } from '../../utils/favoriteApi'
 
 type PageOptions = {
   id?: string
@@ -30,6 +31,8 @@ Page({
     highlights: [] as string[],
     usageTipsTitle: '使用提示',
     loading: false,
+    isFavorited: false,
+    favoriteLoading: false,
   },
 
   async onLoad(options: PageOptions) {
@@ -52,6 +55,7 @@ Page({
         highlights: buildUsageTips(tool),
         usageTipsTitle: String(tool.usageTipsTitle || '使用提示'),
       })
+      this.loadFavoriteState()
     } catch (error: any) {
       wx.showToast({
         title: error?.message || '工具信息不存在',
@@ -78,10 +82,49 @@ Page({
     })
   },
 
+  async loadFavoriteState() {
+    const tool = this.data.tool
+    if (!tool?.id) {
+      this.setData({ isFavorited: false })
+      return
+    }
+    try {
+      const data = await fetchFavoriteStatus('ai_tool', Number(tool.id))
+      this.setData({ isFavorited: data.favorited === true })
+    } catch (error) {
+      this.setData({ isFavorited: false })
+    }
+  },
+
+  async toggleFavorite() {
+    const tool = this.data.tool
+    if (!tool?.id || this.data.favoriteLoading) {
+      return
+    }
+    try {
+      this.setData({ favoriteLoading: true })
+      const data = await toggleFavorite('ai_tool', Number(tool.id), this.data.isFavorited)
+      this.setData({
+        isFavorited: data.favorited === true,
+        favoriteLoading: false,
+      })
+      wx.showToast({
+        title: data.favorited === true ? '已收藏' : '已取消收藏',
+        icon: 'none',
+      })
+    } catch (error: any) {
+      this.setData({ favoriteLoading: false })
+      wx.showToast({
+        title: error?.message || '收藏操作失败',
+        icon: 'none',
+      })
+    }
+  },
+
   onShareAppMessage() {
     const tool = this.data.tool
     return {
-      title: tool ? `${tool.name} · AI生图工具` : 'AI生图工具',
+      title: tool ? `${tool.name} - AI生图工具` : 'AI生图工具',
       path: tool ? `/pages/aitooldetail/aitooldetail?id=${tool.id}` : '/pages/aitools/aitools',
     }
   },

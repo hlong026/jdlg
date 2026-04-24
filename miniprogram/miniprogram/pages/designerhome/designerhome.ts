@@ -10,6 +10,7 @@ import {
   resolveEnterpriseWechatServiceConfig,
   tryOpenCustomerServiceDirect,
 } from '../../utils/enterpriseWechat';
+import { fetchFavoriteStatus, toggleFavorite } from '../../utils/favoriteApi';
 
 const API_BASE_URL = 'https://api.jiadilingguang.com';
 const DEFAULT_CONSULT_WECHAT_TIP = '扫码添加企业微信，备注“设计咨询”，即可继续沟通服务内容、合作方式和报价。';
@@ -151,6 +152,8 @@ Page({
     isSelfHomepage: false,
     loading: true,
     isFollowed: false,
+    isFavorited: false,
+    favoriteLoading: false,
     contactPopupVisible: false,
     supplierWechatQr: DEFAULT_ENTERPRISE_WECHAT_QRCODE,
     supplierWechatQrAvailable: true,
@@ -231,11 +234,13 @@ Page({
     });
     this.loadDesignerHomepage();
     this.loadFollowState();
+    this.loadFavoriteState();
   },
 
   onPullDownRefresh() {
     this.loadDesignerHomepage();
     this.loadFollowState();
+    this.loadFavoriteState();
   },
 
   splitWorks(works: DesignerWorkItem[]) {
@@ -352,6 +357,20 @@ Page({
     } catch (error) {
       console.error('加载关注状态失败:', error);
       this.setData({ isFollowed: false });
+    }
+  },
+
+  async loadFavoriteState() {
+    const userId = Number(this.data.userId || 0);
+    if (!userId || this.data.isSelfHomepage) {
+      this.setData({ isFavorited: false });
+      return;
+    }
+    try {
+      const data = await fetchFavoriteStatus('designer', userId);
+      this.setData({ isFavorited: data.favorited === true });
+    } catch (error) {
+      this.setData({ isFavorited: false });
     }
   },
 
@@ -659,6 +678,31 @@ Page({
     } catch (error: any) {
       wx.showToast({
         title: error?.message || '操作失败',
+        icon: 'none',
+      });
+    }
+  },
+
+  async toggleFavorite() {
+    const userId = Number(this.data.userId || 0);
+    if (!userId || this.data.isSelfHomepage || this.data.favoriteLoading) {
+      return;
+    }
+    try {
+      this.setData({ favoriteLoading: true });
+      const data = await toggleFavorite('designer', userId, this.data.isFavorited);
+      this.setData({
+        isFavorited: data.favorited === true,
+        favoriteLoading: false,
+      });
+      wx.showToast({
+        title: data.favorited === true ? '已收藏设计师' : '已取消收藏',
+        icon: 'none',
+      });
+    } catch (error: any) {
+      this.setData({ favoriteLoading: false });
+      wx.showToast({
+        title: error?.message || '收藏操作失败',
         icon: 'none',
       });
     }

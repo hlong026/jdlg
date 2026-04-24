@@ -1,6 +1,7 @@
 import { getPageCache, prefetchImages, setPageCache } from '../../utils/perf';
 import { normalizeCosUrl } from '../../utils/asset';
 import { prepareShareCardImage } from '../../utils/shareImage';
+import { fetchFavoriteStatus, toggleFavorite } from '../../utils/favoriteApi';
 
 const API_BASE_URL = 'https://api.jiadilingguang.com';
 
@@ -37,6 +38,8 @@ Page({
     shareImageSourceUrl: '',
     navTop: 0,
     navBarHeight: 72,
+    isFavorited: false,
+    favoriteLoading: false,
   },
 
   onLoad(options: Record<string, string | undefined>) {
@@ -49,6 +52,7 @@ Page({
       return;
     }
     const cachedDetail = getPageCache<InspirationDetail>(buildInspirationDetailCacheKey(inspirationId));
+    this.loadFavoriteState();
     if (cachedDetail) {
       this.applyDetail(cachedDetail);
       void this.loadDetail(true);
@@ -136,6 +140,45 @@ Page({
         wx.showToast({ title: '页面跳转失败', icon: 'none' });
       },
     });
+  },
+
+  async loadFavoriteState() {
+    const inspirationId = Number(this.data.inspirationId || 0);
+    if (!inspirationId) {
+      this.setData({ isFavorited: false });
+      return;
+    }
+    try {
+      const data = await fetchFavoriteStatus('inspiration', inspirationId);
+      this.setData({ isFavorited: data.favorited === true });
+    } catch (error) {
+      this.setData({ isFavorited: false });
+    }
+  },
+
+  async toggleFavorite() {
+    const inspirationId = Number(this.data.inspirationId || 0);
+    if (!inspirationId || this.data.favoriteLoading) {
+      return;
+    }
+    try {
+      this.setData({ favoriteLoading: true });
+      const data = await toggleFavorite('inspiration', inspirationId, this.data.isFavorited);
+      this.setData({
+        isFavorited: data.favorited === true,
+        favoriteLoading: false,
+      });
+      wx.showToast({
+        title: data.favorited === true ? '已收藏' : '已取消收藏',
+        icon: 'none',
+      });
+    } catch (error: any) {
+      this.setData({ favoriteLoading: false });
+      wx.showToast({
+        title: error?.message || '收藏操作失败',
+        icon: 'none',
+      });
+    }
   },
 
   formatDate(raw: string): string {

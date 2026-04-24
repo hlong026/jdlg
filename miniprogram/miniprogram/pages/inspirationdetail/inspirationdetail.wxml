@@ -1,6 +1,5 @@
 <view class="inspiration-detail-page">
-  <!-- 统一导航栏 -->
-  <navigation-bar title="模板详情" background="#e6daca" />
+  <navigation-bar title="灵感详情" background="#e6daca" />
 
   <view class="page-body" wx:if="{{!loading && detail}}">
     <view class="hero-card">
@@ -11,7 +10,7 @@
     </view>
 
     <view class="content-card">
-      <text class="content-kicker">场景案例模板</text>
+      <text class="content-kicker">灵感案例模板</text>
       <text class="title">{{detail.title}}</text>
       <view class="meta-row">
         <text class="meta-tag">{{detail.topic || '灵感'}}</text>
@@ -26,6 +25,9 @@
         <view class="action-row">
           <button class="action-btn share" open-type="share">
             <text>分享模板</text>
+          </button>
+          <button class="action-btn favorite {{isFavorited ? 'active' : ''}}" bindtap="toggleFavorite">
+            {{favoriteLoading ? '处理中' : (isFavorited ? '已收藏' : '收藏')}}
           </button>
           <button class="action-btn primary" bindtap="onMakeSame">做同款</button>
         </view>

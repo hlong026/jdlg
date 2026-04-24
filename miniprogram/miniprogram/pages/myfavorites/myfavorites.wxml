@@ -1,8 +1,13 @@
 <view class="page">
-  <!-- 统一导航栏 -->
   <navigation-bar title="我的收藏" background="#f6efe7" />
 
   <view class="content">
+    <scroll-view class="favorite-tabs" scroll-x enable-flex>
+      <view class="favorite-tab {{currentType === item.value ? 'favorite-tab-active' : ''}}" wx:for="{{favoriteTabs}}" wx:key="value" bindtap="onFavoriteTabTap" data-type="{{item.value}}">
+        {{item.label}}
+      </view>
+    </scroll-view>
+
     <view class="search-bar">
       <view class="search-input-wrap">
         <view class="search-icon"></view>
@@ -23,24 +28,27 @@
     </view>
 
     <view class="card-list" wx:else>
-      <view class="favorite-card" wx:for="{{items}}" wx:key="id" bindtap="onTemplateTap" data-id="{{item.id}}">
+      <view class="favorite-card" wx:for="{{items}}" wx:key="key" bindtap="onFavoriteCardTap" data-target-type="{{item.targetType}}" data-target-id="{{item.targetId}}">
         <image class="favorite-image" src="{{item.image}}" mode="aspectFill" />
         <view class="favorite-body">
           <view class="favorite-head">
-            <text class="favorite-title">{{item.title}}</text>
-            <text class="favorite-price">{{item.priceText}}</text>
+            <view class="favorite-title-wrap">
+              <text class="favorite-type">{{item.typeLabel}}</text>
+              <text class="favorite-title">{{item.title}}</text>
+            </view>
+            <text class="favorite-price">{{item.badgeText}}</text>
           </view>
-          <text class="favorite-author">{{item.author}}</text>
+          <text class="favorite-author" wx:if="{{item.author}}">{{item.author}}</text>
+          <text class="favorite-subtitle" wx:if="{{item.subtitle}}">{{item.subtitle}}</text>
           <view class="favorite-tags" wx:if="{{item.tags.length}}">
             <text class="favorite-tag" wx:for="{{item.tags}}" wx:key="*this">{{item}}</text>
           </view>
-          <view class="favorite-meta">
-            <text class="favorite-meta-text">{{item.likeText}}</text>
-            <text class="favorite-meta-text">{{item.useText}}</text>
+          <view class="favorite-meta" wx:if="{{item.metaTexts.length}}">
+            <text class="favorite-meta-text" wx:for="{{item.metaTexts}}" wx:key="*this">{{item}}</text>
           </view>
           <view class="favorite-actions">
-            <view class="favorite-remove {{removingId === item.id ? 'favorite-remove-disabled' : ''}}" catchtap="removeFavorite" data-id="{{item.id}}">
-              {{removingId === item.id ? '取消中' : '取消收藏'}}
+            <view class="favorite-remove {{removingKey === item.key ? 'favorite-remove-disabled' : ''}}" catchtap="removeFavorite" data-target-type="{{item.targetType}}" data-target-id="{{item.targetId}}">
+              {{removingKey === item.key ? '取消中' : '取消收藏'}}
             </view>
           </view>
         </view>

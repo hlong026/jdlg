@@ -19,13 +19,7 @@
     <view class="aitooldetail-demo-card">
       <view class="aitooldetail-demo-title">效果演示</view>
       <view class="aitooldetail-compare-shell" wx:if="{{tool.detailBeforeImage && tool.detailAfterImage}}">
-        <before-after-compare
-          beforeImage="{{tool.detailBeforeImage}}"
-          afterImage="{{tool.detailAfterImage}}"
-          beforeLabel="改造前"
-          afterLabel="改造后"
-          height="420rpx"
-        />
+        <before-after-compare beforeImage="{{tool.detailBeforeImage}}" afterImage="{{tool.detailAfterImage}}" beforeLabel="改造前" afterLabel="改造后" height="420rpx" />
       </view>
       <view class="aitooldetail-demo-empty" wx:else>
         <view class="aitooldetail-demo-grid">
@@ -53,6 +47,9 @@
     </view>
 
     <view class="aitooldetail-bottom-bar">
+      <button class="aitooldetail-favorite-btn {{isFavorited ? 'active' : ''}}" bindtap="toggleFavorite">
+        {{favoriteLoading ? '处理中' : (isFavorited ? '已收藏' : '收藏')}}
+      </button>
       <button class="aitooldetail-start-btn" bindtap="onStartUse">开始使用</button>
     </view>
   </view>
