@@ -9,6 +9,16 @@
   padding-bottom: 180rpx;
 }
 
+.edit-fixed-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 90;
+  background: #e6daca;
+  box-shadow: 0 10rpx 22rpx rgba(113, 80, 63, 0.08);
+}
+
 .page-overview,
 .manage-toolbar {
   width: 694rpx;
@@ -72,20 +82,14 @@
 }
 
 .manage-toolbar {
-  margin: 0;
+  margin: 0 auto;
   min-height: 96rpx;
-  padding: 0 60rpx;
+  padding: 0 8rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  position: fixed;
-  top: calc(env(safe-area-inset-top) + 140rpx);
-  left: 0;
-  right: 0;
-  width: auto;
-  z-index: 90;
+  position: relative;
   background: #e6daca;
-  box-shadow: 0 10rpx 22rpx rgba(113, 80, 63, 0.08);
 }
 
 .manage-toolbar-action,
@@ -494,7 +498,7 @@
 }
 
 .manage-content {
-  padding: 116rpx 24rpx 0;
+  padding: 260rpx 24rpx 0;
 }
 
 .manage-summary {

@@ -1,6 +1,21 @@
 <!--pages/generatehistory/generatehistory.wxml-->
 <view class="page {{isEditMode ? 'page-edit-mode' : ''}}">
-  <navigation-bar title="生成历史" background="#e6daca"></navigation-bar>
+  <navigation-bar wx:if="{{!isEditMode}}" title="生成历史" background="#e6daca"></navigation-bar>
+
+  <view class="edit-fixed-header" wx:if="{{isEditMode}}">
+    <navigation-bar title="生成历史" background="#e6daca"></navigation-bar>
+    <view class="manage-toolbar" wx:if="{{!loading && list.length > 0}}">
+      <view class="manage-toolbar-action is-left" bindtap="onToggleEditMode">
+        <text>取消</text>
+      </view>
+      <view class="manage-toolbar-title">
+        <text>已选择 {{selectedIds.length}} 项</text>
+      </view>
+      <view class="manage-toolbar-action is-right" bindtap="onToggleSelectAll">
+        <text>{{selectAll ? '取消全选' : '全选'}}</text>
+      </view>
+    </view>
+  </view>
 
   <view class="page-overview" wx:if="{{!loading && list.length > 0 && !isEditMode}}">
     <view class="page-overview-copy">
@@ -10,18 +25,6 @@
     </view>
     <view class="page-toolbar-action" bindtap="onToggleEditMode">
       <text>管理记录</text>
-    </view>
-  </view>
-
-  <view class="manage-toolbar" wx:if="{{!loading && list.length > 0 && isEditMode}}">
-    <view class="manage-toolbar-action is-left" bindtap="onToggleEditMode">
-      <text>取消</text>
-    </view>
-    <view class="manage-toolbar-title">
-      <text>已选择 {{selectedIds.length}} 项</text>
-    </view>
-    <view class="manage-toolbar-action is-right" bindtap="onToggleSelectAll">
-      <text>{{selectAll ? '取消全选' : '全选'}}</text>
     </view>
   </view>
 
