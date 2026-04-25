@@ -707,7 +707,7 @@ const APIConfigModal: React.FC<APIConfigModalProps> = ({ config, onSave, onClose
                                 </select>
                                 <span className="form-hint">
                                     {protocolType === 'toapis_async'
-                                        ? 'ToAPIs 会先返回任务 ID，系统自动轮询任务状态并获取最终图片。'
+                                        ? 'ToAPIs 会先返回任务 ID，系统自动轮询任务状态；失败时仅在 ToAPIs 内按 gemini-3-pro-image-preview -> gemini-3.1-flash-image-preview -> gpt-image-2 尝试。'
                                         : '同步协议会在一次请求中直接解析图片结果。'}
                                 </span>
                             </div>
@@ -743,7 +743,7 @@ const APIConfigModal: React.FC<APIConfigModalProps> = ({ config, onSave, onClose
                             )}
                             {isToAPIsConfig && (
                                 <span className="form-hint">
-                                    ToAPIs 图生图仅支持公网图片 URL，不支持直接传入 base64。
+                                    ToAPIs 图生图仅支持公网图片 URL，不支持直接传入 base64；系统会按模型自动写入 image_urls 或 reference_images。
                                 </span>
                             )}
                         </div>
@@ -923,7 +923,7 @@ const APIConfigModal: React.FC<APIConfigModalProps> = ({ config, onSave, onClose
                             </span>
                             {isToAPIsConfig && (
                                 <span className="form-hint" style={{ color: '#8a5a00' }}>
-                                    ToAPIs 推荐使用 <code>{'{{image_url}}'}</code> 传参考图 URL，系统不会把参考图转成 base64。
+                                    ToAPIs 主配置只需保存主模型模板，备用模型由后端固定管理；参考图字段由系统自动注入，不需要手动写入模板。
                                 </span>
                             )}
                             {taskType === 'ai_draw' && protocolType !== 'toapis_async' && (

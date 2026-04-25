@@ -15,6 +15,7 @@ import (
 
 const geminiDrawGenerateContentEndpoint = "https://api.laozhang.ai/v1beta/models/gemini-3-pro-image-preview:generateContent"
 const geminiDrawFlashGenerateContentEndpoint = "https://api.laozhang.ai/v1beta/models/gemini-3.1-flash-image-preview:generateContent"
+const toapisImageGenerationEndpoint = "https://toapis.com/v1/images/generations"
 
 // AITaskProcessor AI任务处理器
 type AITaskProcessor struct {
@@ -202,13 +203,13 @@ func (p *AITaskProcessor) submitTask(task *model.AITask) error {
 	// 直接使用内置配置（有图片就传 true，无论是单图还是多图）
 	hasImage := imageURL != "" || len(imageURLs) > 0
 	apiConfigData := p.getConfiguredAIConfig(taskType, hasImage)
-	fallbackConfigs := p.getFallbackAIConfigs(taskType, hasImage)
 	if apiConfigData == nil {
 		errMsg := "不支持的任务类型: " + taskType
 		log.Printf("[AITaskProcessor] %s", errMsg)
 		p.taskModel.UpdateStatusByTaskNo(task.TaskNo, "failed", "", safeerror.SanitizeAIGenerationError(errMsg))
 		return fmt.Errorf("%s", errMsg)
 	}
+	fallbackConfigs := p.getFallbackAIConfigs(taskType, hasImage, apiConfigData)
 	requestedGenerateCount := getRequestedGenerateCountFromTask(task)
 	primaryModel := resolveConfiguredModel(apiConfigData)
 	log.Printf("[AITaskProcessor] 任务执行计划: requested_generate_count=%d, has_reference_images=%t, primary_model=%s, fallback_count=%d", requestedGenerateCount, hasImage, primaryModel, len(fallbackConfigs))
@@ -438,6 +439,14 @@ func getGeminiFlashDrawBodyTemplate(hasImage bool) string {
 	return getGeminiDrawBodyTemplate(hasImage)
 }
 
+func getToAPIsGeminiFlashDrawBodyTemplate() string {
+	return `{"model":"gemini-3.1-flash-image-preview","prompt":"{{prompt}}","size":"{{aspect_ratio}}","n":1,"metadata":{"resolution":"{{image_size}}"}}`
+}
+
+func getToAPIsGPTImage2DrawBodyTemplate() string {
+	return `{"model":"gpt-image-2","prompt":"{{prompt}}","size":"{{aspect_ratio}}","resolution":"{{image_size}}","response_format":"url","n":1}`
+}
+
 // getHardcodedAIConfig 获取硬编码的AI配置（当数据库中没有配置时使用）
 func (p *AITaskProcessor) getHardcodedAIConfig(taskType string, hasImage bool) *AIAPIConfigData {
 	// 从配置中获取老张平台 API Key
@@ -505,9 +514,13 @@ func (p *AITaskProcessor) getHardcodedAIConfig(taskType string, hasImage bool) *
 	return nil
 }
 
-func (p *AITaskProcessor) getFallbackAIConfigs(taskType string, hasImage bool) []*AIAPIConfigData {
+func (p *AITaskProcessor) getFallbackAIConfigs(taskType string, hasImage bool, primaryConfig *AIAPIConfigData) []*AIAPIConfigData {
 	if taskType != "ai_draw" {
 		return nil
+	}
+
+	if isToAPIsAsyncConfig(primaryConfig) {
+		return p.getToAPIsFallbackAIConfigs(primaryConfig)
 	}
 
 	apiKey := p.getLaoZhangAPIKey()
@@ -556,6 +569,33 @@ func (p *AITaskProcessor) getFallbackAIConfigs(taskType string, hasImage bool) [
 	})
 
 	return fallbacks
+}
+
+func (p *AITaskProcessor) getToAPIsFallbackAIConfigs(primaryConfig *AIAPIConfigData) []*AIAPIConfigData {
+	if primaryConfig == nil {
+		return nil
+	}
+	fallbacks := make([]*AIAPIConfigData, 0, 2)
+	fallbacks = append(fallbacks,
+		cloneToAPIsFallbackConfig(primaryConfig, "ToAPIs Gemini 3.1 Flash 备用", getToAPIsGeminiFlashDrawBodyTemplate()),
+		cloneToAPIsFallbackConfig(primaryConfig, "ToAPIs GPT-Image-2 次备用", getToAPIsGPTImage2DrawBodyTemplate()),
+	)
+	return fallbacks
+}
+
+func cloneToAPIsFallbackConfig(primaryConfig *AIAPIConfigData, providerName string, bodyTemplate string) *AIAPIConfigData {
+	fallback := cloneAIAPIConfigData(primaryConfig)
+	if fallback == nil {
+		return nil
+	}
+	fallback.ProviderCode = "toapis"
+	fallback.ProviderName = providerName
+	fallback.ProtocolType = "toapis_async"
+	if strings.TrimSpace(fallback.APIEndpoint) == "" {
+		fallback.APIEndpoint = toapisImageGenerationEndpoint
+	}
+	fallback.BodyTemplate = bodyTemplate
+	return fallback
 }
 
 func (p *AITaskProcessor) getLaoZhangAPIKey() string {

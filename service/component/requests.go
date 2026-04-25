@@ -740,6 +740,13 @@ func isToAPIsAsyncConfig(apiConfig *AIAPIConfigData) bool {
 		(strings.Contains(endpoint, "toapis.com") && strings.Contains(endpoint, "/v1/images/generations"))
 }
 
+func isToAPIsGPTImage2Config(apiConfig *AIAPIConfigData) bool {
+	if !isToAPIsAsyncConfig(apiConfig) {
+		return false
+	}
+	return strings.Contains(strings.ToLower(resolveConfiguredModel(apiConfig)), "gpt-image-2")
+}
+
 func getOrCreateChildMap(parent map[string]interface{}, key string) map[string]interface{} {
 	if parent == nil {
 		return nil
@@ -789,24 +796,48 @@ func stripToAPIsDrawTopLevelFields(body map[string]interface{}) {
 	delete(body, "image")
 	delete(body, "image_url")
 	delete(body, "images")
+	delete(body, "aspect_ratio")
+	delete(body, "image_size")
 	if imageItems, ok := body["image_urls"].([]interface{}); ok {
 		filtered := make([]interface{}, 0, len(imageItems))
 		for _, item := range imageItems {
 			itemMap, ok := item.(map[string]interface{})
-			if !ok {
+			if ok {
+				imageURL, _ := itemMap["url"].(string)
+				imageURL = strings.TrimSpace(imageURL)
+				if imageURL == "" || imageURL == "{{image_url}}" {
+					continue
+				}
+				filtered = append(filtered, itemMap)
 				continue
 			}
-			imageURL, _ := itemMap["url"].(string)
+			imageURL, _ := item.(string)
 			imageURL = strings.TrimSpace(imageURL)
 			if imageURL == "" || imageURL == "{{image_url}}" {
 				continue
 			}
-			filtered = append(filtered, itemMap)
+			filtered = append(filtered, imageURL)
 		}
 		if len(filtered) == 0 {
 			delete(body, "image_urls")
 		} else {
 			body["image_urls"] = filtered
+		}
+	}
+	if referenceImages, ok := body["reference_images"].([]interface{}); ok {
+		filtered := make([]interface{}, 0, len(referenceImages))
+		for _, item := range referenceImages {
+			imageURL, _ := item.(string)
+			imageURL = strings.TrimSpace(imageURL)
+			if imageURL == "" || imageURL == "{{image_url}}" {
+				continue
+			}
+			filtered = append(filtered, imageURL)
+		}
+		if len(filtered) == 0 {
+			delete(body, "reference_images")
+		} else {
+			body["reference_images"] = filtered
 		}
 	}
 }
@@ -1584,7 +1615,7 @@ func (p *RequestPool) buildRequestBody(taskCtx *AITaskContext) (map[string]inter
 	// 处理多图：展开为多个 inline_data
 	if len(taskCtx.ImageURLs) > 0 {
 		if isToAPIsAsyncConfig(taskCtx.APIConfig) {
-			body["image_urls"] = buildToAPIsImageURLPayload(taskCtx.ImageURLs)
+			setToAPIsReferenceImagePayload(body, taskCtx.APIConfig, taskCtx.ImageURLs)
 		} else if isSeedreamAPIConfig(taskCtx.APIConfig) {
 			imageValues := make([]interface{}, 0, len(taskCtx.ImageURLs))
 			for _, imageURL := range taskCtx.ImageURLs {
@@ -1603,9 +1634,7 @@ func (p *RequestPool) buildRequestBody(taskCtx *AITaskContext) (map[string]inter
 		}
 	} else if taskCtx.ImageURL != "" {
 		if isToAPIsAsyncConfig(taskCtx.APIConfig) {
-			if _, exists := body["image_urls"]; !exists {
-				body["image_urls"] = buildToAPIsImageURLPayload([]string{taskCtx.ImageURL})
-			}
+			setToAPIsReferenceImagePayload(body, taskCtx.APIConfig, []string{taskCtx.ImageURL})
 		} else if isSeedreamAPIConfig(taskCtx.APIConfig) {
 			body["image"] = taskCtx.ImageURL
 		} else if strings.Contains(taskCtx.APIConfig.BodyTemplate, "{{image}}") {
@@ -1677,8 +1706,54 @@ func buildToAPIsImageURLPayload(imageURLs []string) []interface{} {
 	return items
 }
 
+func buildToAPIsReferenceImagePayload(imageURLs []string) []string {
+	items := make([]string, 0, len(imageURLs))
+	for _, imageURL := range imageURLs {
+		imageURL = strings.TrimSpace(imageURL)
+		if imageURL != "" {
+			items = append(items, imageURL)
+		}
+	}
+	return items
+}
+
+func setToAPIsReferenceImagePayload(body map[string]interface{}, apiConfig *AIAPIConfigData, imageURLs []string) {
+	if body == nil {
+		return
+	}
+	if isToAPIsGPTImage2Config(apiConfig) {
+		referenceImages := buildToAPIsReferenceImagePayload(imageURLs)
+		if len(referenceImages) > 0 {
+			body["reference_images"] = referenceImages
+		}
+		delete(body, "image_urls")
+		return
+	}
+	imageURLItems := buildToAPIsImageURLPayload(imageURLs)
+	if len(imageURLItems) > 0 {
+		body["image_urls"] = imageURLItems
+	}
+	delete(body, "reference_images")
+}
+
 func enforceAIDrawResolutionFields(body map[string]interface{}, apiConfig *AIAPIConfigData, aspectRatio string, normalizedImageSize string, requestImageSize string) {
 	if body == nil {
+		return
+	}
+	if isToAPIsAsyncConfig(apiConfig) {
+		if aspectRatio != "" {
+			body["size"] = aspectRatio
+		}
+		if normalizedImageSize != "" {
+			if isToAPIsGPTImage2Config(apiConfig) {
+				body["resolution"] = normalizedImageSize
+			} else {
+				metadata := getOrCreateChildMap(body, "metadata")
+				if metadata != nil {
+					metadata["resolution"] = normalizedImageSize
+				}
+			}
+		}
 		return
 	}
 	if isGeminiGenerateContentConfig(apiConfig) {
