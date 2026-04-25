@@ -95,8 +95,9 @@ type Config struct {
 type AIConfig struct {
 	ArkAPIKey       string // 火山/豆包 Key
 	LaoZhangAPIKey  string // 老张平台 Key
-	VideoAPIBaseURL string // AI 生成视频接口 base URL，默认火山引擎
-	VideoModel      string // 火山引擎视频模型 ID，默认 doubao-seedance-1-5-pro-251215
+	VideoProvider   string // AI 生成视频供应商：laozhang 或 ark_seedance
+	VideoAPIBaseURL string // AI 生成视频接口 base URL，默认老张平台
+	VideoModel      string // AI 生成视频模型 ID，按供应商选择默认值
 }
 
 // MySQLConfig MySQL配置
@@ -241,6 +242,7 @@ func Init() *Config {
 		AI: AIConfig{
 			ArkAPIKey:       arkKey,
 			LaoZhangAPIKey:  laozhangKey,
+			VideoProvider:   getEnv("AI_VIDEO_PROVIDER", "laozhang"),
 			VideoAPIBaseURL: getEnv("AI_VIDEO_API_BASE_URL", "https://api.laozhang.ai"),
 			VideoModel:      getEnv("AI_VIDEO_MODEL", "veo-3.1-landscape-fast-fl"),
 		},

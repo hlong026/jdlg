@@ -30,40 +30,235 @@ import (
 )
 
 const (
-	defaultVideoStones      int64 = 30
-	defaultVideoDurationMin int   = 5
-	defaultVideoDurationMax int   = 12
-	defaultVideoAPIBaseURL        = "https://api.laozhang.ai"
-	portraitVideoModel           = "veo-3.1-fast-fl"
-	landscapeVideoModel          = "veo-3.1-landscape-fast-fl"
-	aiVideoLongRunningThreshold   = 30 * time.Minute
-	aiVideoMonitorMaxAttempts     = 480
-	aiVideoSupportTicketCreatedBy = "system:auto-video-monitor"
+	defaultVideoStones            int64 = 30
+	defaultVideoDurationMin       int   = 5
+	defaultVideoDurationMax       int   = 12
+	defaultVideoAPIBaseURL              = "https://api.laozhang.ai"
+	defaultArkVideoAPIBaseURL           = "https://ark.cn-beijing.volces.com"
+	videoProviderLaoZhang               = "laozhang"
+	videoProviderArkSeedance            = "ark_seedance"
+	portraitVideoModel                  = "veo-3.1-fast-fl"
+	landscapeVideoModel                 = "veo-3.1-landscape-fast-fl"
+	arkSeedanceVideoModel               = "doubao-seedance-1-5-pro-251215"
+	aiVideoLongRunningThreshold         = 30 * time.Minute
+	aiVideoMonitorMaxAttempts           = 480
+	aiVideoSupportTicketCreatedBy       = "system:auto-video-monitor"
 )
 
 var (
-	aiVideoMonitorTasks sync.Map
-	aiVideoTaskLocks    sync.Map
+	aiVideoMonitorTasks       sync.Map
+	aiVideoTaskLocks          sync.Map
 	aiVideoSupportTicketModel *model.SupportTicketModel
 )
 
-func getVideoAPIBase(cfg *config.Config) string {
+type aiVideoProviderAdapter interface {
+	Code() string
+	BaseURL(cfg *config.Config) string
+	APIKey(cfg *config.Config) string
+	Model(cfg *config.Config, orientation, ratio string) string
+	CreateRequest(baseURL string, input aiVideoCreateInput) (string, io.Reader, string, error)
+	StatusURL(baseURL, externalID string) string
+	ContentURL(baseURL, externalID string) string
+}
+
+type aiVideoCreateInput struct {
+	Model       string
+	Prompt      string
+	Duration    int
+	Size        string
+	Ratio       string
+	Resolution  string
+	ImageBodies [][]byte
+}
+
+type laozhangVideoProvider struct{}
+
+func (laozhangVideoProvider) Code() string {
+	return videoProviderLaoZhang
+}
+
+func (laozhangVideoProvider) BaseURL(cfg *config.Config) string {
 	if cfg != nil {
 		baseURL := strings.TrimSpace(cfg.AI.VideoAPIBaseURL)
-		if baseURL != "" && !strings.EqualFold(strings.TrimSuffix(baseURL, "/"), "https://ark.cn-beijing.volces.com") {
+		if baseURL != "" && !strings.EqualFold(strings.TrimSuffix(baseURL, "/"), defaultArkVideoAPIBaseURL) {
 			return strings.TrimSuffix(baseURL, "/")
 		}
 	}
 	return defaultVideoAPIBaseURL
 }
 
-func getVideoAPIKey(cfg *config.Config) string {
+func (laozhangVideoProvider) APIKey(cfg *config.Config) string {
 	if cfg != nil && cfg.AI.LaoZhangAPIKey != "" {
 		return cfg.AI.LaoZhangAPIKey
 	}
 	return ""
 }
 
+func (laozhangVideoProvider) Model(cfg *config.Config, orientation, ratio string) string {
+	if cfg != nil {
+		model := strings.TrimSpace(cfg.AI.VideoModel)
+		if model != "" && !strings.HasPrefix(model, "doubao-seedance-") {
+			return model
+		}
+	}
+	if resolveVideoOrientation(orientation, ratio) == "portrait" {
+		return portraitVideoModel
+	}
+	return landscapeVideoModel
+}
+
+func (laozhangVideoProvider) CreateRequest(baseURL string, input aiVideoCreateInput) (string, io.Reader, string, error) {
+	createURL := strings.TrimSuffix(baseURL, "/") + "/v1/videos"
+	if len(input.ImageBodies) > 0 {
+		var body bytes.Buffer
+		writer := multipart.NewWriter(&body)
+		fields := []struct {
+			key   string
+			value string
+		}{
+			{"model", input.Model},
+			{"prompt", input.Prompt},
+			{"seconds", strconv.Itoa(input.Duration)},
+			{"size", input.Size},
+		}
+		for _, field := range fields {
+			if err := writer.WriteField(field.key, field.value); err != nil {
+				return "", nil, "", err
+			}
+		}
+		for i, bodyBytes := range input.ImageBodies {
+			part, err := writer.CreateFormFile("input_reference", fmt.Sprintf("frame_%d.jpg", i+1))
+			if err != nil {
+				return "", nil, "", err
+			}
+			if _, err := part.Write(bodyBytes); err != nil {
+				return "", nil, "", err
+			}
+		}
+		if err := writer.Close(); err != nil {
+			return "", nil, "", err
+		}
+		return createURL, &body, writer.FormDataContentType(), nil
+	}
+	bodyBytes, _ := json.Marshal(map[string]interface{}{
+		"model":   input.Model,
+		"prompt":  input.Prompt,
+		"seconds": strconv.Itoa(input.Duration),
+		"size":    input.Size,
+	})
+	return createURL, bytes.NewReader(bodyBytes), "application/json", nil
+}
+
+func (laozhangVideoProvider) StatusURL(baseURL, externalID string) string {
+	return strings.TrimSuffix(baseURL, "/") + "/v1/videos/" + externalID
+}
+
+func (laozhangVideoProvider) ContentURL(baseURL, externalID string) string {
+	return strings.TrimSuffix(baseURL, "/") + "/v1/videos/" + externalID + "/content"
+}
+
+type arkSeedanceVideoProvider struct{}
+
+func (arkSeedanceVideoProvider) Code() string {
+	return videoProviderArkSeedance
+}
+
+func (arkSeedanceVideoProvider) BaseURL(cfg *config.Config) string {
+	if cfg != nil {
+		baseURL := strings.TrimSpace(cfg.AI.VideoAPIBaseURL)
+		if baseURL != "" && !strings.EqualFold(strings.TrimSuffix(baseURL, "/"), defaultVideoAPIBaseURL) {
+			return strings.TrimSuffix(baseURL, "/")
+		}
+	}
+	return defaultArkVideoAPIBaseURL
+}
+
+func (arkSeedanceVideoProvider) APIKey(cfg *config.Config) string {
+	if cfg != nil && strings.TrimSpace(cfg.AI.ArkAPIKey) != "" {
+		return strings.TrimSpace(cfg.AI.ArkAPIKey)
+	}
+	return strings.TrimSpace(os.Getenv("ARK_API_KEY"))
+}
+
+func (arkSeedanceVideoProvider) Model(cfg *config.Config, orientation, ratio string) string {
+	if cfg != nil {
+		model := strings.TrimSpace(cfg.AI.VideoModel)
+		if model != "" && strings.HasPrefix(model, "doubao-seedance-") {
+			return model
+		}
+	}
+	return arkSeedanceVideoModel
+}
+
+func (arkSeedanceVideoProvider) CreateRequest(baseURL string, input aiVideoCreateInput) (string, io.Reader, string, error) {
+	content := []map[string]interface{}{{"type": "text", "text": input.Prompt}}
+	for i, bodyBytes := range input.ImageBodies {
+		if len(bodyBytes) == 0 {
+			continue
+		}
+		role := "first_frame"
+		if i == 1 {
+			role = "last_frame"
+		}
+		mimeType := http.DetectContentType(bodyBytes)
+		imageURL := fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(bodyBytes))
+		content = append(content, map[string]interface{}{
+			"type":      "image_url",
+			"image_url": map[string]string{"url": imageURL},
+			"role":      role,
+		})
+	}
+	body := map[string]interface{}{
+		"model":   input.Model,
+		"content": content,
+	}
+	if input.Duration > 0 {
+		body["duration"] = input.Duration
+	}
+	if input.Ratio != "" {
+		body["ratio"] = input.Ratio
+	}
+	if input.Resolution != "" {
+		body["resolution"] = input.Resolution
+	}
+	bodyBytes, _ := json.Marshal(body)
+	return strings.TrimSuffix(baseURL, "/") + "/api/v3/contents/generations/tasks", bytes.NewReader(bodyBytes), "application/json", nil
+}
+
+func (arkSeedanceVideoProvider) StatusURL(baseURL, externalID string) string {
+	return strings.TrimSuffix(baseURL, "/") + "/api/v3/contents/generations/tasks/" + externalID
+}
+
+func (arkSeedanceVideoProvider) ContentURL(baseURL, externalID string) string {
+	return strings.TrimSuffix(baseURL, "/") + "/api/v3/contents/generations/tasks/" + externalID
+}
+
+func getVideoProviderCode(cfg *config.Config) string {
+	if cfg != nil {
+		switch strings.ToLower(strings.TrimSpace(cfg.AI.VideoProvider)) {
+		case videoProviderArkSeedance, "ark", "seedance", "volcengine":
+			return videoProviderArkSeedance
+		case videoProviderLaoZhang, "":
+			return videoProviderLaoZhang
+		}
+	}
+	return videoProviderLaoZhang
+}
+
+func getVideoProviderAdapter(cfg *config.Config) aiVideoProviderAdapter {
+	if getVideoProviderCode(cfg) == videoProviderArkSeedance {
+		return arkSeedanceVideoProvider{}
+	}
+	return laozhangVideoProvider{}
+}
+
+func getVideoAPIBase(cfg *config.Config) string {
+	return getVideoProviderAdapter(cfg).BaseURL(cfg)
+}
+
+func getVideoAPIKey(cfg *config.Config) string {
+	return getVideoProviderAdapter(cfg).APIKey(cfg)
+}
 
 func resolveVideoOrientation(orientation, ratio string) string {
 	orientation = strings.ToLower(strings.TrimSpace(orientation))
@@ -91,16 +286,7 @@ func resolveVideoOrientation(orientation, ratio string) string {
 }
 
 func getVideoModel(cfg *config.Config, orientation, ratio string) string {
-	if cfg != nil {
-		model := strings.TrimSpace(cfg.AI.VideoModel)
-		if model != "" && !strings.EqualFold(model, "doubao-seedance-1-5-pro-251215") {
-			return model
-		}
-	}
-	if resolveVideoOrientation(orientation, ratio) == "portrait" {
-		return portraitVideoModel
-	}
-	return landscapeVideoModel
+	return getVideoProviderAdapter(cfg).Model(cfg, orientation, ratio)
 }
 
 func normalizeVideoResolutionLabel(resolution string) string {
@@ -318,8 +504,8 @@ func buildAIVideoRemoteHTTPError(stage string, baseURL string, externalID string
 	return errors.New(strings.Join(parts, " | "))
 }
 
-func fetchLaoZhangVideoStatus(baseURL, apiKey, externalID string) (string, string, error) {
-	httpReq, err := http.NewRequest("GET", strings.TrimSuffix(baseURL, "/")+"/v1/videos/"+externalID, nil)
+func fetchVideoStatus(provider aiVideoProviderAdapter, baseURL, apiKey, externalID string) (string, string, error) {
+	httpReq, err := http.NewRequest("GET", provider.StatusURL(baseURL, externalID), nil)
 	if err != nil {
 		return "", "", err
 	}
@@ -349,14 +535,14 @@ func fetchLaoZhangVideoStatus(baseURL, apiKey, externalID string) (string, strin
 	))
 	errMsg := parseAIVideoErrorMessage(payload)
 	if status == "" {
-		log.Printf("[AIVideo] 老张视频状态响应无法识别 | base_url=%s external_id=%s body_summary=%s", strings.TrimSpace(baseURL), strings.TrimSpace(externalID), summarizeAIVideoRemoteBody(respBody))
+		log.Printf("[AIVideo] 视频状态响应无法识别 | provider=%s base_url=%s external_id=%s body_summary=%s", provider.Code(), strings.TrimSpace(baseURL), strings.TrimSpace(externalID), summarizeAIVideoRemoteBody(respBody))
 	}
 	return status, errMsg, nil
 }
 
-func fetchLaoZhangVideoContent(baseURL, apiKey, externalID string) (*aiVideoContentPayload, error) {
+func fetchVideoContent(provider aiVideoProviderAdapter, baseURL, apiKey, externalID string) (*aiVideoContentPayload, error) {
 	client := &http.Client{Timeout: 30 * time.Second}
-	httpReq, err := http.NewRequest("GET", strings.TrimSuffix(baseURL, "/")+"/v1/videos/"+externalID+"/content", nil)
+	httpReq, err := http.NewRequest("GET", provider.ContentURL(baseURL, externalID), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -411,10 +597,10 @@ func fetchLaoZhangVideoContent(baseURL, apiKey, externalID string) (*aiVideoCont
 		ErrorMessage: parseAIVideoErrorMessage(payload),
 	}
 	if content.Status == "" {
-		log.Printf("[AIVideo] 老张视频结果响应无法识别 | base_url=%s external_id=%s body_summary=%s", strings.TrimSpace(baseURL), strings.TrimSpace(externalID), summarizeAIVideoRemoteBody(respBody))
+		log.Printf("[AIVideo] 视频结果响应无法识别 | provider=%s base_url=%s external_id=%s body_summary=%s", provider.Code(), strings.TrimSpace(baseURL), strings.TrimSpace(externalID), summarizeAIVideoRemoteBody(respBody))
 	}
 	if content.Status == model.AIVideoStatusCompleted && content.URL == "" {
-		log.Printf("[AIVideo] 老张视频结果缺少下载地址 | base_url=%s external_id=%s body_summary=%s", strings.TrimSpace(baseURL), strings.TrimSpace(externalID), summarizeAIVideoRemoteBody(respBody))
+		log.Printf("[AIVideo] 视频结果缺少下载地址 | provider=%s base_url=%s external_id=%s body_summary=%s", provider.Code(), strings.TrimSpace(baseURL), strings.TrimSpace(externalID), summarizeAIVideoRemoteBody(respBody))
 	}
 	return content, nil
 }
@@ -533,12 +719,13 @@ func syncAIVideoTask(task *model.AIVideoTask, videoTaskModel *model.AIVideoTaskM
 	if task == nil || task.ExternalID == "continuous" || task.Status == model.AIVideoStatusFailed || strings.TrimSpace(task.OSSURL) != "" {
 		return task, nil
 	}
-	baseURL := getVideoAPIBase(cfg)
-	apiKey := getVideoAPIKey(cfg)
+	videoProvider := getVideoProviderAdapter(cfg)
+	baseURL := videoProvider.BaseURL(cfg)
+	apiKey := videoProvider.APIKey(cfg)
 	if apiKey == "" {
 		return task, fmt.Errorf("未配置视频 API Key")
 	}
-	ourStatus, errMsg, err := fetchLaoZhangVideoStatus(baseURL, apiKey, task.ExternalID)
+	ourStatus, errMsg, err := fetchVideoStatus(videoProvider, baseURL, apiKey, task.ExternalID)
 	if err != nil {
 		return task, err
 	}
@@ -564,7 +751,7 @@ func syncAIVideoTask(task *model.AIVideoTask, videoTaskModel *model.AIVideoTaskM
 		return loadLatestAIVideoTask(videoTaskModel, task), nil
 	}
 
-	content, err := fetchLaoZhangVideoContent(baseURL, apiKey, task.ExternalID)
+	content, err := fetchVideoContent(videoProvider, baseURL, apiKey, task.ExternalID)
 	if err != nil {
 		return task, err
 	}
@@ -659,25 +846,25 @@ func ensureLongRunningAIVideoSupportTicket(task *model.AIVideoTask) {
 		Priority:   aiVideoLongRunningTicketPriority(waitDuration),
 		CreatedBy:  aiVideoSupportTicketCreatedBy,
 		SourcePayload: map[string]interface{}{
-			"task_id":                 task.ID,
-			"task_no":                 "v" + strconv.FormatInt(task.ID, 10),
-			"task_type":               "video",
-			"status":                  mappedStatus,
-			"raw_status":              task.Status,
-			"model":                   task.Model,
-			"prompt":                  task.Prompt,
-			"external_id":             task.ExternalID,
-			"oss_url":                 task.OSSURL,
-			"duration":                task.Duration,
-			"resolution":              task.Resolution,
-			"segment_count":           task.SegmentCount,
-			"error_message":           task.GetErrorMessage(),
-			"created_at":              task.CreatedAt,
-			"updated_at":              task.UpdatedAt,
-			"auto_created":            true,
-			"auto_reason":             "video_long_running",
-			"long_running_minutes":    int(waitDuration.Minutes()),
-			"long_running_threshold":  int(aiVideoLongRunningThreshold / time.Minute),
+			"task_id":                task.ID,
+			"task_no":                "v" + strconv.FormatInt(task.ID, 10),
+			"task_type":              "video",
+			"status":                 mappedStatus,
+			"raw_status":             task.Status,
+			"model":                  task.Model,
+			"prompt":                 task.Prompt,
+			"external_id":            task.ExternalID,
+			"oss_url":                task.OSSURL,
+			"duration":               task.Duration,
+			"resolution":             task.Resolution,
+			"segment_count":          task.SegmentCount,
+			"error_message":          task.GetErrorMessage(),
+			"created_at":             task.CreatedAt,
+			"updated_at":             task.UpdatedAt,
+			"auto_created":           true,
+			"auto_reason":            "video_long_running",
+			"long_running_minutes":   int(waitDuration.Minutes()),
+			"long_running_threshold": int(aiVideoLongRunningThreshold / time.Minute),
 		},
 	})
 	if err != nil {
@@ -826,17 +1013,17 @@ func RegisterAIVideoRoutes(r *gin.RouterGroup, codeSessionModel *model.CodeSessi
 
 // AIVideoCreateRequest JSON 请求体（纯文本或带图片 URL）
 type AIVideoCreateRequest struct {
-	Prompt        string `json:"prompt" binding:"required"`
-	Orientation   string `json:"orientation"`   // 兼容旧版：portrait/landscape，会映射为 ratio
-	Resolution    string `json:"resolution"`    // 480p / 720p / 1080p
-	Ratio         string `json:"ratio"`         // 16:9 / 4:3 / 1:1 / 3:4 / 9:16 / 21:9 / adaptive
-	Duration      int    `json:"duration"`      // 默认 5~12 秒，可由 pricing extra_config 覆盖
-	CameraFixed   *bool  `json:"camera_fixed"`
-	SegmentCount  int      `json:"segment_count"`  // 连续生成段数 1~4，多段时用上一段尾帧作下一段首帧，最后 FFmpeg 拼接
-	Prompts       []string `json:"prompts"`        // 多段时每段的提示词，长度需等于 segment_count，不传则每段用 prompt
+	Prompt        string   `json:"prompt" binding:"required"`
+	Orientation   string   `json:"orientation"` // 兼容旧版：portrait/landscape，会映射为 ratio
+	Resolution    string   `json:"resolution"`  // 480p / 720p / 1080p
+	Ratio         string   `json:"ratio"`       // 16:9 / 4:3 / 1:1 / 3:4 / 9:16 / 21:9 / adaptive
+	Duration      int      `json:"duration"`    // 默认 5~12 秒，可由 pricing extra_config 覆盖
+	CameraFixed   *bool    `json:"camera_fixed"`
+	SegmentCount  int      `json:"segment_count"` // 连续生成段数 1~4，多段时用上一段尾帧作下一段首帧，最后 FFmpeg 拼接
+	Prompts       []string `json:"prompts"`       // 多段时每段的提示词，长度需等于 segment_count，不传则每段用 prompt
 	ImageURL      string   `json:"image_url"`
-	StartFrameURL string `json:"start_frame_url"`
-	EndFrameURL   string `json:"end_frame_url"`
+	StartFrameURL string   `json:"start_frame_url"`
+	EndFrameURL   string   `json:"end_frame_url"`
 }
 
 // handleAIVideoCreate 发起：纯文本 / 文字+单图 / 首尾帧，调用火山引擎创建任务并落库
@@ -1002,72 +1189,36 @@ func handleAIVideoCreate(c *gin.Context, codeSessionModel *model.CodeSessionRedi
 	} else if numImages == 2 {
 		mode = "首尾帧"
 	}
-	videoModel := getVideoModel(cfg, orientation, ratio)
+	videoProvider := getVideoProviderAdapter(cfg)
+	videoModel := videoProvider.Model(cfg, orientation, ratio)
 	videoSize := resolveLaoZhangVideoSize(resolution, ratio, orientation)
-	log.Printf("[AIVideo] create 请求 | user_id=%d mode=%s model=%s num_images=%d duration=%d resolution=%s size=%s prompt=%s", codeSession.UserID, mode, videoModel, numImages, duration, resolution, videoSize, prompt)
+	log.Printf("[AIVideo] create 请求 | user_id=%d provider=%s mode=%s model=%s num_images=%d duration=%d resolution=%s size=%s prompt=%s", codeSession.UserID, videoProvider.Code(), mode, videoModel, numImages, duration, resolution, videoSize, prompt)
 
-	baseURL := getVideoAPIBase(cfg)
-	apiKey := getVideoAPIKey(cfg)
+	baseURL := videoProvider.BaseURL(cfg)
+	apiKey := videoProvider.APIKey(cfg)
 	if apiKey == "" {
 		refundVideoStones()
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "未配置视频 API Key（LAOZHANG_API_KEY）"})
+		keyName := "LAOZHANG_API_KEY"
+		if videoProvider.Code() == videoProviderArkSeedance {
+			keyName = "ARK_API_KEY"
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "未配置视频 API Key（" + keyName + "）"})
 		return
 	}
 
-	createURL := strings.TrimSuffix(baseURL, "/") + "/v1/videos"
-	var requestBody io.Reader
-	contentType := "application/json"
-	if numImages > 0 {
-		var body bytes.Buffer
-		writer := multipart.NewWriter(&body)
-		if err := writer.WriteField("model", videoModel); err != nil {
-			refundVideoStones()
-			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "构建视频请求失败"})
-			return
-		}
-		if err := writer.WriteField("prompt", prompt); err != nil {
-			refundVideoStones()
-			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "构建视频请求失败"})
-			return
-		}
-		if err := writer.WriteField("seconds", strconv.Itoa(duration)); err != nil {
-			refundVideoStones()
-			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "构建视频请求失败"})
-			return
-		}
-		if err := writer.WriteField("size", videoSize); err != nil {
-			refundVideoStones()
-			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "构建视频请求失败"})
-			return
-		}
-		for i, bodyBytes := range allImageBodies {
-			part, err := writer.CreateFormFile("input_reference", fmt.Sprintf("frame_%d.jpg", i+1))
-			if err != nil {
-				refundVideoStones()
-				c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "构建视频请求失败"})
-				return
-			}
-			if _, err := part.Write(bodyBytes); err != nil {
-				refundVideoStones()
-				c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "构建视频请求失败"})
-				return
-			}
-		}
-		if err := writer.Close(); err != nil {
-			refundVideoStones()
-			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "构建视频请求失败"})
-			return
-		}
-		requestBody = &body
-		contentType = writer.FormDataContentType()
-	} else {
-		bodyBytes, _ := json.Marshal(map[string]interface{}{
-			"model":   videoModel,
-			"prompt":  prompt,
-			"seconds": strconv.Itoa(duration),
-			"size":    videoSize,
-		})
-		requestBody = bytes.NewReader(bodyBytes)
+	createURL, requestBody, contentType, err := videoProvider.CreateRequest(baseURL, aiVideoCreateInput{
+		Model:       videoModel,
+		Prompt:      prompt,
+		Duration:    duration,
+		Size:        videoSize,
+		Ratio:       normalizeVideoRatioLabel(ratio, orientation),
+		Resolution:  resolution,
+		ImageBodies: allImageBodies,
+	})
+	if err != nil {
+		refundVideoStones()
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "构建视频请求失败"})
+		return
 	}
 	httpReq, err := http.NewRequest("POST", createURL, requestBody)
 	if err != nil {
@@ -1080,7 +1231,7 @@ func handleAIVideoCreate(c *gin.Context, codeSessionModel *model.CodeSessionRedi
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		log.Printf("[AIVideo] create request failed | base_url=%s model=%s err=%v", strings.TrimSpace(baseURL), videoModel, err)
+		log.Printf("[AIVideo] create request failed | provider=%s base_url=%s model=%s err=%v", videoProvider.Code(), strings.TrimSpace(baseURL), videoModel, err)
 		refundVideoStones()
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": safeerror.SanitizeAIGenerationError("调用视频服务失败: " + err.Error())})
 		return
@@ -1089,7 +1240,7 @@ func handleAIVideoCreate(c *gin.Context, codeSessionModel *model.CodeSessionRedi
 
 	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		log.Printf("[AIVideo] create response failed | status=%d base_url=%s model=%s body_summary=%s", resp.StatusCode, strings.TrimSpace(baseURL), videoModel, summarizeAIVideoRemoteBody(respBody))
+		log.Printf("[AIVideo] create response failed | status=%d provider=%s base_url=%s model=%s body_summary=%s", resp.StatusCode, videoProvider.Code(), strings.TrimSpace(baseURL), videoModel, summarizeAIVideoRemoteBody(respBody))
 		var errBody struct {
 			Error *struct {
 				Message string `json:"message"`
@@ -1117,7 +1268,7 @@ func handleAIVideoCreate(c *gin.Context, codeSessionModel *model.CodeSessionRedi
 		Status string `json:"status"`
 	}
 	if err := json.Unmarshal(respBody, &ext); err != nil || ext.ID == "" {
-		log.Printf("[AIVideo] invalid create response | base_url=%s model=%s body_summary=%s", strings.TrimSpace(baseURL), videoModel, summarizeAIVideoRemoteBody(respBody))
+		log.Printf("[AIVideo] invalid create response | provider=%s base_url=%s model=%s body_summary=%s", videoProvider.Code(), strings.TrimSpace(baseURL), videoModel, summarizeAIVideoRemoteBody(respBody))
 		refundVideoStones()
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "视频服务返回格式异常"})
 		return
@@ -1126,7 +1277,7 @@ func handleAIVideoCreate(c *gin.Context, codeSessionModel *model.CodeSessionRedi
 	if status == "" {
 		status = model.AIVideoStatusQueued
 	}
-	log.Printf("[AIVideo] 老张视频创建成功 | external_id=%s", ext.ID)
+	log.Printf("[AIVideo] 视频创建成功 | provider=%s external_id=%s", videoProvider.Code(), ext.ID)
 
 	task := &model.AIVideoTask{
 		UserID:       codeSession.UserID,
@@ -1193,9 +1344,9 @@ func handleAIVideoPoll(c *gin.Context, codeSessionModel *model.CodeSessionRedisM
 		"code": 0,
 		"msg":  "ok",
 		"data": gin.H{
-			"task_id":       task.ID,
-			"status":        effectiveStatus,
-			"error_message": task.GetErrorMessage(),
+			"task_id":           task.ID,
+			"status":            effectiveStatus,
+			"error_message":     task.GetErrorMessage(),
 			"raw_error_message": task.GetRawErrorMessage(),
 		},
 	})
@@ -1436,8 +1587,8 @@ func runContinuousVideoChain(
 			content = []map[string]interface{}{{"type": "text", "text": segText}}
 		}
 		reqBody := map[string]interface{}{
-			"model":   videoModel,
-			"content": content,
+			"model":             videoModel,
+			"content":           content,
 			"return_last_frame": i < segmentCount,
 		}
 		if ratio != "" {
@@ -1477,7 +1628,9 @@ func runContinuousVideoChain(
 			_ = videoTaskModel.UpdateStatus(taskID, model.AIVideoStatusFailed, fmt.Sprintf("第%d段创建失败", i))
 			return
 		}
-		var ext struct { ID string `json:"id"` }
+		var ext struct {
+			ID string `json:"id"`
+		}
 		if json.Unmarshal(respBody, &ext) != nil || ext.ID == "" {
 			refund()
 			_ = videoTaskModel.UpdateStatus(taskID, model.AIVideoStatusFailed, "第"+fmt.Sprint(i)+"段返回异常")
@@ -1501,12 +1654,16 @@ func runContinuousVideoChain(
 			body2, _ := io.ReadAll(resp2.Body)
 			resp2.Body.Close()
 			var tr struct {
-				Status  string `json:"status"`
-				Error   *struct { Message string `json:"message"` } `json:"error"`
+				Status string `json:"status"`
+				Error  *struct {
+					Message string `json:"message"`
+				} `json:"error"`
 				Content *struct {
 					VideoURL     string `json:"video_url"`
 					LastFrameURL string `json:"last_frame_url"`
-					LastFrame    *struct { URL string `json:"url"` } `json:"last_frame"`
+					LastFrame    *struct {
+						URL string `json:"url"`
+					} `json:"last_frame"`
 				} `json:"content"`
 				Duration   int    `json:"duration"`
 				Resolution string `json:"resolution"`
