@@ -6,9 +6,16 @@ import (
 )
 
 const (
-	AIDrawPromptPrefix       = "请根据以下要求生成高质量图片，以用户上传的参考图为准，保持核心结构与空间逻辑不变，提升画面表达质量。"
-	legacyAIDrawPromptPrefix = "请帮我生成图片，如果用户上传了参考图，同时你自己的库里面也有用户上传的类似地标，或建筑，或什么别的东西的图，以用户上传的为主"
+	AIDrawPromptPrefix         = "请根据以下文字提示词生成高质量图片。参考图仅作为灵感、风格和构图参考，优先满足用户文字描述，不要被参考图限制。"
+	legacyAIDrawPromptPrefix   = "请根据以下要求生成高质量图片，以用户上传的参考图为准，保持核心结构与空间逻辑不变，提升画面表达质量。"
+	legacyAIDrawPromptPrefixV1 = "请帮我生成图片，如果用户上传了参考图，同时你自己的库里面也有用户上传的类似地标，或建筑，或什么别的东西的图，以用户上传的为主"
 )
+
+var aiDrawPromptPrefixes = []string{
+	AIDrawPromptPrefix,
+	legacyAIDrawPromptPrefix,
+	legacyAIDrawPromptPrefixV1,
+}
 
 // 支持的纵横比（来自 ai绘图api.md）
 var supportedAspectRatios = map[string]bool{
@@ -24,7 +31,7 @@ var supportedAspectRatios = map[string]bool{
 	"4:5":  true,
 }
 
-// BuildAIDrawPrompt 若 prompt 未带前缀或后缀，则补全：前缀「请帮我生成图片，」+ 后缀「画面风格、清晰度、画布大小」
+// BuildAIDrawPrompt 若 prompt 未带系统前缀或参数后缀，则补全系统前缀及画面风格、清晰度、画布大小
 // payload 可含 prompt, style, quality, canvas
 func BuildAIDrawPrompt(payload map[string]interface{}) string {
 	prompt, _ := payload["prompt"].(string)
@@ -178,10 +185,11 @@ func GetSeedreamImageSizeFromPayload(payload map[string]interface{}) string {
 // StripUserPromptFromAIDraw 从完整 prompt 中去掉前缀和后缀，只保留用户输入部分
 func StripUserPromptFromAIDraw(fullPrompt string) string {
 	s := fullPrompt
-	if strings.HasPrefix(s, AIDrawPromptPrefix) {
-		s = s[len(AIDrawPromptPrefix):]
-	} else if strings.HasPrefix(s, legacyAIDrawPromptPrefix) {
-		s = s[len(legacyAIDrawPromptPrefix):]
+	for _, prefix := range aiDrawPromptPrefixes {
+		if strings.HasPrefix(s, prefix) {
+			s = s[len(prefix):]
+			break
+		}
 	}
 	re := regexp.MustCompile(`，(?:生成方向：[^，]+，)?(?:画面风格：[^，]+，)?画面清晰度：[^，]+，画布大小：[^，]*$`)
 	s = re.ReplaceAllString(s, "")

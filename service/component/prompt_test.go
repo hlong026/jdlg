@@ -19,6 +19,11 @@ func TestStripUserPromptFromAIDraw(t *testing.T) {
 			want: "三层闽南建筑",
 		},
 		{
+			name: "legacy v1 system prefix",
+			in:   legacyAIDrawPromptPrefixV1 + "三层闽南建筑",
+			want: "三层闽南建筑",
+		},
+		{
 			name: "plain user prompt",
 			in:   "三层闽南建筑",
 			want: "三层闽南建筑",
