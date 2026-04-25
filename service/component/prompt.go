@@ -6,7 +6,8 @@ import (
 )
 
 const (
-	AIDrawPromptPrefix = "请根据以下要求生成高质量图片，以用户上传的参考图为准，保持核心结构与空间逻辑不变，提升画面表达质量。"
+	AIDrawPromptPrefix       = "请根据以下要求生成高质量图片，以用户上传的参考图为准，保持核心结构与空间逻辑不变，提升画面表达质量。"
+	legacyAIDrawPromptPrefix = "请帮我生成图片，如果用户上传了参考图，同时你自己的库里面也有用户上传的类似地标，或建筑，或什么别的东西的图，以用户上传的为主"
 )
 
 // 支持的纵横比（来自 ai绘图api.md）
@@ -179,6 +180,8 @@ func StripUserPromptFromAIDraw(fullPrompt string) string {
 	s := fullPrompt
 	if strings.HasPrefix(s, AIDrawPromptPrefix) {
 		s = s[len(AIDrawPromptPrefix):]
+	} else if strings.HasPrefix(s, legacyAIDrawPromptPrefix) {
+		s = s[len(legacyAIDrawPromptPrefix):]
 	}
 	re := regexp.MustCompile(`，(?:生成方向：[^，]+，)?(?:画面风格：[^，]+，)?画面清晰度：[^，]+，画布大小：[^，]*$`)
 	s = re.ReplaceAllString(s, "")
