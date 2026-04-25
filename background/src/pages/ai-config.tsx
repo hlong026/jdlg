@@ -6,6 +6,54 @@ import ManagementSearchPanel from '../component/managementSearchPanel';
 import JSONTreeEditor from '../component/json-tree-editor';
 import './ai-config.scss';
 
+const providerOptions = [
+    { code: 'laozhang', name: '老张 API', protocol: 'gemini_sync' },
+    { code: 'toapis', name: 'ToAPIs', protocol: 'toapis_async' },
+    { code: 'default', name: '默认接口', protocol: 'sync' },
+];
+
+const formatProviderName = (config: AIAPIConfig) => {
+    if (config.provider_name) return config.provider_name;
+    if (config.provider_code === 'laozhang') return '老张 API';
+    if (config.provider_code === 'toapis') return 'ToAPIs';
+    return config.provider_code || '-';
+};
+
+const formatProtocolName = (protocol?: string) => {
+    if (protocol === 'gemini_sync') return '老张 Gemini 同步返回';
+    if (protocol === 'toapis_async') return 'ToAPIs 异步任务返回';
+    if (protocol === 'chat_sync') return '聊天同步返回';
+    return protocol || '-';
+};
+
+const getDefaultBodyTemplate = (providerCode: string) => {
+    if (providerCode === 'toapis') {
+        return {
+            model: 'gemini-3-pro-image-preview',
+            prompt: '{{prompt}}',
+            size: '{{aspect_ratio}}',
+            n: 1,
+            metadata: {
+                resolution: '{{image_size}}',
+            },
+        };
+    }
+    return {
+        contents: [{
+            parts: [
+                { text: '{{prompt}}' },
+            ],
+        }],
+        generationConfig: {
+            responseModalities: ['IMAGE'],
+            imageConfig: {
+                aspectRatio: '{{aspect_ratio}}',
+                imageSize: '{{image_size}}',
+            },
+        },
+    };
+};
+
 const AIConfig: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'pricing' | 'api'>('pricing');
     const [pricings, setPricings] = useState<AIPricing[]>([]);
@@ -94,7 +142,7 @@ const AIConfig: React.FC = () => {
             return apiConfigs;
         }
         return apiConfigs.filter((item) => {
-            return [item.task_type, item.api_endpoint, item.method, item.prompt_path, item.image_path]
+            return [item.task_type, item.provider_code, item.provider_name, item.protocol_type, item.api_endpoint, item.method, item.prompt_path, item.image_path]
                 .some((field) => String(field || '').toLowerCase().includes(keyword));
         });
     }, [apiConfigs, searchKeyword]);
@@ -257,6 +305,9 @@ const AIConfig: React.FC = () => {
                                 <thead>
                                     <tr>
                                         <th>场景</th>
+                                        <th>供应商</th>
+                                        <th>协议类型</th>
+                                        <th>状态</th>
                                         <th>API地址</th>
                                         <th>请求方法</th>
                                         <th>提示词路径</th>
@@ -268,7 +319,7 @@ const AIConfig: React.FC = () => {
                                 <tbody>
                                     {filteredApiConfigs.length === 0 ? (
                                         <tr>
-                                            <td colSpan={7} className="empty-state">
+                                            <td colSpan={10} className="empty-state">
                                                 暂无配置，请添加
                                             </td>
                                         </tr>
@@ -278,6 +329,13 @@ const AIConfig: React.FC = () => {
                                                 <td>
                                                     {config.task_type === 'ai_draw' ? 'AI绘画' :
                                                         config.task_type === 'ai_chat' ? 'AI聊天' : config.task_type}
+                                                </td>
+                                                <td>{formatProviderName(config)}</td>
+                                                <td>{formatProtocolName(config.protocol_type)}</td>
+                                                <td>
+                                                    <span className={`status-badge ${config.is_active ? 'status-success' : 'status-muted'}`}>
+                                                        {config.is_active ? '当前启用' : '停用'}
+                                                    </span>
                                                 </td>
                                                 <td className="api-endpoint">{config.api_endpoint}</td>
                                                 <td>{config.method}</td>
@@ -441,6 +499,10 @@ interface APIConfigModalProps {
 
 const APIConfigModal: React.FC<APIConfigModalProps> = ({ config, onSave, onClose, loading }) => {
     const [taskType, setTaskType] = useState<'ai_draw' | 'ai_chat' | ''>(config?.task_type as any || '');
+    const [providerCode, setProviderCode] = useState(config?.provider_code || (config?.task_type === 'ai_chat' ? 'default' : 'laozhang'));
+    const [providerName, setProviderName] = useState(config?.provider_name || (config?.task_type === 'ai_chat' ? '默认聊天接口' : '老张 API'));
+    const [protocolType, setProtocolType] = useState(config?.protocol_type || (config?.task_type === 'ai_chat' ? 'chat_sync' : 'gemini_sync'));
+    const [isActive, setIsActive] = useState(config?.is_active ?? true);
     const [apiEndpoint, setApiEndpoint] = useState(config?.api_endpoint || '');
     const [method, setMethod] = useState<'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'>(config?.method as any || 'POST');
     const [promptPath, setPromptPath] = useState(config?.prompt_path || '');
@@ -465,13 +527,14 @@ const APIConfigModal: React.FC<APIConfigModalProps> = ({ config, onSave, onClose
             ? (typeof config.body_template === 'string'
                 ? JSON.parse(config.body_template)
                 : config.body_template)
-            : null
+            : getDefaultBodyTemplate(config?.provider_code || 'laozhang')
     );
     const [bodyTemplateText, setBodyTemplateText] = useState('');
     const [useTreeEditor, setUseTreeEditor] = useState(true);
     const [enablePromptOptimization, setEnablePromptOptimization] = useState(config?.enable_prompt_optimization || false);
     const normalizedEndpoint = apiEndpoint.trim().toLowerCase();
-    const isInvalidAiDrawEndpoint = taskType === 'ai_draw' && normalizedEndpoint.includes('/v1/chat/completions');
+    const isInvalidAiDrawEndpoint = taskType === 'ai_draw' && protocolType !== 'toapis_async' && normalizedEndpoint.includes('/v1/chat/completions');
+    const isToAPIsConfig = taskType === 'ai_draw' && protocolType === 'toapis_async';
 
     // 处理JSON树形编辑器变化
     const handleBodyTemplateChange = (value: any) => {
@@ -523,17 +586,26 @@ const APIConfigModal: React.FC<APIConfigModalProps> = ({ config, onSave, onClose
         }
 
         const bodyTemplateString = JSON.stringify(parsedBodyTemplate).toLowerCase();
-        if (taskType === 'ai_draw' && normalizedEndpoint.includes('/v1/chat/completions')) {
+        if (taskType === 'ai_draw' && protocolType !== 'toapis_async' && normalizedEndpoint.includes('/v1/chat/completions')) {
             alert('AI绘画主配置不能使用 chat/completions，请改成 generateContent 生图接口');
             return;
         }
-        if (taskType === 'ai_draw' && bodyTemplateString.includes('"messages"')) {
+        if (taskType === 'ai_draw' && protocolType !== 'toapis_async' && bodyTemplateString.includes('"messages"')) {
             alert('AI绘画主配置不能保存为聊天 messages 模板，请改成生图请求体模板');
+            return;
+        }
+        if (isToAPIsConfig && !normalizedEndpoint.includes('/v1/images/generations')) {
+            alert('ToAPIs 异步生图配置应使用 /v1/images/generations 接口');
             return;
         }
 
         onSave({
+            id: config?.id,
             task_type: taskType,
+            provider_code: providerCode,
+            provider_name: providerName,
+            protocol_type: protocolType,
+            is_active: isActive,
             api_endpoint: apiEndpoint,
             method: method,
             prompt_path: promptPath.trim() || undefined,
@@ -562,7 +634,15 @@ const APIConfigModal: React.FC<APIConfigModalProps> = ({ config, onSave, onClose
                             <label>场景 *</label>
                             <select
                                 value={taskType}
-                                onChange={(e) => setTaskType(e.target.value as any)}
+                                onChange={(e) => {
+                                    const nextTaskType = e.target.value as any;
+                                    setTaskType(nextTaskType);
+                                    if (nextTaskType === 'ai_chat') {
+                                        setProviderCode('default');
+                                        setProviderName('默认聊天接口');
+                                        setProtocolType('chat_sync');
+                                    }
+                                }}
                                 required
                                 disabled={loading}
                             >
@@ -570,6 +650,80 @@ const APIConfigModal: React.FC<APIConfigModalProps> = ({ config, onSave, onClose
                                 <option value="ai_draw">AI绘画</option>
                                 <option value="ai_chat">AI聊天</option>
                             </select>
+                        </div>
+
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label>供应商类型</label>
+                                <select
+                                    value={providerCode}
+                                    onChange={(e) => {
+                                        const nextProvider = e.target.value;
+                                        const matched = providerOptions.find((item) => item.code === nextProvider);
+                                        setProviderCode(nextProvider);
+                                        setProviderName(matched?.name || nextProvider);
+                                        setProtocolType(nextProvider === 'toapis' ? 'toapis_async' : matched?.protocol || 'sync');
+                                        if (nextProvider === 'toapis') {
+                                            setApiEndpoint('https://toapis.com/v1/images/generations');
+                                            setBodyTemplate(getDefaultBodyTemplate('toapis'));
+                                            setBodyTemplateText('');
+                                        } else if (nextProvider === 'laozhang') {
+                                            setApiEndpoint('https://api.laozhang.ai/v1beta/models/gemini-3-pro-image-preview:generateContent');
+                                            setBodyTemplate(getDefaultBodyTemplate('laozhang'));
+                                            setBodyTemplateText('');
+                                        }
+                                    }}
+                                    disabled={loading || taskType === 'ai_chat'}
+                                >
+                                    <option value="laozhang">老张 API</option>
+                                    <option value="toapis">ToAPIs</option>
+                                    <option value="default">默认接口</option>
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>供应商名称</label>
+                                <input
+                                    type="text"
+                                    value={providerName}
+                                    onChange={(e) => setProviderName(e.target.value)}
+                                    placeholder="如: ToAPIs"
+                                    disabled={loading}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label>协议类型</label>
+                                <select
+                                    value={protocolType}
+                                    onChange={(e) => setProtocolType(e.target.value)}
+                                    disabled={loading}
+                                >
+                                    <option value="gemini_sync">老张 Gemini 同步返回</option>
+                                    <option value="toapis_async">ToAPIs 异步任务返回</option>
+                                    <option value="chat_sync">聊天同步返回</option>
+                                    <option value="sync">通用同步返回</option>
+                                </select>
+                                <span className="form-hint">
+                                    {protocolType === 'toapis_async'
+                                        ? 'ToAPIs 会先返回任务 ID，系统自动轮询任务状态并获取最终图片。'
+                                        : '同步协议会在一次请求中直接解析图片结果。'}
+                                </span>
+                            </div>
+                            <div className="form-group">
+                                <label>启用状态</label>
+                                <label className="checkbox-label">
+                                    <input
+                                        type="checkbox"
+                                        checked={isActive}
+                                        onChange={(e) => setIsActive(e.target.checked)}
+                                        disabled={loading}
+                                    />
+                                    <span>设为当前启用配置</span>
+                                </label>
+                                <span className="form-hint">同一场景只能有一条启用配置，切换只影响新任务。</span>
+                            </div>
                         </div>
 
                         <div className="form-group">
@@ -585,6 +739,11 @@ const APIConfigModal: React.FC<APIConfigModalProps> = ({ config, onSave, onClose
                             {isInvalidAiDrawEndpoint && (
                                 <span className="form-hint" style={{ color: '#d14343' }}>
                                     AI绘画主配置不能填写 chat/completions，这会把生图主链路误切成聊天接口。
+                                </span>
+                            )}
+                            {isToAPIsConfig && (
+                                <span className="form-hint">
+                                    ToAPIs 图生图仅支持公网图片 URL，不支持直接传入 base64。
                                 </span>
                             )}
                         </div>
@@ -762,7 +921,12 @@ const APIConfigModal: React.FC<APIConfigModalProps> = ({ config, onSave, onClose
                                 在JSON中使用占位符：<code>{'{{prompt}}'}</code> 表示提示词位置，<code>{'{{image}}'}</code> 表示图片位置。
                                 系统会自动查找并替换这些占位符，无需手动指定路径。
                             </span>
-                            {taskType === 'ai_draw' && (
+                            {isToAPIsConfig && (
+                                <span className="form-hint" style={{ color: '#8a5a00' }}>
+                                    ToAPIs 推荐使用 <code>{'{{image_url}}'}</code> 传参考图 URL，系统不会把参考图转成 base64。
+                                </span>
+                            )}
+                            {taskType === 'ai_draw' && protocolType !== 'toapis_async' && (
                                 <span className="form-hint" style={{ color: '#d14343' }}>
                                     AI绘画主配置应使用 generateContent 生图模板，不要保存带 <code>messages</code> 的聊天请求体。
                                 </span>

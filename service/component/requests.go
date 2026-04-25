@@ -15,6 +15,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"path"
 	"runtime"
 	"strings"
@@ -40,6 +41,8 @@ const (
 	remoteResultDownloadTimeout  = 150 * time.Second
 	aiTaskContextTimeout         = 600 * time.Second
 	aiTaskListThumbWidth         = 480
+	toapisPollInterval           = 3 * time.Second
+	toapisMaxWait                = 120 * time.Second
 )
 
 // SystemResources 系统资源信息
@@ -164,6 +167,9 @@ type AITaskContext struct {
 // AIAPIConfigData API配置数据
 type AIAPIConfigData struct {
 	TaskType                 string `json:"task_type"`
+	ProviderCode             string `json:"provider_code"`
+	ProviderName             string `json:"provider_name"`
+	ProtocolType             string `json:"protocol_type"`
 	APIEndpoint              string `json:"api_endpoint"`
 	Method                   string `json:"method"`
 	APIKey                   string `json:"api_key"`          // API Key
@@ -187,6 +193,11 @@ type AITaskResult struct {
 	ThumbnailURLs      []string               `json:"thumbnail_urls"`
 	UsedModel          string                 `json:"used_model"`
 	APIEndpoint        string                 `json:"api_endpoint"`
+	ProviderCode       string                 `json:"provider_code"`
+	ProviderName       string                 `json:"provider_name"`
+	ProtocolType       string                 `json:"protocol_type"`
+	ExternalTaskID     string                 `json:"external_task_id"`
+	ExternalStatus     string                 `json:"external_status"`
 	AttemptedModels    []string               `json:"attempted_models"`
 	AttemptedEndpoints []string               `json:"attempted_endpoints"`
 	ResultData         map[string]interface{} `json:"result_data"`
@@ -717,6 +728,18 @@ func isGeminiGenerateContentConfig(apiConfig *AIAPIConfigData) bool {
 	return strings.Contains(endpoint, "gemini") && strings.Contains(endpoint, ":generatecontent")
 }
 
+func isToAPIsAsyncConfig(apiConfig *AIAPIConfigData) bool {
+	if apiConfig == nil {
+		return false
+	}
+	protocolType := strings.ToLower(strings.TrimSpace(apiConfig.ProtocolType))
+	providerCode := strings.ToLower(strings.TrimSpace(apiConfig.ProviderCode))
+	endpoint := strings.ToLower(strings.TrimSpace(apiConfig.APIEndpoint))
+	return protocolType == "toapis_async" ||
+		providerCode == "toapis" ||
+		(strings.Contains(endpoint, "toapis.com") && strings.Contains(endpoint, "/v1/images/generations"))
+}
+
 func getOrCreateChildMap(parent map[string]interface{}, key string) map[string]interface{} {
 	if parent == nil {
 		return nil
@@ -749,12 +772,54 @@ func stripGeminiDrawTopLevelFields(body map[string]interface{}) {
 	delete(body, "ordered_image_urls")
 }
 
+func stripToAPIsDrawTopLevelFields(body map[string]interface{}) {
+	if body == nil {
+		return
+	}
+	delete(body, "service_type")
+	delete(body, "service")
+	delete(body, "quality")
+	delete(body, "canvas")
+	delete(body, "generate_count")
+	delete(body, "scene_direction")
+	delete(body, "style")
+	delete(body, "original_image_urls")
+	delete(body, "reference_image_urls")
+	delete(body, "ordered_image_urls")
+	delete(body, "image")
+	delete(body, "image_url")
+	delete(body, "images")
+	if imageItems, ok := body["image_urls"].([]interface{}); ok {
+		filtered := make([]interface{}, 0, len(imageItems))
+		for _, item := range imageItems {
+			itemMap, ok := item.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			imageURL, _ := itemMap["url"].(string)
+			imageURL = strings.TrimSpace(imageURL)
+			if imageURL == "" || imageURL == "{{image_url}}" {
+				continue
+			}
+			filtered = append(filtered, itemMap)
+		}
+		if len(filtered) == 0 {
+			delete(body, "image_urls")
+		} else {
+			body["image_urls"] = filtered
+		}
+	}
+}
+
 func shouldMergePayloadFieldToRequestBody(taskCtx *AITaskContext, key string) bool {
 	switch key {
 	case "prompt", "image", "image_url", "images", "image_urls", "reference_images", "original_image_urls", "reference_image_urls", "ordered_image_urls":
 		return false
 	}
 	if taskCtx != nil && taskCtx.TaskType == "ai_draw" && isGeminiGenerateContentConfig(taskCtx.APIConfig) {
+		return false
+	}
+	if taskCtx != nil && taskCtx.TaskType == "ai_draw" && isToAPIsAsyncConfig(taskCtx.APIConfig) {
 		return false
 	}
 	return true
@@ -870,8 +935,7 @@ func isSeedreamAPIConfig(configData *AIAPIConfigData) bool {
 		return false
 	}
 	bodyTemplate := strings.ToLower(configData.BodyTemplate)
-	apiEndpoint := strings.ToLower(configData.APIEndpoint)
-	return strings.Contains(bodyTemplate, "seedream-") || strings.Contains(apiEndpoint, "/images/generations")
+	return strings.Contains(bodyTemplate, "seedream-")
 }
 
 func getAIDrawAttemptRouteLabel(index int) string {
@@ -992,6 +1056,11 @@ func (p *RequestPool) executeImageTaskWithFallbacks(taskCtx *AITaskContext, resu
 		if strings.TrimSpace(usedEndpoint) != "" {
 			result.APIEndpoint = strings.TrimSpace(usedEndpoint)
 		}
+		if attemptCtx.APIConfig != nil {
+			result.ProviderCode = strings.TrimSpace(attemptCtx.APIConfig.ProviderCode)
+			result.ProviderName = strings.TrimSpace(attemptCtx.APIConfig.ProviderName)
+			result.ProtocolType = strings.TrimSpace(attemptCtx.APIConfig.ProtocolType)
+		}
 		if err == nil {
 			result.ResultData = responseData
 			result.ResultURLs = watermarkedURLs
@@ -1005,6 +1074,14 @@ func (p *RequestPool) executeImageTaskWithFallbacks(taskCtx *AITaskContext, resu
 			}
 			if len(result.ThumbnailURLs) > 0 {
 				result.ThumbnailURL = result.ThumbnailURLs[0]
+			}
+			if responseData != nil {
+				if taskID, _ := responseData["external_task_id"].(string); strings.TrimSpace(taskID) != "" {
+					result.ExternalTaskID = strings.TrimSpace(taskID)
+				}
+				if status, _ := responseData["external_status"].(string); strings.TrimSpace(status) != "" {
+					result.ExternalStatus = strings.TrimSpace(status)
+				}
 			}
 			log.Printf("[AI任务] ✓ 当前命中%s: model=%s, endpoint=%s, requested_generate_count=%d, generated_count=%d", routeLabel, usedModel, usedEndpoint, generateCount, len(watermarkedURLs))
 			return nil
@@ -1087,6 +1164,11 @@ func (p *RequestPool) executeImageTaskAttempt(taskCtx *AITaskContext, generateCo
 		Body:        requestBody,
 		Timeout:     resolveAIRequestTimeout(taskCtx),
 		ContentType: "application/json",
+	}
+
+	if isToAPIsAsyncConfig(taskCtx.APIConfig) {
+		log.Printf("[AI任务] 当前走 ToAPIs 异步生图模式: model=%s, requested_generate_count=%d", usedModel, generateCount)
+		return p.executeToAPIsAsyncImageTasks(taskCtx, httpReq, generateCount, usedModel, usedEndpoint)
 	}
 
 	if isSeedreamAPIConfig(taskCtx.APIConfig) && generateCount > 1 {
@@ -1179,6 +1261,298 @@ func (p *RequestPool) executeImageTaskAttempt(taskCtx *AITaskContext, generateCo
 	return resultData, watermarkedURLs, rawURLs, usedModel, usedEndpoint, nil
 }
 
+func (p *RequestPool) executeToAPIsAsyncImageTasks(taskCtx *AITaskContext, httpReq *HTTPRequest, generateCount int, usedModel string, usedEndpoint string) (map[string]interface{}, []string, []string, string, string, error) {
+	if generateCount < 1 {
+		generateCount = 1
+	}
+	watermarkedURLs := make([]string, 0, generateCount)
+	rawURLs := make([]string, 0, generateCount)
+	responses := make([]interface{}, 0, generateCount)
+	externalTaskIDs := make([]string, 0, generateCount)
+	externalStatuses := make([]string, 0, generateCount)
+	for index := 0; index < generateCount; index++ {
+		singleReq := cloneHTTPRequest(httpReq)
+		if body, ok := cloneJSONMap(httpReq.Body); ok {
+			body["n"] = 1
+			singleReq.Body = body
+		}
+		responseData, watermarkedURL, rawURL, err := p.executeToAPIsAsyncImageTask(taskCtx, singleReq, index+1, generateCount)
+		if err != nil {
+			return nil, nil, nil, usedModel, usedEndpoint, err
+		}
+		responses = append(responses, responseData)
+		if watermarkedURL != "" {
+			watermarkedURLs = append(watermarkedURLs, watermarkedURL)
+		}
+		if rawURL != "" {
+			rawURLs = append(rawURLs, rawURL)
+		}
+		if taskID, _ := responseData["external_task_id"].(string); strings.TrimSpace(taskID) != "" {
+			externalTaskIDs = append(externalTaskIDs, strings.TrimSpace(taskID))
+		}
+		if status, _ := responseData["external_status"].(string); strings.TrimSpace(status) != "" {
+			externalStatuses = append(externalStatuses, strings.TrimSpace(status))
+		}
+	}
+	if len(watermarkedURLs) == 0 {
+		return nil, nil, nil, usedModel, usedEndpoint, fmt.Errorf("ToAPIs 未获取到任何图片结果")
+	}
+	resultData := map[string]interface{}{
+		"provider":          "toapis",
+		"protocol_type":     "toapis_async",
+		"responses":         responses,
+		"generated_count":   len(watermarkedURLs),
+		"expected_count":    generateCount,
+		"external_task_ids": externalTaskIDs,
+		"external_statuses": externalStatuses,
+	}
+	if len(externalTaskIDs) > 0 {
+		resultData["external_task_id"] = externalTaskIDs[0]
+	}
+	if len(externalStatuses) > 0 {
+		resultData["external_status"] = externalStatuses[len(externalStatuses)-1]
+	}
+	return resultData, watermarkedURLs, rawURLs, usedModel, usedEndpoint, nil
+}
+
+func (p *RequestPool) executeToAPIsAsyncImageTask(taskCtx *AITaskContext, httpReq *HTTPRequest, current int, total int) (map[string]interface{}, string, string, error) {
+	createStart := time.Now()
+	createResp := DoHTTPRequest(taskCtx.ctx, httpReq)
+	if createResp.Error != nil {
+		return nil, "", "", fmt.Errorf("ToAPIs 创建任务失败: %v", createResp.Error)
+	}
+	if createResp.StatusCode >= 400 {
+		return nil, "", "", fmt.Errorf("ToAPIs 创建任务返回错误状态码: %d, Body: %s", createResp.StatusCode, string(createResp.Body))
+	}
+	createData, err := parseJSONResponseMap(createResp.Body)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("ToAPIs 创建任务响应不是有效JSON: %v", err)
+	}
+	taskID := extractToAPIsTaskID(createData)
+	if taskID == "" {
+		return nil, "", "", fmt.Errorf("ToAPIs 未返回任务 ID")
+	}
+	status := extractToAPIsStatus(createData)
+	log.Printf("[AI任务] ToAPIs 任务已创建: %d/%d task_id=%s status=%s 耗时=%v", current, total, taskID, status, time.Since(createStart))
+
+	statusEndpoint := buildToAPIsStatusEndpoint(taskCtx.APIConfig.APIEndpoint, taskID)
+	deadline := time.Now().Add(toapisMaxWait)
+	lastData := createData
+	for {
+		if status == "" || isToAPIsPendingStatus(status) {
+			if time.Now().After(deadline) {
+				return nil, "", "", fmt.Errorf("ToAPIs 任务等待超时: task_id=%s", taskID)
+			}
+			select {
+			case <-taskCtx.ctx.Done():
+				return nil, "", "", fmt.Errorf("ToAPIs 任务被取消: %v", taskCtx.ctx.Err())
+			case <-time.After(toapisPollInterval):
+			}
+			pollReq := &HTTPRequest{
+				URL:         statusEndpoint,
+				Method:      http.MethodGet,
+				Headers:     cloneStringMap(httpReq.Headers),
+				Timeout:     toapisPollInterval + 20*time.Second,
+				ContentType: "application/json",
+			}
+			pollResp := DoHTTPRequest(taskCtx.ctx, pollReq)
+			if pollResp.Error != nil {
+				return nil, "", "", fmt.Errorf("ToAPIs 查询任务失败: %v", pollResp.Error)
+			}
+			if pollResp.StatusCode >= 400 {
+				return nil, "", "", fmt.Errorf("ToAPIs 查询任务返回错误状态码: %d, Body: %s", pollResp.StatusCode, string(pollResp.Body))
+			}
+			lastData, err = parseJSONResponseMap(pollResp.Body)
+			if err != nil {
+				return nil, "", "", fmt.Errorf("ToAPIs 查询任务响应不是有效JSON: %v", err)
+			}
+			status = extractToAPIsStatus(lastData)
+			log.Printf("[AI任务] ToAPIs 任务轮询: %d/%d task_id=%s status=%s", current, total, taskID, status)
+		}
+
+		if isToAPIsSuccessStatus(status) {
+			normalized := normalizeToAPIsImageResponse(lastData, taskID, status)
+			normalizedBody, _ := json.Marshal(normalized)
+			return p.processImageHTTPResponse(taskCtx, &HTTPResponse{StatusCode: http.StatusOK, Body: normalizedBody})
+		}
+		if isToAPIsFailedStatus(status) {
+			return nil, "", "", fmt.Errorf("ToAPIs 任务处理失败: task_id=%s status=%s", taskID, status)
+		}
+		if !isToAPIsPendingStatus(status) {
+			return nil, "", "", fmt.Errorf("ToAPIs 任务状态未知: task_id=%s status=%s", taskID, status)
+		}
+	}
+}
+
+func parseJSONResponseMap(data []byte) (map[string]interface{}, error) {
+	var result map[string]interface{}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func cloneJSONMap(value interface{}) (map[string]interface{}, bool) {
+	source, ok := value.(map[string]interface{})
+	if !ok {
+		return nil, false
+	}
+	raw, err := json.Marshal(source)
+	if err != nil {
+		return nil, false
+	}
+	var cloned map[string]interface{}
+	if err := json.Unmarshal(raw, &cloned); err != nil {
+		return nil, false
+	}
+	return cloned, true
+}
+
+func cloneStringMap(source map[string]string) map[string]string {
+	if source == nil {
+		return nil
+	}
+	cloned := make(map[string]string, len(source))
+	for key, value := range source {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func buildToAPIsStatusEndpoint(createEndpoint string, taskID string) string {
+	base := strings.TrimSpace(createEndpoint)
+	query := ""
+	if idx := strings.Index(base, "?"); idx >= 0 {
+		query = base[idx:]
+		base = base[:idx]
+	}
+	return strings.TrimRight(base, "/") + "/" + url.PathEscape(strings.TrimSpace(taskID)) + query
+}
+
+func extractToAPIsTaskID(data map[string]interface{}) string {
+	if data == nil {
+		return ""
+	}
+	for _, key := range []string{"id", "task_id"} {
+		if value, ok := data[key].(string); ok && strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	if nested, ok := data["data"].(map[string]interface{}); ok {
+		return extractToAPIsTaskID(nested)
+	}
+	return ""
+}
+
+func extractToAPIsStatus(data map[string]interface{}) string {
+	if data == nil {
+		return ""
+	}
+	if value, ok := data["status"].(string); ok {
+		return strings.ToLower(strings.TrimSpace(value))
+	}
+	if nested, ok := data["data"].(map[string]interface{}); ok {
+		return extractToAPIsStatus(nested)
+	}
+	return ""
+}
+
+func isToAPIsPendingStatus(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "", "pending", "queued", "created", "processing", "running", "in_progress":
+		return true
+	default:
+		return false
+	}
+}
+
+func isToAPIsSuccessStatus(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "completed", "complete", "succeeded", "success", "finished":
+		return true
+	default:
+		return false
+	}
+}
+
+func isToAPIsFailedStatus(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "failed", "error", "cancelled", "canceled", "timeout", "expired":
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizeToAPIsImageResponse(data map[string]interface{}, taskID string, status string) map[string]interface{} {
+	normalized := map[string]interface{}{
+		"provider":         "toapis",
+		"protocol_type":    "toapis_async",
+		"external_task_id": taskID,
+		"external_status":  status,
+		"raw_response":     data,
+	}
+	urls := extractToAPIsImageURLs(data)
+	if len(urls) > 0 {
+		items := make([]interface{}, 0, len(urls))
+		for _, imageURL := range urls {
+			items = append(items, map[string]interface{}{"url": imageURL})
+		}
+		normalized["data"] = items
+	}
+	return normalized
+}
+
+func extractToAPIsImageURLs(data map[string]interface{}) []string {
+	if data == nil {
+		return nil
+	}
+	if result, ok := data["result"].(map[string]interface{}); ok {
+		if urls := collectImageURLsFromDataValue(result["data"]); len(urls) > 0 {
+			return urls
+		}
+		if urlText, ok := result["url"].(string); ok && strings.TrimSpace(urlText) != "" {
+			return []string{strings.TrimSpace(urlText)}
+		}
+	}
+	if urls := collectImageURLsFromDataValue(data["data"]); len(urls) > 0 {
+		return urls
+	}
+	if urlText, ok := data["url"].(string); ok && strings.TrimSpace(urlText) != "" {
+		return []string{strings.TrimSpace(urlText)}
+	}
+	return nil
+}
+
+func collectImageURLsFromDataValue(value interface{}) []string {
+	switch current := value.(type) {
+	case []interface{}:
+		result := make([]string, 0, len(current))
+		for _, item := range current {
+			switch itemValue := item.(type) {
+			case map[string]interface{}:
+				if urlText, ok := itemValue["url"].(string); ok && strings.TrimSpace(urlText) != "" {
+					result = append(result, strings.TrimSpace(urlText))
+				}
+			case string:
+				if strings.TrimSpace(itemValue) != "" {
+					result = append(result, strings.TrimSpace(itemValue))
+				}
+			}
+		}
+		return result
+	case map[string]interface{}:
+		if urlText, ok := current["url"].(string); ok && strings.TrimSpace(urlText) != "" {
+			return []string{strings.TrimSpace(urlText)}
+		}
+	case string:
+		if strings.TrimSpace(current) != "" {
+			return []string{strings.TrimSpace(current)}
+		}
+	}
+	return nil
+}
+
 func (p *RequestPool) buildRequestBody(taskCtx *AITaskContext) (map[string]interface{}, error) {
 	var body map[string]interface{}
 	var aspectRatio string
@@ -1209,7 +1583,9 @@ func (p *RequestPool) buildRequestBody(taskCtx *AITaskContext) (map[string]inter
 
 	// 处理多图：展开为多个 inline_data
 	if len(taskCtx.ImageURLs) > 0 {
-		if isSeedreamAPIConfig(taskCtx.APIConfig) {
+		if isToAPIsAsyncConfig(taskCtx.APIConfig) {
+			body["image_urls"] = buildToAPIsImageURLPayload(taskCtx.ImageURLs)
+		} else if isSeedreamAPIConfig(taskCtx.APIConfig) {
 			imageValues := make([]interface{}, 0, len(taskCtx.ImageURLs))
 			for _, imageURL := range taskCtx.ImageURLs {
 				imageURL = strings.TrimSpace(imageURL)
@@ -1226,7 +1602,11 @@ func (p *RequestPool) buildRequestBody(taskCtx *AITaskContext) (map[string]inter
 			return nil, fmt.Errorf("处理多图失败: %v", err)
 		}
 	} else if taskCtx.ImageURL != "" {
-		if isSeedreamAPIConfig(taskCtx.APIConfig) {
+		if isToAPIsAsyncConfig(taskCtx.APIConfig) {
+			if _, exists := body["image_urls"]; !exists {
+				body["image_urls"] = buildToAPIsImageURLPayload([]string{taskCtx.ImageURL})
+			}
+		} else if isSeedreamAPIConfig(taskCtx.APIConfig) {
 			body["image"] = taskCtx.ImageURL
 		} else if strings.Contains(taskCtx.APIConfig.BodyTemplate, "{{image}}") {
 			imageValue := taskCtx.ImageURL
@@ -1276,9 +1656,25 @@ func (p *RequestPool) buildRequestBody(taskCtx *AITaskContext) (map[string]inter
 			stripGeminiDrawTopLevelFields(body)
 			log.Printf("[AI任务] Gemini generateContent 请求体已按接口文档清理顶层业务字段")
 		}
+		if isToAPIsAsyncConfig(taskCtx.APIConfig) {
+			stripToAPIsDrawTopLevelFields(body)
+			log.Printf("[AI任务] ToAPIs 异步生图请求体已按接口文档清理顶层业务字段")
+		}
 	}
 
 	return body, nil
+}
+
+func buildToAPIsImageURLPayload(imageURLs []string) []interface{} {
+	items := make([]interface{}, 0, len(imageURLs))
+	for _, imageURL := range imageURLs {
+		imageURL = strings.TrimSpace(imageURL)
+		if imageURL == "" {
+			continue
+		}
+		items = append(items, map[string]interface{}{"url": imageURL})
+	}
+	return items
 }
 
 func enforceAIDrawResolutionFields(body map[string]interface{}, apiConfig *AIAPIConfigData, aspectRatio string, normalizedImageSize string, requestImageSize string) {

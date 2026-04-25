@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -13,17 +14,21 @@ import (
 // AIAPIConfig AI API配置
 type AIAPIConfig struct {
 	ID                       int64     `json:"id" db:"id"`
-	TaskType                 string    `json:"task_type" db:"task_type"`                               // ai_draw 或 ai_chat
-	APIEndpoint              string    `json:"api_endpoint" db:"api_endpoint"`                         // API接口地址
-	Method                   string    `json:"method" db:"method"`                                     // GET, POST, PUT等
-	APIKey                   string    `json:"api_key" db:"api_key"`                                   // API Key
-	APIKeyLocation           string    `json:"api_key_location" db:"api_key_location"`                 // API Key 发送位置: header_bearer, header_custom, query, body, none
-	APIKeyName               string    `json:"api_key_name" db:"api_key_name"`                         // API Key 名称
-	Headers                  string    `json:"headers" db:"headers"`                                   // JSON格式的请求头
-	BodyTemplate             string    `json:"body_template" db:"body_template"`                       // JSON格式的请求体模板
-	PromptPath               string    `json:"prompt_path" db:"prompt_path"`                           // 提示词在JSON中的路径，如 "prompt" 或 "data.prompt"
+	TaskType                 string    `json:"task_type" db:"task_type"`                                   // ai_draw 或 ai_chat
+	ProviderCode             string    `json:"provider_code" db:"provider_code"`                           // 供应商编码：laozhang、toapis、default
+	ProviderName             string    `json:"provider_name" db:"provider_name"`                           // 供应商名称
+	ProtocolType             string    `json:"protocol_type" db:"protocol_type"`                           // 协议类型：gemini_sync、toapis_async、chat_sync
+	IsActive                 bool      `json:"is_active" db:"is_active"`                                   // 是否当前启用
+	APIEndpoint              string    `json:"api_endpoint" db:"api_endpoint"`                             // API接口地址
+	Method                   string    `json:"method" db:"method"`                                         // GET, POST, PUT等
+	APIKey                   string    `json:"api_key" db:"api_key"`                                       // API Key
+	APIKeyLocation           string    `json:"api_key_location" db:"api_key_location"`                     // API Key 发送位置: header_bearer, header_custom, query, body, none
+	APIKeyName               string    `json:"api_key_name" db:"api_key_name"`                             // API Key 名称
+	Headers                  string    `json:"headers" db:"headers"`                                       // JSON格式的请求头
+	BodyTemplate             string    `json:"body_template" db:"body_template"`                           // JSON格式的请求体模板
+	PromptPath               string    `json:"prompt_path" db:"prompt_path"`                               // 提示词在JSON中的路径，如 "prompt" 或 "data.prompt"
 	EnablePromptOptimization bool      `json:"enable_prompt_optimization" db:"enable_prompt_optimization"` // 是否开启提示词优化
-	ImagePath                string    `json:"image_path" db:"image_path"`                             // 用户图片在JSON中的路径，如 "image" 或 "data.images[0]"
+	ImagePath                string    `json:"image_path" db:"image_path"`                                 // 用户图片在JSON中的路径，如 "image" 或 "data.images[0]"
 	CreatedAt                time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt                time.Time `json:"updated_at" db:"updated_at"`
 }
@@ -55,9 +60,16 @@ func scanAIAPIConfig(scanner aiAPIConfigScanner) (*AIAPIConfig, error) {
 	var bodyTemplate sql.NullString
 	var promptPath sql.NullString
 	var imagePath sql.NullString
+	var providerCode sql.NullString
+	var providerName sql.NullString
+	var protocolType sql.NullString
 	err := scanner.Scan(
 		&config.ID,
 		&config.TaskType,
+		&providerCode,
+		&providerName,
+		&protocolType,
+		&config.IsActive,
 		&config.APIEndpoint,
 		&config.Method,
 		&apiKey,
@@ -74,6 +86,9 @@ func scanAIAPIConfig(scanner aiAPIConfigScanner) (*AIAPIConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+	config.ProviderCode = nullStringValue(providerCode)
+	config.ProviderName = nullStringValue(providerName)
+	config.ProtocolType = nullStringValue(protocolType)
 	config.APIKey = nullStringValue(apiKey)
 	config.APIKeyLocation = nullStringValue(apiKeyLocation)
 	config.APIKeyName = nullStringValue(apiKeyName)
@@ -82,6 +97,43 @@ func scanAIAPIConfig(scanner aiAPIConfigScanner) (*AIAPIConfig, error) {
 	config.PromptPath = nullStringValue(promptPath)
 	config.ImagePath = nullStringValue(imagePath)
 	return config, nil
+}
+
+func normalizeAIAPIConfig(config *AIAPIConfig) {
+	if config == nil {
+		return
+	}
+	config.TaskType = strings.TrimSpace(config.TaskType)
+	config.ProviderCode = strings.TrimSpace(config.ProviderCode)
+	config.ProviderName = strings.TrimSpace(config.ProviderName)
+	config.ProtocolType = strings.TrimSpace(config.ProtocolType)
+	if config.ProviderCode == "" {
+		if config.TaskType == "ai_draw" {
+			config.ProviderCode = "laozhang"
+		} else {
+			config.ProviderCode = "default"
+		}
+	}
+	if config.ProviderName == "" {
+		switch config.ProviderCode {
+		case "laozhang":
+			config.ProviderName = "老张 API"
+		case "toapis":
+			config.ProviderName = "ToAPIs"
+		default:
+			config.ProviderName = config.ProviderCode
+		}
+	}
+	if config.ProtocolType == "" {
+		switch config.ProviderCode {
+		case "toapis":
+			config.ProtocolType = "toapis_async"
+		case "laozhang":
+			config.ProtocolType = "gemini_sync"
+		default:
+			config.ProtocolType = "sync"
+		}
+	}
 }
 
 // NewAIAPIConfigModel 创建AI API配置模型
@@ -105,9 +157,9 @@ func (m *AIAPIConfigModel) GetByTaskType(taskType string) (*AIAPIConfig, error) 
 		}
 	}
 
-	// Redis中没有，从MySQL读取
-	query := `SELECT id, task_type, api_endpoint, method, api_key, api_key_location, api_key_name, headers, body_template, prompt_path, enable_prompt_optimization, image_path, created_at, updated_at 
-	          FROM ai_api_config WHERE task_type = ?`
+	// Redis中没有，从MySQL读取当前启用配置；老数据没有 is_active 时回退第一条。
+	query := `SELECT id, task_type, provider_code, provider_name, protocol_type, is_active, api_endpoint, method, api_key, api_key_location, api_key_name, headers, body_template, prompt_path, enable_prompt_optimization, image_path, created_at, updated_at 
+	          FROM ai_api_config WHERE task_type = ? ORDER BY is_active DESC, id ASC LIMIT 1`
 	config, err := scanAIAPIConfig(m.DB.QueryRow(query, taskType))
 	if err != nil {
 		return nil, err
@@ -122,8 +174,8 @@ func (m *AIAPIConfigModel) GetByTaskType(taskType string) (*AIAPIConfig, error) 
 
 // GetAll 获取所有API配置
 func (m *AIAPIConfigModel) GetAll() ([]*AIAPIConfig, error) {
-	query := `SELECT id, task_type, api_endpoint, method, api_key, api_key_location, api_key_name, headers, body_template, prompt_path, enable_prompt_optimization, image_path, created_at, updated_at 
-	          FROM ai_api_config ORDER BY task_type`
+	query := `SELECT id, task_type, provider_code, provider_name, protocol_type, is_active, api_endpoint, method, api_key, api_key_location, api_key_name, headers, body_template, prompt_path, enable_prompt_optimization, image_path, created_at, updated_at 
+	          FROM ai_api_config ORDER BY task_type, is_active DESC, id ASC`
 	rows, err := m.DB.Query(query)
 	if err != nil {
 		return nil, err
@@ -143,9 +195,50 @@ func (m *AIAPIConfigModel) GetAll() ([]*AIAPIConfig, error) {
 
 // Upsert 创建或更新API配置
 func (m *AIAPIConfigModel) Upsert(config *AIAPIConfig) error {
-	query := `INSERT INTO ai_api_config (task_type, api_endpoint, method, api_key, api_key_location, api_key_name, headers, body_template, prompt_path, enable_prompt_optimization, image_path, created_at, updated_at) 
-	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+	normalizeAIAPIConfig(config)
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if config.IsActive {
+		if _, err := tx.Exec(`UPDATE ai_api_config SET is_active = 0 WHERE task_type = ?`, config.TaskType); err != nil {
+			return err
+		}
+	}
+
+	if config.ID > 0 {
+		query := `UPDATE ai_api_config SET
+			task_type = ?,
+			provider_code = ?,
+			provider_name = ?,
+			protocol_type = ?,
+			is_active = ?,
+			api_endpoint = ?,
+			method = ?,
+			api_key = ?,
+			api_key_location = ?,
+			api_key_name = ?,
+			headers = ?,
+			body_template = ?,
+			prompt_path = ?,
+			enable_prompt_optimization = ?,
+			image_path = ?,
+			updated_at = NOW()
+			WHERE id = ?`
+		if _, err := tx.Exec(query, config.TaskType, config.ProviderCode, config.ProviderName, config.ProtocolType, config.IsActive, config.APIEndpoint, config.Method,
+			config.APIKey, config.APIKeyLocation, config.APIKeyName,
+			config.Headers, config.BodyTemplate, config.PromptPath, config.EnablePromptOptimization, config.ImagePath, config.ID); err != nil {
+			return err
+		}
+	} else {
+		query := `INSERT INTO ai_api_config (task_type, provider_code, provider_name, protocol_type, is_active, api_endpoint, method, api_key, api_key_location, api_key_name, headers, body_template, prompt_path, enable_prompt_optimization, image_path, created_at, updated_at) 
+	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
 	          ON DUPLICATE KEY UPDATE 
+	          provider_name = VALUES(provider_name),
+	          protocol_type = VALUES(protocol_type),
+	          is_active = VALUES(is_active),
 	          api_endpoint = VALUES(api_endpoint),
 	          method = VALUES(method),
 	          api_key = VALUES(api_key),
@@ -157,11 +250,14 @@ func (m *AIAPIConfigModel) Upsert(config *AIAPIConfig) error {
 	          enable_prompt_optimization = VALUES(enable_prompt_optimization),
 	          image_path = VALUES(image_path),
 	          updated_at = NOW()`
-	
-	_, err := m.DB.Exec(query, config.TaskType, config.APIEndpoint, config.Method, 
-		config.APIKey, config.APIKeyLocation, config.APIKeyName,
-		config.Headers, config.BodyTemplate, config.PromptPath, config.EnablePromptOptimization, config.ImagePath)
-	if err != nil {
+		if _, err := tx.Exec(query, config.TaskType, config.ProviderCode, config.ProviderName, config.ProtocolType, config.IsActive, config.APIEndpoint, config.Method,
+			config.APIKey, config.APIKeyLocation, config.APIKeyName,
+			config.Headers, config.BodyTemplate, config.PromptPath, config.EnablePromptOptimization, config.ImagePath); err != nil {
+			return err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 
@@ -177,7 +273,11 @@ func (m *AIAPIConfigModel) InitTable() error {
 	schema := `
 CREATE TABLE IF NOT EXISTS ai_api_config (
 	id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-	task_type VARCHAR(32) NOT NULL UNIQUE COMMENT '任务类型：ai_draw（AI绘画）或 ai_chat（AI聊天）',
+	task_type VARCHAR(32) NOT NULL COMMENT '任务类型：ai_draw（AI绘画）或 ai_chat（AI聊天）',
+	provider_code VARCHAR(32) NOT NULL DEFAULT 'default' COMMENT '供应商编码',
+	provider_name VARCHAR(64) DEFAULT NULL COMMENT '供应商名称',
+	protocol_type VARCHAR(32) NOT NULL DEFAULT 'sync' COMMENT '协议类型：gemini_sync、toapis_async、chat_sync',
+	is_active TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否当前启用',
 	api_endpoint VARCHAR(512) NOT NULL COMMENT 'API接口地址',
 	method VARCHAR(16) NOT NULL DEFAULT 'POST' COMMENT '请求方法：GET, POST, PUT等',
 	api_key VARCHAR(256) DEFAULT NULL COMMENT 'API Key',
@@ -190,7 +290,8 @@ CREATE TABLE IF NOT EXISTS ai_api_config (
 	image_path VARCHAR(128) DEFAULT NULL COMMENT '用户图片在JSON中的路径，如 "image" 或 "data.images[0]"',
 	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-	INDEX idx_task_type (task_type)
+	INDEX idx_task_type (task_type),
+	UNIQUE KEY uniq_ai_api_task_provider (task_type, provider_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 `
 	_, err := m.DB.Exec(schema)
@@ -219,8 +320,64 @@ CREATE TABLE IF NOT EXISTS ai_api_config (
 	addColumnIfNotExists("api_key", "api_key VARCHAR(256) DEFAULT NULL COMMENT 'API Key'")
 	addColumnIfNotExists("api_key_location", "api_key_location VARCHAR(32) DEFAULT 'header_bearer' COMMENT 'API Key发送位置'")
 	addColumnIfNotExists("api_key_name", "api_key_name VARCHAR(64) DEFAULT 'Authorization' COMMENT 'API Key名称'")
+	addColumnIfNotExists("provider_code", "provider_code VARCHAR(32) NOT NULL DEFAULT 'default' COMMENT '供应商编码'")
+	addColumnIfNotExists("provider_name", "provider_name VARCHAR(64) DEFAULT NULL COMMENT '供应商名称'")
+	addColumnIfNotExists("protocol_type", "protocol_type VARCHAR(32) NOT NULL DEFAULT 'sync' COMMENT '协议类型'")
+	addColumnIfNotExists("is_active", "is_active TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否当前启用'")
+
+	m.DB.Exec(`UPDATE ai_api_config SET provider_code = 'laozhang', provider_name = '老张 API', protocol_type = 'gemini_sync', is_active = 1 WHERE task_type = 'ai_draw' AND provider_code = 'default'`)
+	m.DB.Exec(`UPDATE ai_api_config SET provider_code = 'default', provider_name = '默认聊天接口', protocol_type = 'chat_sync', is_active = 1 WHERE task_type = 'ai_chat' AND provider_code = 'default'`)
+	dropTaskTypeUniqueIndexes(m.DB)
+	addUniqueIndexIfNotExists(m.DB, "uniq_ai_api_task_provider", "ALTER TABLE ai_api_config ADD UNIQUE KEY uniq_ai_api_task_provider (task_type, provider_code)")
 
 	return nil
+}
+
+func dropTaskTypeUniqueIndexes(db *sql.DB) {
+	rows, err := db.Query(`
+		SELECT INDEX_NAME
+		FROM information_schema.STATISTICS
+		WHERE TABLE_SCHEMA = DATABASE()
+		AND TABLE_NAME = 'ai_api_config'
+		AND COLUMN_NAME = 'task_type'
+		AND NON_UNIQUE = 0
+		AND INDEX_NAME <> 'PRIMARY'
+	`)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var indexName string
+		if err := rows.Scan(&indexName); err != nil {
+			continue
+		}
+		if indexName == "uniq_ai_api_task_provider" {
+			continue
+		}
+		escaped := strings.ReplaceAll(indexName, "`", "``")
+		if _, err := db.Exec("ALTER TABLE ai_api_config DROP INDEX `" + escaped + "`"); err != nil {
+			log.Printf("[AIAPIConfig] 删除旧 task_type 唯一索引失败: index=%s err=%v", indexName, err)
+		}
+	}
+}
+
+func addUniqueIndexIfNotExists(db *sql.DB, indexName string, ddl string) {
+	var exists bool
+	if err := db.QueryRow(`
+		SELECT COUNT(*) > 0
+		FROM information_schema.STATISTICS
+		WHERE TABLE_SCHEMA = DATABASE()
+		AND TABLE_NAME = 'ai_api_config'
+		AND INDEX_NAME = ?
+	`, indexName).Scan(&exists); err != nil {
+		return
+	}
+	if !exists {
+		if _, err := db.Exec(ddl); err != nil {
+			log.Printf("[AIAPIConfig] 添加唯一索引失败: index=%s err=%v", indexName, err)
+		}
+	}
 }
 
 // InitDefaultConfigs 初始化默认AI API配置（如果不存在则插入）
@@ -231,7 +388,11 @@ func (m *AIAPIConfigModel) InitDefaultConfigs(laoZhangKey string) error {
 	// 默认配置列表
 	defaultConfigs := []AIAPIConfig{
 		{
-			TaskType:       "ai_draw",
+			TaskType:     "ai_draw",
+			ProviderCode: "laozhang",
+			ProviderName: "老张 API",
+			ProtocolType: "gemini_sync",
+			IsActive:     true,
 			// 默认使用新的 v1beta generateContent 接口
 			APIEndpoint:    "https://api.laozhang.ai/v1beta/models/gemini-3-pro-image-preview:generateContent",
 			Method:         "POST",
@@ -261,39 +422,48 @@ func (m *AIAPIConfigModel) InitDefaultConfigs(laoZhangKey string) error {
 			EnablePromptOptimization: false,
 		},
 		{
-			TaskType:       "ai_chat",
-			APIEndpoint:    "https://api.laozhang.ai/v1/chat/completions",
-			Method:         "POST",
-			APIKey:         apiKey,
-			APIKeyLocation: "header_bearer",
-			APIKeyName:     "Authorization",
-			Headers:        `{"Content-Type": "application/json"}`,
+			TaskType:                 "ai_chat",
+			ProviderCode:             "default",
+			ProviderName:             "默认聊天接口",
+			ProtocolType:             "chat_sync",
+			IsActive:                 true,
+			APIEndpoint:              "https://api.laozhang.ai/v1/chat/completions",
+			Method:                   "POST",
+			APIKey:                   apiKey,
+			APIKeyLocation:           "header_bearer",
+			APIKeyName:               "Authorization",
+			Headers:                  `{"Content-Type": "application/json"}`,
 			BodyTemplate:             `{"model":"gemini-3-pro-image-preview","stream":false,"messages":[{"role":"user","content":"{{prompt}}"}]}`,
 			EnablePromptOptimization: false,
 		},
 	}
 
 	for _, config := range defaultConfigs {
+		normalizeAIAPIConfig(&config)
 		// 检查是否已存在
 		var exists bool
-		m.DB.QueryRow(`SELECT COUNT(*) > 0 FROM ai_api_config WHERE task_type = ?`, config.TaskType).Scan(&exists)
+		m.DB.QueryRow(`SELECT COUNT(*) > 0 FROM ai_api_config WHERE task_type = ? AND provider_code = ?`, config.TaskType, config.ProviderCode).Scan(&exists)
 		if exists {
 			log.Printf("[AIAPIConfig] %s 配置已存在，跳过初始化", config.TaskType)
 			continue
 		}
 
 		// 插入默认配置
-		query := `INSERT INTO ai_api_config (task_type, api_endpoint, method, api_key, api_key_location, api_key_name, headers, body_template, enable_prompt_optimization, created_at, updated_at) 
-		          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`
-		_, err := m.DB.Exec(query, 
-			config.TaskType, 
-			config.APIEndpoint, 
+		query := `INSERT INTO ai_api_config (task_type, provider_code, provider_name, protocol_type, is_active, api_endpoint, method, api_key, api_key_location, api_key_name, headers, body_template, enable_prompt_optimization, created_at, updated_at) 
+		          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`
+		_, err := m.DB.Exec(query,
+			config.TaskType,
+			config.ProviderCode,
+			config.ProviderName,
+			config.ProtocolType,
+			config.IsActive,
+			config.APIEndpoint,
 			config.Method,
 			config.APIKey,
 			config.APIKeyLocation,
 			config.APIKeyName,
-			config.Headers, 
-			config.BodyTemplate, 
+			config.Headers,
+			config.BodyTemplate,
 			config.EnablePromptOptimization,
 		)
 		if err != nil {

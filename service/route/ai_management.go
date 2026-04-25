@@ -16,11 +16,18 @@ type AIPricingRequest struct {
 	ExtraConfig map[string]interface{} `json:"extra_config"`
 }
 
-func validateAIAPIConfigRequest(taskType, apiEndpoint string, bodyTemplate map[string]interface{}) string {
+func validateAIAPIConfigRequest(taskType, apiEndpoint, protocolType string, bodyTemplate map[string]interface{}) string {
 	if strings.TrimSpace(taskType) != "ai_draw" {
 		return ""
 	}
+	protocolType = strings.TrimSpace(protocolType)
 	lowerEndpoint := strings.ToLower(strings.TrimSpace(apiEndpoint))
+	if protocolType == "toapis_async" {
+		if !strings.Contains(lowerEndpoint, "/v1/images/generations") {
+			return "ToAPIs 异步生图配置应使用 /v1/images/generations 接口"
+		}
+		return ""
+	}
 	if strings.Contains(lowerEndpoint, "/v1/chat/completions") {
 		return "AI绘画主配置不能使用 chat/completions，请改用 generateContent 生图接口"
 	}
@@ -135,6 +142,10 @@ func RegisterAIManagementRoutes(r *gin.RouterGroup, pricingModel *model.AIPricin
 				configsWithParsedJSON = append(configsWithParsedJSON, gin.H{
 					"id":                         config.ID,
 					"task_type":                  config.TaskType,
+					"provider_code":              config.ProviderCode,
+					"provider_name":              config.ProviderName,
+					"protocol_type":              config.ProtocolType,
+					"is_active":                  config.IsActive,
 					"api_endpoint":               config.APIEndpoint,
 					"method":                     config.Method,
 					"api_key":                    config.APIKey,
@@ -160,7 +171,12 @@ func RegisterAIManagementRoutes(r *gin.RouterGroup, pricingModel *model.AIPricin
 		// 创建或更新API配置
 		ai.POST("/api/config", func(c *gin.Context) {
 			var req struct {
+				ID                       int64                  `json:"id"`
 				TaskType                 string                 `json:"task_type" binding:"required"` // ai_draw 或 ai_chat
+				ProviderCode             string                 `json:"provider_code"`
+				ProviderName             string                 `json:"provider_name"`
+				ProtocolType             string                 `json:"protocol_type"`
+				IsActive                 bool                   `json:"is_active"`
 				APIEndpoint              string                 `json:"api_endpoint" binding:"required"`
 				Method                   string                 `json:"method" binding:"required"` // GET, POST, PUT等
 				APIKey                   string                 `json:"api_key"`
@@ -186,6 +202,32 @@ func RegisterAIManagementRoutes(r *gin.RouterGroup, pricingModel *model.AIPricin
 				c.JSON(http.StatusBadRequest, gin.H{
 					"code": 400,
 					"msg":  FormatValidationError("task_type必须是ai_draw或ai_chat", "TaskType"),
+				})
+				return
+			}
+			if req.ProviderCode == "" {
+				if req.TaskType == "ai_draw" {
+					req.ProviderCode = "laozhang"
+				} else {
+					req.ProviderCode = "default"
+				}
+			}
+			if req.ProtocolType == "" {
+				switch req.ProviderCode {
+				case "toapis":
+					req.ProtocolType = "toapis_async"
+				case "laozhang":
+					req.ProtocolType = "gemini_sync"
+				default:
+					req.ProtocolType = "sync"
+				}
+			}
+			switch req.ProtocolType {
+			case "gemini_sync", "toapis_async", "chat_sync", "sync":
+			default:
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 400,
+					"msg":  FormatValidationError("protocol_type取值无效", "ProtocolType"),
 				})
 				return
 			}
@@ -239,7 +281,7 @@ func RegisterAIManagementRoutes(r *gin.RouterGroup, pricingModel *model.AIPricin
 				bodyTemplateJSON = string(bodyBytes)
 			}
 
-			if validationMsg := validateAIAPIConfigRequest(req.TaskType, req.APIEndpoint, req.BodyTemplate); validationMsg != "" {
+			if validationMsg := validateAIAPIConfigRequest(req.TaskType, req.APIEndpoint, req.ProtocolType, req.BodyTemplate); validationMsg != "" {
 				c.JSON(http.StatusBadRequest, gin.H{
 					"code": 400,
 					"msg":  FormatValidationError(validationMsg, "APIEndpoint"),
@@ -248,7 +290,12 @@ func RegisterAIManagementRoutes(r *gin.RouterGroup, pricingModel *model.AIPricin
 			}
 
 			apiConfig := &model.AIAPIConfig{
+				ID:                       req.ID,
 				TaskType:                 req.TaskType,
+				ProviderCode:             req.ProviderCode,
+				ProviderName:             req.ProviderName,
+				ProtocolType:             req.ProtocolType,
+				IsActive:                 req.IsActive,
 				APIEndpoint:              req.APIEndpoint,
 				Method:                   req.Method,
 				APIKey:                   req.APIKey,

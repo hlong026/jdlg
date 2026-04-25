@@ -302,6 +302,9 @@ func (p *AITaskProcessor) getConfiguredAIConfig(taskType string, hasImage bool) 
 		if err == nil && config != nil {
 			apiConfigData := &AIAPIConfigData{
 				TaskType:                 config.TaskType,
+				ProviderCode:             strings.TrimSpace(config.ProviderCode),
+				ProviderName:             strings.TrimSpace(config.ProviderName),
+				ProtocolType:             strings.TrimSpace(config.ProtocolType),
 				APIEndpoint:              strings.TrimSpace(config.APIEndpoint),
 				Method:                   strings.TrimSpace(config.Method),
 				APIKey:                   strings.TrimSpace(config.APIKey),
@@ -313,6 +316,19 @@ func (p *AITaskProcessor) getConfiguredAIConfig(taskType string, hasImage bool) 
 			}
 			if apiConfigData.Method == "" {
 				apiConfigData.Method = "POST"
+			}
+			if apiConfigData.ProviderCode == "" {
+				apiConfigData.ProviderCode = "laozhang"
+			}
+			if apiConfigData.ProviderName == "" {
+				apiConfigData.ProviderName = apiConfigData.ProviderCode
+			}
+			if apiConfigData.ProtocolType == "" {
+				if apiConfigData.ProviderCode == "toapis" {
+					apiConfigData.ProtocolType = "toapis_async"
+				} else {
+					apiConfigData.ProtocolType = "gemini_sync"
+				}
 			}
 			if apiConfigData.APIKeyLocation == "" {
 				if apiConfigData.APIKey != "" {
@@ -440,6 +456,9 @@ func (p *AITaskProcessor) getHardcodedAIConfig(taskType string, hasImage bool) *
 			log.Printf("[AITaskProcessor] 使用硬编码配置: AI绘画（带参考图，v1beta generateContent）")
 			return &AIAPIConfigData{
 				TaskType:       "ai_draw",
+				ProviderCode:   "laozhang",
+				ProviderName:   "老张 API",
+				ProtocolType:   "gemini_sync",
 				APIEndpoint:    geminiDrawGenerateContentEndpoint,
 				Method:         "POST",
 				APIKey:         apiKey,
@@ -454,6 +473,9 @@ func (p *AITaskProcessor) getHardcodedAIConfig(taskType string, hasImage bool) *
 		log.Printf("[AITaskProcessor] 使用硬编码配置: AI绘画（纯文字，v1beta generateContent）")
 		return &AIAPIConfigData{
 			TaskType:       "ai_draw",
+			ProviderCode:   "laozhang",
+			ProviderName:   "老张 API",
+			ProtocolType:   "gemini_sync",
 			APIEndpoint:    geminiDrawGenerateContentEndpoint,
 			Method:         "POST",
 			APIKey:         apiKey,
@@ -467,6 +489,9 @@ func (p *AITaskProcessor) getHardcodedAIConfig(taskType string, hasImage bool) *
 		log.Printf("[AITaskProcessor] 使用硬编码配置: AI聊天")
 		return &AIAPIConfigData{
 			TaskType:       "ai_chat",
+			ProviderCode:   "default",
+			ProviderName:   "默认聊天接口",
+			ProtocolType:   "chat_sync",
 			APIEndpoint:    "https://api.laozhang.ai/v1/chat/completions",
 			Method:         "POST",
 			APIKey:         apiKey,
@@ -489,6 +514,9 @@ func (p *AITaskProcessor) getFallbackAIConfigs(taskType string, hasImage bool) [
 	fallbacks := make([]*AIAPIConfigData, 0, 3)
 	fallbacks = append(fallbacks, &AIAPIConfigData{
 		TaskType:       "ai_draw",
+		ProviderCode:   "laozhang",
+		ProviderName:   "老张 API",
+		ProtocolType:   "gemini_sync",
 		APIEndpoint:    geminiDrawFlashGenerateContentEndpoint,
 		Method:         "POST",
 		APIKey:         apiKey,
@@ -500,6 +528,9 @@ func (p *AITaskProcessor) getFallbackAIConfigs(taskType string, hasImage bool) [
 	if hasImage {
 		fallbacks = append(fallbacks, &AIAPIConfigData{
 			TaskType:       "ai_draw",
+			ProviderCode:   "laozhang",
+			ProviderName:   "老张 API",
+			ProtocolType:   "openai_image_sync",
 			APIEndpoint:    "https://api.laozhang.ai/v1/images/generations",
 			Method:         "POST",
 			APIKey:         apiKey,
@@ -512,6 +543,9 @@ func (p *AITaskProcessor) getFallbackAIConfigs(taskType string, hasImage bool) [
 
 	fallbacks = append(fallbacks, &AIAPIConfigData{
 		TaskType:       "ai_draw",
+		ProviderCode:   "laozhang",
+		ProviderName:   "老张 API",
+		ProtocolType:   "openai_image_sync",
 		APIEndpoint:    "https://api.laozhang.ai/v1/images/generations",
 		Method:         "POST",
 		APIKey:         apiKey,
@@ -626,10 +660,15 @@ func (p *AITaskProcessor) handleTaskResult(task *model.AITask, result *AITaskRes
 		if strings.TrimSpace(result.ThumbnailURL) != "" {
 			resultPayload["thumbnail_url"] = strings.TrimSpace(result.ThumbnailURL)
 		}
-		if result.UsedModel != "" || result.APIEndpoint != "" || len(result.AttemptedModels) > 0 || len(result.AttemptedEndpoints) > 0 {
+		if result.UsedModel != "" || result.APIEndpoint != "" || result.ProviderCode != "" || result.ProtocolType != "" || result.ExternalTaskID != "" || len(result.AttemptedModels) > 0 || len(result.AttemptedEndpoints) > 0 {
 			resultPayload["execution_meta"] = map[string]interface{}{
 				"used_model":          result.UsedModel,
 				"api_endpoint":        result.APIEndpoint,
+				"provider_code":       result.ProviderCode,
+				"provider_name":       result.ProviderName,
+				"protocol_type":       result.ProtocolType,
+				"external_task_id":    result.ExternalTaskID,
+				"external_status":     result.ExternalStatus,
 				"attempted_models":    result.AttemptedModels,
 				"attempted_endpoints": result.AttemptedEndpoints,
 			}
@@ -691,10 +730,15 @@ func (p *AITaskProcessor) handleTaskResult(task *model.AITask, result *AITaskRes
 			"refunded_stones":      refundedStones,
 			"refunded_image_count": requestedCount,
 		}
-		if result.UsedModel != "" || result.APIEndpoint != "" || len(result.AttemptedModels) > 0 || len(result.AttemptedEndpoints) > 0 {
+		if result.UsedModel != "" || result.APIEndpoint != "" || result.ProviderCode != "" || result.ProtocolType != "" || result.ExternalTaskID != "" || len(result.AttemptedModels) > 0 || len(result.AttemptedEndpoints) > 0 {
 			failurePayload["execution_meta"] = map[string]interface{}{
 				"used_model":          result.UsedModel,
 				"api_endpoint":        result.APIEndpoint,
+				"provider_code":       result.ProviderCode,
+				"provider_name":       result.ProviderName,
+				"protocol_type":       result.ProtocolType,
+				"external_task_id":    result.ExternalTaskID,
+				"external_status":     result.ExternalStatus,
 				"attempted_models":    result.AttemptedModels,
 				"attempted_endpoints": result.AttemptedEndpoints,
 			}

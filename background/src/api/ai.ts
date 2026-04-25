@@ -18,6 +18,10 @@ export type APIKeyLocation = 'none' | 'header_bearer' | 'header_custom' | 'query
 export interface AIAPIConfig {
     id?: number;
     task_type: string; // 'ai_draw' | 'ai_chat'
+    provider_code?: string;
+    provider_name?: string;
+    protocol_type?: string;
+    is_active?: boolean;
     api_endpoint: string;
     method: string; // 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
     headers?: any;
