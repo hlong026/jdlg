@@ -1301,6 +1301,7 @@ func (p *RequestPool) executeToAPIsAsyncImageTasks(taskCtx *AITaskContext, httpR
 	responses := make([]interface{}, 0, generateCount)
 	externalTaskIDs := make([]string, 0, generateCount)
 	externalStatuses := make([]string, 0, generateCount)
+	attemptErrors := make([]string, 0)
 	for index := 0; index < generateCount; index++ {
 		singleReq := cloneHTTPRequest(httpReq)
 		if body, ok := cloneJSONMap(httpReq.Body); ok {
@@ -1309,7 +1310,9 @@ func (p *RequestPool) executeToAPIsAsyncImageTasks(taskCtx *AITaskContext, httpR
 		}
 		responseData, watermarkedURL, rawURL, err := p.executeToAPIsAsyncImageTask(taskCtx, singleReq, index+1, generateCount)
 		if err != nil {
-			return nil, nil, nil, usedModel, usedEndpoint, err
+			attemptErrors = append(attemptErrors, fmt.Sprintf("第%d张: %v", index+1, err))
+			log.Printf("[AI任务] ⚠️ ToAPIs 第 %d/%d 张生成失败: %v", index+1, generateCount, err)
+			continue
 		}
 		responses = append(responses, responseData)
 		if watermarkedURL != "" {
@@ -1326,16 +1329,24 @@ func (p *RequestPool) executeToAPIsAsyncImageTasks(taskCtx *AITaskContext, httpR
 		}
 	}
 	if len(watermarkedURLs) == 0 {
+		if len(attemptErrors) > 0 {
+			return nil, nil, nil, usedModel, usedEndpoint, fmt.Errorf("ToAPIs 未获取到任何图片结果: %s", strings.Join(attemptErrors, " | "))
+		}
 		return nil, nil, nil, usedModel, usedEndpoint, fmt.Errorf("ToAPIs 未获取到任何图片结果")
 	}
+	log.Printf("[AI任务] ToAPIs 批量结果汇总: model=%s, requested_generate_count=%d, success_count=%d, failed_count=%d", usedModel, generateCount, len(watermarkedURLs), len(attemptErrors))
 	resultData := map[string]interface{}{
 		"provider":          "toapis",
 		"protocol_type":     "toapis_async",
 		"responses":         responses,
 		"generated_count":   len(watermarkedURLs),
 		"expected_count":    generateCount,
+		"failed_count":      len(attemptErrors),
 		"external_task_ids": externalTaskIDs,
 		"external_statuses": externalStatuses,
+	}
+	if len(attemptErrors) > 0 {
+		resultData["errors"] = attemptErrors
 	}
 	if len(externalTaskIDs) > 0 {
 		resultData["external_task_id"] = externalTaskIDs[0]

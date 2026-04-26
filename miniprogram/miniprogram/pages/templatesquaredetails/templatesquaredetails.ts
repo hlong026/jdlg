@@ -13,8 +13,37 @@ const PAGE_BACKGROUND_BOTTOM = '#ece4d9';
 const TEMPLATE_DETAIL_CACHE_TTL = 3 * 60 * 1000;
 const DEFAULT_HERO_HEIGHT_PX = 420;
 
-function buildTemplateDetailCacheKey(templateId: number) {
-  return `template-detail:${Number(templateId || 0)}`;
+function buildPublicTemplateDetailCacheKey(templateId: number) {
+  return `template-detail:public:${Number(templateId || 0)}`;
+}
+
+function buildTokenCacheScope(token: string): string {
+  const value = String(token || '').trim();
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0;
+  }
+  return Math.abs(hash).toString(36) || 'anonymous';
+}
+
+function getCachedLoginUserId(): number {
+  try {
+    const userInfo = wx.getStorageSync('userInfo') || wx.getStorageSync('user') || {};
+    return Number(userInfo.id || userInfo.user_id || userInfo.userId || 0) || 0;
+  } catch (error) {
+    return 0;
+  }
+}
+
+function buildTemplateDetailCacheKey(templateId: number, token = '') {
+  const safeTemplateId = Number(templateId || 0);
+  const safeToken = String(token || '').trim();
+  if (!safeToken) {
+    return buildPublicTemplateDetailCacheKey(safeTemplateId);
+  }
+  const userId = getCachedLoginUserId();
+  const authScope = userId > 0 ? `user:${userId}` : `token:${buildTokenCacheScope(safeToken)}`;
+  return `template-detail:auth:${authScope}:${safeTemplateId}`;
 }
 
 interface LocalCommentItem {
@@ -133,7 +162,7 @@ Page({
 
     if (id > 0) {
       this.setData({ templateId: id });
-      const hasCachedDetail = Boolean(getPageCache<any>(buildTemplateDetailCacheKey(id)));
+      const hasCachedDetail = Boolean(getPageCache<any>(buildTemplateDetailCacheKey(id, token)));
       void this.loadTemplateDetail(hasCachedDetail);
     }
   },
@@ -837,7 +866,7 @@ Page({
       ? `${API_BASE_URL}/api/v1/miniprogram/templates/${this.data.templateId}/detail`
       : `${API_BASE_URL}/api/v1/miniprogram/templates/${this.data.templateId}`;
     try {
-      const cacheKey = buildTemplateDetailCacheKey(this.data.templateId);
+      const cacheKey = buildTemplateDetailCacheKey(this.data.templateId, token);
       const cachedDetail = getPageCache<any>(cacheKey);
       const res = cachedDetail || await new Promise<any>((resolve, reject) => {
         const deviceID = getCachedDeviceFingerprint() || '';

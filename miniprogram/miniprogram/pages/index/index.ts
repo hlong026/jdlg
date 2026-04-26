@@ -17,8 +17,8 @@ const HOME_INTRO_POPUP_STORAGE_KEY = 'homeIntroPopupSeen:v1'
 const TEMPLATE_DETAIL_CACHE_TTL = 2 * 60 * 1000
 const featuredDetailPrefetching = new Set<number>()
 
-function buildTemplateDetailCacheKey(templateId: number) {
-  return `template-detail:${Number(templateId || 0)}`
+function buildPublicTemplateDetailCacheKey(templateId: number) {
+  return `template-detail:public:${Number(templateId || 0)}`
 }
 
 Page({
@@ -207,7 +207,7 @@ Page({
     void prefetchImages(uniqueCases.map((item) => normalizeCosUrl(item.thumbnail || item.preview_url || '')), 2);
     uniqueCases.slice(0, 2).forEach((item) => {
       const templateId = Number(item?.id || 0);
-      const cacheKey = buildTemplateDetailCacheKey(templateId);
+      const cacheKey = buildPublicTemplateDetailCacheKey(templateId);
       if (!templateId || getPageCache(cacheKey) || featuredDetailPrefetching.has(templateId)) {
         return;
       }

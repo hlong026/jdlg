@@ -1,6 +1,10 @@
 package component
 
-import "testing"
+import (
+	"os"
+	"strings"
+	"testing"
+)
 
 func TestToAPIsFallbackConfigsStayInToAPIs(t *testing.T) {
 	primary := &AIAPIConfigData{
@@ -118,5 +122,34 @@ func TestBuildToAPIsGPTImage2RequestBody(t *testing.T) {
 	}
 	if _, exists := body["image_urls"]; exists {
 		t.Fatalf("image_urls should not be set for GPT-Image-2 ToAPIs body")
+	}
+}
+
+func TestExecuteToAPIsAsyncImageTasksKeepsPartialSuccess(t *testing.T) {
+	sourceBytes, err := os.ReadFile("requests.go")
+	if err != nil {
+		t.Fatalf("read requests.go: %v", err)
+	}
+	source := string(sourceBytes)
+	start := strings.Index(source, "func (p *RequestPool) executeToAPIsAsyncImageTasks(")
+	end := strings.Index(source, "func (p *RequestPool) executeToAPIsAsyncImageTask(")
+	if start < 0 || end <= start {
+		t.Fatalf("could not locate executeToAPIsAsyncImageTasks source")
+	}
+	batchSource := source[start:end]
+
+	if strings.Contains(batchSource, "if err != nil {\n\t\t\treturn nil, nil, nil, usedModel, usedEndpoint, err\n\t\t}") {
+		t.Fatalf("ToAPIs async batch should not return immediately when one image fails")
+	}
+	for _, want := range []string{
+		"attemptErrors = append(attemptErrors",
+		"continue",
+		"generated_count\":   len(watermarkedURLs)",
+		"failed_count\":      len(attemptErrors)",
+		"resultData[\"errors\"] = attemptErrors",
+	} {
+		if !strings.Contains(batchSource, want) {
+			t.Fatalf("requests.go missing partial-success guard %q", want)
+		}
 	}
 }

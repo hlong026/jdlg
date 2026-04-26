@@ -158,7 +158,7 @@ func (m *AIAPIConfigModel) GetByTaskType(taskType string) (*AIAPIConfig, error) 
 	}
 
 	// Redis中没有，从MySQL读取当前启用配置；老数据没有 is_active 时回退第一条。
-	query := `SELECT id, task_type, provider_code, provider_name, protocol_type, is_active, api_endpoint, method, api_key, api_key_location, api_key_name, headers, body_template, prompt_path, enable_prompt_optimization, image_path, created_at, updated_at 
+	query := `SELECT id, task_type, provider_code, provider_name, protocol_type, is_active, api_endpoint, method, api_key, api_key_location, api_key_name, headers, body_template, prompt_path, enable_prompt_optimization, image_path, created_at, updated_at
 	          FROM ai_api_config WHERE task_type = ? ORDER BY is_active DESC, id ASC LIMIT 1`
 	config, err := scanAIAPIConfig(m.DB.QueryRow(query, taskType))
 	if err != nil {
@@ -174,7 +174,7 @@ func (m *AIAPIConfigModel) GetByTaskType(taskType string) (*AIAPIConfig, error) 
 
 // GetAll 获取所有API配置
 func (m *AIAPIConfigModel) GetAll() ([]*AIAPIConfig, error) {
-	query := `SELECT id, task_type, provider_code, provider_name, protocol_type, is_active, api_endpoint, method, api_key, api_key_location, api_key_name, headers, body_template, prompt_path, enable_prompt_optimization, image_path, created_at, updated_at 
+	query := `SELECT id, task_type, provider_code, provider_name, protocol_type, is_active, api_endpoint, method, api_key, api_key_location, api_key_name, headers, body_template, prompt_path, enable_prompt_optimization, image_path, created_at, updated_at
 	          FROM ai_api_config ORDER BY task_type, is_active DESC, id ASC`
 	rows, err := m.DB.Query(query)
 	if err != nil {
@@ -233,7 +233,7 @@ func (m *AIAPIConfigModel) Upsert(config *AIAPIConfig) error {
 			return err
 		}
 	} else {
-		query := `INSERT INTO ai_api_config (task_type, provider_code, provider_name, protocol_type, is_active, api_endpoint, method, api_key, api_key_location, api_key_name, headers, body_template, prompt_path, enable_prompt_optimization, image_path, created_at, updated_at) 
+		query := `INSERT INTO ai_api_config (task_type, provider_code, provider_name, protocol_type, is_active, api_endpoint, method, api_key, api_key_location, api_key_name, headers, body_template, prompt_path, enable_prompt_optimization, image_path, created_at, updated_at)
 	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
 	          ON DUPLICATE KEY UPDATE 
 	          provider_name = VALUES(provider_name),
@@ -449,7 +449,7 @@ func (m *AIAPIConfigModel) InitDefaultConfigs(laoZhangKey string) error {
 		}
 
 		// 插入默认配置
-		query := `INSERT INTO ai_api_config (task_type, provider_code, provider_name, protocol_type, is_active, api_endpoint, method, api_key, api_key_location, api_key_name, headers, body_template, enable_prompt_optimization, created_at, updated_at) 
+		query := `INSERT INTO ai_api_config (task_type, provider_code, provider_name, protocol_type, is_active, api_endpoint, method, api_key, api_key_location, api_key_name, headers, body_template, enable_prompt_optimization, created_at, updated_at)
 		          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`
 		_, err := m.DB.Exec(query,
 			config.TaskType,

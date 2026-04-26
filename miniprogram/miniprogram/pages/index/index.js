@@ -9,8 +9,8 @@ const API_BASE_URL = 'https://api.jiadilingguang.com';
 const HOME_INTRO_POPUP_STORAGE_KEY = 'homeIntroPopupSeen:v1';
 const TEMPLATE_DETAIL_CACHE_TTL = 2 * 60 * 1000;
 const featuredDetailPrefetching = new Set();
-function buildTemplateDetailCacheKey(templateId) {
-    return `template-detail:${Number(templateId || 0)}`;
+function buildPublicTemplateDetailCacheKey(templateId) {
+    return `template-detail:public:${Number(templateId || 0)}`;
 }
 Page({
     data: {
@@ -189,7 +189,7 @@ Page({
         void (0, perf_1.prefetchImages)(uniqueCases.map((item) => item.thumbnail || item.preview_url || ''), 2);
         uniqueCases.slice(0, 2).forEach((item) => {
             const templateId = Number(item?.id || 0);
-            const cacheKey = buildTemplateDetailCacheKey(templateId);
+            const cacheKey = buildPublicTemplateDetailCacheKey(templateId);
             if (!templateId || (0, perf_1.getPageCache)(cacheKey) || featuredDetailPrefetching.has(templateId)) {
                 return;
             }
