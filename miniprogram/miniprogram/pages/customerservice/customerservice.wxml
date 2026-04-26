@@ -1,0 +1,31 @@
+<view class="page">
+  <navigation-bar title="AI建房顾问" background="#e6daca" />
+
+  <view class="service-hero">
+    <text class="service-title">甲第灵光 AI 建房顾问</text>
+    <text class="service-subtitle">先生成方案，再对接设计老师深化造价、户型和施工图。</text>
+  </view>
+
+  <scroll-view class="message-list" scroll-y>
+    <view class="message-item {{item.role}}" wx:for="{{messages}}" wx:key="id">
+      <view class="message-bubble">
+        <text>{{item.content}}</text>
+      </view>
+    </view>
+  </scroll-view>
+
+  <view class="quick-actions">
+    <view class="quick-action" wx:for="{{quickActions}}" wx:key="key" bindtap="onQuickAction" data-key="{{item.key}}">
+      <text class="quick-action-title">{{item.label}}</text>
+      <text class="quick-action-desc">{{item.desc}}</text>
+    </view>
+  </view>
+
+  <view class="input-panel">
+    <textarea class="service-input" value="{{inputText}}" placeholder="例如：新闽派、三层、12米面宽、想了解造价" auto-height bindinput="onInput" />
+    <view class="input-actions">
+      <view class="send-btn secondary" bindtap="goGenerate">一键生成</view>
+      <view class="send-btn" bindtap="onSend">发送</view>
+    </view>
+  </view>
+</view>

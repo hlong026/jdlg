@@ -313,6 +313,13 @@
             </view>
           </view>
         </view>
+      <view class="customer-service-result-card" bindtap="onOpenCustomerServiceForResult">
+        <view class="customer-service-result-copy">
+          <text class="customer-service-result-title">免费优化这套方案</text>
+          <text class="customer-service-result-desc">继续调整户型、外观和造价思路，对接设计老师一对一落地。</text>
+        </view>
+        <view class="customer-service-result-action">去咨询</view>
+      </view>
       <view class="action-btn primary" bindtap="regenerate">
         <text>再次生成</text>
       </view>

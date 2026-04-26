@@ -16,6 +16,7 @@ import {
     FiImage,
     FiShield,
     FiBarChart2,
+    FiMessageCircle,
 } from 'react-icons/fi';
 import ProtectedRoute from '../component/ProtectedRoute';
 
@@ -28,6 +29,7 @@ const Distribution = lazy(() => import('../pages/distribution'));
 const ContentAnalytics = lazy(() => import('../pages/contentAnalytics'));
 const RiskControl = lazy(() => import('../pages/riskControl'));
 const SupportTickets = lazy(() => import('../pages/supportTickets'));
+const CustomerLeads = lazy(() => import('../pages/customerLeads'));
 const ReportCenter = lazy(() => import('../pages/reportCenter'));
 const AITaskCenter = lazy(() => import('../pages/aiTaskCenter'));
 const AIConfig = lazy(() => import('../pages/ai-config'));
@@ -123,6 +125,12 @@ export const routes: AppRoute[] = [
         title: '异常工单中心',
         element: withSuspense(<ProtectedRoute><SupportTickets /></ProtectedRoute>),
         icon: FiFileText,
+    },
+    {
+        path: '/customer-leads',
+        title: '客服线索',
+        element: withSuspense(<ProtectedRoute><CustomerLeads /></ProtectedRoute>),
+        icon: FiMessageCircle,
     },
     {
         path: '/report-center',

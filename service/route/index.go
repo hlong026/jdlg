@@ -35,6 +35,7 @@ func RegisterRoutes(r *gin.Engine, authProcessor *processor.AuthProcessor,
 	membershipPlanModel *model.MembershipPlanModel,
 	userMembershipModel *model.UserMembershipModel,
 	supportTicketModel *model.SupportTicketModel,
+	customerServiceModel *model.CustomerServiceModel,
 	videoTaskModel *model.AIVideoTaskModel,
 	certificationApplicationModel *model.CertificationApplicationModel,
 	designerReviewModel *model.DesignerReviewModel,
@@ -78,6 +79,7 @@ func RegisterRoutes(r *gin.Engine, authProcessor *processor.AuthProcessor,
 		RegisterAITaskInfoRoutes(miniprogramAI, codeSessionModel, taskModel)
 		// AI流式聊天接口（需要token验证）
 		RegisterAIChatStreamRoute(miniprogramAI, codeSessionModel, userModel, pricingModel, apiConfigModel, cfg)
+		RegisterCustomerServiceRoutes(miniprogramAI, customerServiceModel)
 		// 任务状态轮询接口（需要token验证）
 		RegisterTaskStatusRoute(miniprogramAI, codeSessionModel, userModel, pricingModel, taskModel, videoTaskModel, stoneRecordModel, aiToolModel, cfg)
 		// AI 生成视频：发起、轮询、查询（结果存自家 OSS）
@@ -125,6 +127,7 @@ func RegisterRoutes(r *gin.Engine, authProcessor *processor.AuthProcessor,
 		RegisterMembershipManagementRoutes(managementAuth, membershipPlanModel)
 		RegisterMembershipOperationsManagementRoutes(managementAuth, userDBModel, userProfileModel, userMembershipModel, userOrderModel)
 		RegisterSupportTicketManagementRoutes(managementAuth, supportTicketModel)
+		RegisterCustomerLeadManagementRoutes(managementAuth, customerServiceModel)
 		// 认证工单管理：列表、详情、审核（通过/拒绝），通过后更新用户 can_withdraw
 		RegisterCertificationManagementRoutes(managementAuth, certificationApplicationModel, userDBModel, userProfileModel)
 

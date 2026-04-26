@@ -267,6 +267,10 @@ func main() {
 	if err := supportTicketModel.InitTable(); err != nil {
 		log.Fatalf("初始化 support_tickets 表失败: %v", err)
 	}
+	customerServiceModel := model.NewCustomerServiceModel(db)
+	if err := customerServiceModel.InitTable(); err != nil {
+		log.Fatalf("初始化 customer_service 表失败: %v", err)
+	}
 	// 10.17. 初始化 AI 生成视频任务表
 	videoTaskModel := model.NewAIVideoTaskModel(db)
 	if err := videoTaskModel.InitTable(); err != nil {
@@ -369,7 +373,7 @@ func main() {
 	r.Use(sessions.Sessions("sessionid", store))
 
 	// 注册所有路由
-	route.RegisterRoutes(r, authProcessor, codeSessionModel, userModel, pricingModel, taskModel, apiConfigModel, templateModel, inspirationModel, templateCategoryModel, templateSquareConfigModel, templateUnlockModel, templateLikeModel, templateCommentModel, templateShareModel, userProfileModel, stoneRecordModel, userOrderModel, inviteRelationModel, userInviteCodeModel, featuredCaseGroupModel, utilityToolModel, aiToolModel, rechargeConfigModel, membershipPlanModel, userMembershipModel, supportTicketModel, videoTaskModel, certificationApplicationModel, designerReviewModel, designerFollowModel, cfg)
+	route.RegisterRoutes(r, authProcessor, codeSessionModel, userModel, pricingModel, taskModel, apiConfigModel, templateModel, inspirationModel, templateCategoryModel, templateSquareConfigModel, templateUnlockModel, templateLikeModel, templateCommentModel, templateShareModel, userProfileModel, stoneRecordModel, userOrderModel, inviteRelationModel, userInviteCodeModel, featuredCaseGroupModel, utilityToolModel, aiToolModel, rechargeConfigModel, membershipPlanModel, userMembershipModel, supportTicketModel, customerServiceModel, videoTaskModel, certificationApplicationModel, designerReviewModel, designerFollowModel, cfg)
 
 	// 8. 启动服务
 	// 打印环境信息

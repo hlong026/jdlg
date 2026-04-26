@@ -1,6 +1,7 @@
 {
   "pages": [
     "pages/index/index",
+    "pages/customerservice/customerservice",
     "pages/my/my",
     "pages/template/template",
     "pages/aitools/aitools",

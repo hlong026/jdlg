@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "AI建房顾问",
+  "usingComponents": {
+    "navigation-bar": "/components/navigation-bar/navigation-bar"
+  }
+}

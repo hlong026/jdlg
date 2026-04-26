@@ -4,6 +4,10 @@
     <image class="bg-image" src="{{heroBgImage}}" mode="scaleToFill" />
     <image class="daily-checkin" src="{{dailyCheckinImage}}" mode="scaleToFill" bindtap="onOpenPage" data-url="/pages/checkin/checkin?source=index" />
     <image class="invite-friend" src="{{inviteFriendImage}}" mode="scaleToFill" bindtap="onOpenPage" data-url="/pages/Invitefriends/Invitefriends?source=index" />
+    <view class="customer-service-entry" bindtap="onOpenPage" data-url="/pages/customerservice/customerservice?source=home">
+      <text class="customer-service-title">AI建房顾问</text>
+      <text class="customer-service-desc">出方案 · 算造价 · 接设计师</text>
+    </view>
 
     <image class="core-entry" src="{{coreEntryImage}}" mode="scaleToFill" />
     <view class="hotspot photo-hotspot" bindtap="onOpenPage" data-url="/pages/aigenerate/aigenerate?source=index"></view>

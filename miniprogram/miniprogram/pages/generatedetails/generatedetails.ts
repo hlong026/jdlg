@@ -1947,6 +1947,21 @@ Page({
       });
   },
 
+  onOpenCustomerServiceForResult() {
+    const { taskData } = this.data
+    const taskNo = String(taskData.task_no || taskData.id || '')
+    const prompt = String(taskData.user_prompt || taskData.prompt || '').trim()
+    const query = [
+      'source=generatedetails',
+      taskNo ? `task_no=${encodeURIComponent(taskNo)}` : '',
+      prompt ? `prompt=${encodeURIComponent(prompt)}` : '',
+    ].filter(Boolean).join('&')
+    wx.navigateTo({
+      url: `/pages/customerservice/customerservice?${query}`,
+      fail: () => wx.showToast({ title: '客服页面打开失败', icon: 'none' }),
+    })
+  },
+
   regenerate() {
     const { taskKind, id, prompt } = this.data.taskData;
     const effectiveEntrySource = resolveDetailEntrySource(this.data.entrySource, this.data.taskData);

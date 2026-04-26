@@ -53,6 +53,11 @@ export const API_ENDPOINTS = {
         RESOLUTION_NOTE: (id: string) => `/api/v1/management/support-tickets/${id}/resolution-note`,
         SYNC_SYSTEM_EXCEPTIONS: '/api/v1/management/support-tickets/sync-system-exceptions',
     },
+    CUSTOMER_LEADS: {
+        OVERVIEW: '/api/v1/management/customer-leads/overview',
+        LIST: '/api/v1/management/customer-leads',
+        STATUS: (id: string) => `/api/v1/management/customer-leads/${id}/status`,
+    },
     REPORT_CENTER: {
         OVERVIEW: '/api/v1/management/report-center/overview',
         REPORTS: '/api/v1/management/report-center/reports',
