@@ -52,6 +52,7 @@ unused_assets_backup/
 *.dylib
 
 # Go specific
+.gocache/
 service/service.exe
 service/upload_miniprogram_assets.exe
 service/bin/
