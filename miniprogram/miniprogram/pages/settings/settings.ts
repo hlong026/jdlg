@@ -1,4 +1,6 @@
 // pages/settings/settings.ts
+export {};
+
 const SETTINGS_DARK_MODE_STORAGE_KEY = 'settings_dark_mode'
 const API_BASE_URL = 'https://api.jiadilingguang.com'
 const USER_IDENTITY_OPTIONS = ['乡墅业主', '设计师', '施工队', '建材商', '机构用户']

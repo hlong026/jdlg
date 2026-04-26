@@ -1,4 +1,6 @@
 // pages/phonebind/phonebind.ts
+export {};
+
 const API_BASE_URL = 'https://api.jiadilingguang.com';
 
 Page({
