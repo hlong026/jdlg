@@ -33,7 +33,7 @@ type PhoneLoginRequest struct {
 	Phone        string `json:"phone" binding:"required"`
 	Code         string `json:"code" binding:"required"`
 	DeviceID     string `json:"device_id"`
-	IdentityType string `json:"identity_type"` // 业主/设计师/施工队/企业
+	IdentityType string `json:"identity_type"` // 乡墅业主/设计师/施工队/建材商/机构用户
 	InviteCode   string `json:"invite_code"`
 }
 

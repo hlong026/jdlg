@@ -7,10 +7,11 @@ import (
 )
 
 var allowedUserIdentityTypes = map[string]bool{
-	"业主":  true,
-	"设计师": true,
-	"施工队": true,
-	"企业":  true,
+	"乡墅业主": true,
+	"设计师":  true,
+	"施工队":  true,
+	"建材商":  true,
+	"机构用户": true,
 }
 
 func IsAllowedUserIdentityType(identityType string) bool {
@@ -39,7 +40,7 @@ type UserProfile struct {
 	LastDeviceChangeTime       *time.Time `json:"last_device_change_time" db:"last_device_change_time"` // 上次换绑设备时间
 	HasPassword                bool       `json:"has_password" db:"has_password"`                       // 是否设置了密码
 	Phone                      string     `json:"phone" db:"phone"`                                     // 手机号
-	IdentityType               string     `json:"identity_type" db:"identity_type"`                     // 用户身份类型：业主/设计师/施工队/企业
+	IdentityType               string     `json:"identity_type" db:"identity_type"`                     // 用户身份类型：乡墅业主/设计师/施工队/建材商/机构用户
 	CreatedAt                  time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt                  time.Time  `json:"updated_at" db:"updated_at"`
 }
@@ -117,7 +118,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 	_, _ = m.DB.Exec(`ALTER TABLE user_profiles ADD COLUMN enterprise_wechat_verified_at TIMESTAMP NULL DEFAULT NULL`)
 	_, _ = m.DB.Exec(`ALTER TABLE user_profiles ADD COLUMN enterprise_wechat_contact VARCHAR(128) DEFAULT ''`)
 	_, _ = m.DB.Exec(`ALTER TABLE user_profiles ADD COLUMN phone VARCHAR(32) DEFAULT '' COMMENT '手机号'`)
-	_, _ = m.DB.Exec(`ALTER TABLE user_profiles ADD COLUMN identity_type VARCHAR(32) DEFAULT '' COMMENT '用户身份类型：业主/设计师/施工队/企业'`)
+	_, _ = m.DB.Exec(`ALTER TABLE user_profiles ADD COLUMN identity_type VARCHAR(32) DEFAULT '' COMMENT '用户身份类型：乡墅业主/设计师/施工队/建材商/机构用户'`)
 	return nil
 }
 

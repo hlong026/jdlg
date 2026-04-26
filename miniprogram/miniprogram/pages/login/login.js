@@ -6,7 +6,7 @@ const { generateDeviceFingerprint, getCachedDeviceFingerprint, cacheDeviceFinger
 // API基础地址
 const API_BASE_URL = 'https://api.jiadilingguang.com'; // 根据实际情况修改
 const LOGIN_PRIVACY_AGREEMENT_STORAGE_KEY = 'login_privacy_agreement';
-const USER_IDENTITY_OPTIONS = ['业主', '设计师', '施工队', '企业'];
+const USER_IDENTITY_OPTIONS = ['乡墅业主', '设计师', '施工队', '建材商', '机构用户'];
 
 Page({
   /**
