@@ -1,16 +1,27 @@
 // pages/settings/settings.ts
 const SETTINGS_DARK_MODE_STORAGE_KEY = 'settings_dark_mode'
+const API_BASE_URL = 'https://api.jiadilingguang.com'
+const USER_IDENTITY_OPTIONS = ['业主', '设计师', '施工队', '企业']
 
 Page({
   data: {
     darkMode: false,
     cacheSize: '0MB',
     version: '1.0.0',
+    identityOptions: USER_IDENTITY_OPTIONS,
+    identityType: '',
+    identityTypeIndex: 0,
+    identitySaving: false,
   },
 
   onLoad() {
     this.initThemeSetting()
     this.initCacheSize()
+    this.loadProfileIdentity()
+  },
+
+  onShow() {
+    this.loadProfileIdentity()
   },
 
   initThemeSetting() {
@@ -20,6 +31,68 @@ Page({
     } catch (e) {
       console.error('初始化主题设置失败:', e)
     }
+  },
+
+  loadProfileIdentity() {
+    const token = wx.getStorageSync('token')
+    if (!token) {
+      this.setData({ identityType: '', identityTypeIndex: 0 })
+      return
+    }
+    wx.request({
+      url: `${API_BASE_URL}/api/v1/miniprogram/profile`,
+      method: 'GET',
+      header: { token },
+      success: (res: any) => {
+        const body = res.data || {}
+        if (res.statusCode !== 200 || body.code !== 0) {
+          return
+        }
+        const identityType = String((body.data || {}).identity_type || '')
+        const index = USER_IDENTITY_OPTIONS.indexOf(identityType)
+        this.setData({
+          identityType,
+          identityTypeIndex: index >= 0 ? index : 0,
+        })
+      },
+    })
+  },
+
+  onIdentityPickerChange(e: any) {
+    const index = Number(e.detail.value || 0)
+    const identityType = USER_IDENTITY_OPTIONS[index]
+    if (!identityType || this.data.identitySaving) {
+      return
+    }
+    const token = wx.getStorageSync('token')
+    if (!token) {
+      wx.showToast({ title: '请先登录', icon: 'none' })
+      return
+    }
+    this.setData({ identitySaving: true })
+    wx.request({
+      url: `${API_BASE_URL}/api/v1/miniprogram/profile/identity`,
+      method: 'PUT',
+      data: { identity_type: identityType },
+      header: { 'Content-Type': 'application/json', token },
+      success: (res: any) => {
+        const body = res.data || {}
+        if (res.statusCode === 200 && body.code === 0) {
+          const userInfo = wx.getStorageSync('userInfo') || {}
+          wx.setStorageSync('userInfo', { ...userInfo, identity_type: identityType })
+          this.setData({ identityType, identityTypeIndex: index })
+          wx.showToast({ title: '身份已更新', icon: 'success' })
+          return
+        }
+        wx.showToast({ title: body.msg || '保存失败', icon: 'none' })
+      },
+      fail: () => {
+        wx.showToast({ title: '保存失败', icon: 'none' })
+      },
+      complete: () => {
+        this.setData({ identitySaving: false })
+      },
+    })
   },
 
   initCacheSize() {

@@ -26,8 +26,11 @@
               <text>{{vipLevelText}}</text>
             </view>
           </view>
-          <!-- 认证信息：已认证时展示实名和身份 -->
-          <view class="cert-info" wx:if="{{certStatus === 'approved'}}">
+          <view class="cert-info" wx:if="{{userProfile.identityType}}">
+            <text class="cert-badge">身份</text>
+            <text class="cert-text">{{userProfile.identityType}}</text>
+          </view>
+          <view class="cert-info" wx:elif="{{certStatus === 'approved'}}">
             <text class="cert-badge">已认证</text>
             <text class="cert-text">{{certRealName || certRealNameMasked}}{{certIdentityType ? ' · ' + certIdentityType : ''}}</text>
           </view>

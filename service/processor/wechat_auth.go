@@ -41,8 +41,8 @@ func NewWechatAuthStrategyWithProfile(userModel *model.UserModel, codeSessionMod
 
 // WechatLoginRequest 微信登录请求
 type WechatLoginRequest struct {
-	Code      string `json:"code" binding:"required"`
-	DeviceID  string `json:"device_id"`  // 设备指纹（可选，优先使用）
+	Code       string `json:"code" binding:"required"`
+	DeviceID   string `json:"device_id"`   // 设备指纹（可选，优先使用）
 	InviteCode string `json:"invite_code"` // 邀请码（可选，新用户注册时填写可得奖励）
 }
 
@@ -95,6 +95,7 @@ func (s *WechatAuthStrategy) Login(ctx context.Context, req interface{}) (*AuthR
 	}
 
 	var user *model.User
+	isNewUser := false
 	user, err = s.userModel.GetByOpenID(wechatSession.OpenID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("get user by openid failed: %w", err)
@@ -140,6 +141,7 @@ func (s *WechatAuthStrategy) Login(ctx context.Context, req interface{}) (*AuthR
 		if err != nil {
 			return nil, fmt.Errorf("create or get user failed: %w", err)
 		}
+		isNewUser = true
 	} else if err != nil {
 		return nil, fmt.Errorf("resolve user failed: %w", err)
 	} else if user != nil && (user.OpenID != wechatSession.OpenID || (wechatSession.UnionID != "" && user.UnionID != wechatSession.UnionID)) {
@@ -181,5 +183,6 @@ func (s *WechatAuthStrategy) Login(ctx context.Context, req interface{}) (*AuthR
 	return &AuthResult{
 		User:        user,
 		CodeSession: codeSession,
+		IsNewUser:   isNewUser,
 	}, nil
 }

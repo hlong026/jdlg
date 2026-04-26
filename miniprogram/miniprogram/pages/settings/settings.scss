@@ -201,6 +201,7 @@ page {
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 8rpx;
     min-width: 64rpx;
   }
 
@@ -213,6 +214,16 @@ page {
     font-size: 24rpx;
     line-height: 1.2;
     color: #9b8466;
+
+    &.identity-extra {
+      color: #6f4f36;
+      font-weight: 600;
+    }
+
+    &.empty {
+      color: #b06158;
+      font-weight: 500;
+    }
   }
 
   .item-arrow {

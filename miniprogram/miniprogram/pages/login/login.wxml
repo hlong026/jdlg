@@ -150,10 +150,10 @@
     </view>
 
     <!-- 身份选择弹窗（新注册用户） -->
-    <view class="identity-popup-mask" wx:if="{{identityPopupVisible}}" bindtap="skipIdentity">
+    <view class="identity-popup-mask" wx:if="{{identityPopupVisible}}">
       <view class="identity-popup" catchtap="">
         <text class="identity-popup-title">选择您的身份</text>
-        <text class="identity-popup-desc">选择后可随时在个人中心修改</text>
+        <text class="identity-popup-desc">新用户需先选择身份，后续可在账号设置中修改</text>
         <view class="identity-options">
           <view
             class="identity-option-card"
@@ -165,7 +165,6 @@
             <text class="identity-option-text">{{item}}</text>
           </view>
         </view>
-        <text class="identity-skip-link" bindtap="skipIdentity">跳过</text>
       </view>
     </view>
 

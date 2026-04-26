@@ -2,34 +2,46 @@ package model
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 )
 
+var allowedUserIdentityTypes = map[string]bool{
+	"业主":  true,
+	"设计师": true,
+	"施工队": true,
+	"企业":  true,
+}
+
+func IsAllowedUserIdentityType(identityType string) bool {
+	return allowedUserIdentityTypes[identityType]
+}
+
 // UserProfile 用户扩展信息
 type UserProfile struct {
-	ID                   int64      `json:"id" db:"id"`
-	UserID               int64      `json:"user_id" db:"user_id"`
-	Nickname             string     `json:"nickname" db:"nickname"`
-	Avatar               string     `json:"avatar" db:"avatar"`
-	DesignerBio          string     `json:"designer_bio" db:"designer_bio"`
-	SpecialtyStyles      string     `json:"specialty_styles" db:"specialty_styles"`
-	DesignerExperienceYears int64   `json:"designer_experience_years" db:"designer_experience_years"`
-	ServiceTitle         string     `json:"service_title" db:"service_title"`
-	ServiceQuote         int64      `json:"service_quote" db:"service_quote"`
-	ServiceIntro         string     `json:"service_intro" db:"service_intro"`
-	ServiceEnabled       bool       `json:"service_enabled" db:"service_enabled"`
-	DesignerVisible      bool       `json:"designer_visible" db:"designer_visible"`
+	ID                         int64      `json:"id" db:"id"`
+	UserID                     int64      `json:"user_id" db:"user_id"`
+	Nickname                   string     `json:"nickname" db:"nickname"`
+	Avatar                     string     `json:"avatar" db:"avatar"`
+	DesignerBio                string     `json:"designer_bio" db:"designer_bio"`
+	SpecialtyStyles            string     `json:"specialty_styles" db:"specialty_styles"`
+	DesignerExperienceYears    int64      `json:"designer_experience_years" db:"designer_experience_years"`
+	ServiceTitle               string     `json:"service_title" db:"service_title"`
+	ServiceQuote               int64      `json:"service_quote" db:"service_quote"`
+	ServiceIntro               string     `json:"service_intro" db:"service_intro"`
+	ServiceEnabled             bool       `json:"service_enabled" db:"service_enabled"`
+	DesignerVisible            bool       `json:"designer_visible" db:"designer_visible"`
 	EnterpriseWechatVerified   bool       `json:"enterprise_wechat_verified" db:"enterprise_wechat_verified"`
 	EnterpriseWechatVerifiedAt *time.Time `json:"enterprise_wechat_verified_at" db:"enterprise_wechat_verified_at"`
 	EnterpriseWechatContact    string     `json:"enterprise_wechat_contact" db:"enterprise_wechat_contact"`
-	DeviceID             string     `json:"device_id" db:"device_id"`
-	DeviceBindTime       *time.Time `json:"device_bind_time" db:"device_bind_time"`       // 设备绑定时间
-	LastDeviceChangeTime *time.Time `json:"last_device_change_time" db:"last_device_change_time"` // 上次换绑设备时间
-	HasPassword          bool       `json:"has_password" db:"has_password"`               // 是否设置了密码
-	Phone                string     `json:"phone" db:"phone"`                             // 手机号
-	IdentityType         string     `json:"identity_type" db:"identity_type"`             // 用户身份类型：业主/设计师/施工队/企业
-	CreatedAt            time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt            time.Time  `json:"updated_at" db:"updated_at"`
+	DeviceID                   string     `json:"device_id" db:"device_id"`
+	DeviceBindTime             *time.Time `json:"device_bind_time" db:"device_bind_time"`               // 设备绑定时间
+	LastDeviceChangeTime       *time.Time `json:"last_device_change_time" db:"last_device_change_time"` // 上次换绑设备时间
+	HasPassword                bool       `json:"has_password" db:"has_password"`                       // 是否设置了密码
+	Phone                      string     `json:"phone" db:"phone"`                                     // 手机号
+	IdentityType               string     `json:"identity_type" db:"identity_type"`                     // 用户身份类型：业主/设计师/施工队/企业
+	CreatedAt                  time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt                  time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 // UserProfileModel 用户扩展信息数据访问层
@@ -44,7 +56,9 @@ func NewUserProfileModel(db *sql.DB) *UserProfileModel {
 
 const userProfileSelectColumns = `id, user_id, nickname, avatar, designer_bio, specialty_styles, designer_experience_years, service_title, service_quote, service_intro, service_enabled, designer_visible, enterprise_wechat_verified, enterprise_wechat_verified_at, enterprise_wechat_contact, device_id, device_bind_time, last_device_change_time, has_password, phone, identity_type, created_at, updated_at`
 
-func scanUserProfile(scanner interface{ Scan(dest ...interface{}) error }) (*UserProfile, error) {
+func scanUserProfile(scanner interface {
+	Scan(dest ...interface{}) error
+}) (*UserProfile, error) {
 	profile := &UserProfile{}
 	err := scanner.Scan(
 		&profile.ID, &profile.UserID, &profile.Nickname, &profile.Avatar, &profile.DesignerBio, &profile.SpecialtyStyles, &profile.DesignerExperienceYears, &profile.ServiceTitle, &profile.ServiceQuote, &profile.ServiceIntro, &profile.ServiceEnabled, &profile.DesignerVisible, &profile.EnterpriseWechatVerified, &profile.EnterpriseWechatVerifiedAt, &profile.EnterpriseWechatContact, &profile.DeviceID,
@@ -139,23 +153,23 @@ func (m *UserProfileModel) GetOrCreate(userID int64, deviceID string) (*UserProf
 	// 不存在则创建
 	now := time.Now()
 	profile = &UserProfile{
-		UserID:         userID,
-		Nickname:       "",
-		Avatar:         "",
-		DesignerBio:    "",
-		SpecialtyStyles: "",
-		DesignerExperienceYears: 0,
-		ServiceTitle:   "",
-		ServiceQuote:   0,
-		ServiceIntro:   "",
-		ServiceEnabled: false,
-		DesignerVisible: true,
-		EnterpriseWechatVerified: false,
+		UserID:                     userID,
+		Nickname:                   "",
+		Avatar:                     "",
+		DesignerBio:                "",
+		SpecialtyStyles:            "",
+		DesignerExperienceYears:    0,
+		ServiceTitle:               "",
+		ServiceQuote:               0,
+		ServiceIntro:               "",
+		ServiceEnabled:             false,
+		DesignerVisible:            true,
+		EnterpriseWechatVerified:   false,
 		EnterpriseWechatVerifiedAt: nil,
-		EnterpriseWechatContact: "",
-		DeviceID:       deviceID,
-		DeviceBindTime: &now,
-		HasPassword:    false,
+		EnterpriseWechatContact:    "",
+		DeviceID:                   deviceID,
+		DeviceBindTime:             &now,
+		HasPassword:                false,
 	}
 	if err := m.Create(profile); err != nil {
 		return nil, err
@@ -204,6 +218,9 @@ func (m *UserProfileModel) SetHasPassword(userID int64, hasPassword bool) error 
 
 // UpdateIdentityType 更新用户身份类型
 func (m *UserProfileModel) UpdateIdentityType(userID int64, identityType string) error {
+	if identityType != "" && !IsAllowedUserIdentityType(identityType) {
+		return fmt.Errorf("不支持的用户身份类型")
+	}
 	query := `UPDATE user_profiles SET identity_type = ?, updated_at = NOW() WHERE user_id = ?`
 	_, err := m.DB.Exec(query, identityType, userID)
 	return err

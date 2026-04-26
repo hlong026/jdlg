@@ -410,10 +410,9 @@ func resolveTemplateDownloadAccess(userOrderModel *model.UserOrderModel, userPro
 		if profileErr != nil {
 			return false, false, false, nil, false, profileErr
 		}
-		contact := ""
 		if profile != nil {
-			contact = strings.TrimSpace(profile.EnterpriseWechatContact)
-			phoneVerified = profile.EnterpriseWechatVerified && contact != ""
+			phone := strings.TrimSpace(profile.Phone)
+			phoneVerified = phone != ""
 		}
 	}
 	activeMembership, legacyRecharge, rechargeMember, err = resolveUserMembershipAccess(userMembershipModel, userOrderModel, userID)
@@ -1340,14 +1339,13 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 			_, _, _, dlMembership, _, _ := resolveTemplateDownloadAccess(userOrderModel, userProfileModel, userMembershipModel, codeSession.UserID)
 			if dlMembership != nil {
 				dl := component.NewDownloadLimiter(model.NewMembershipPlanModel(component.GetDB()), component.GetRedis())
-				if allowed, reason, limErr := dl.CheckDownloadAccess(codeSession.UserID, dlMembership); limErr != nil {
+				if allowed, reason, limErr := dl.CheckDownloadAccess(codeSession.UserID, dlMembership, id, -1); limErr != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "检查下载限制失败: " + limErr.Error()})
 					return
 				} else if !allowed {
 					c.JSON(http.StatusForbidden, gin.H{"code": 403, "msg": reason})
 					return
 				}
-				dl.RecordDownload(codeSession.UserID)
 			}
 			downloadURLs := make([]string, 0, len(imageURLs))
 			for index := range imageURLs {
@@ -1399,29 +1397,36 @@ func RegisterTemplateRoutes(r *gin.RouterGroup, templateModel *model.TemplateMod
 				return
 			}
 
+			imageIndex, _ := strconv.Atoi(strings.TrimSpace(c.DefaultQuery("image_index", "0")))
+			if imageIndex < 0 {
+				imageIndex = 0
+			}
+
 			// 会员下载限制检查（文件下载也需受限）
 			_, _, _, dlMembership2, _, _ := resolveTemplateDownloadAccess(userOrderModel, userProfileModel, userMembershipModel, codeSession.UserID)
 			if dlMembership2 != nil {
 				dl2 := component.NewDownloadLimiter(model.NewMembershipPlanModel(component.GetDB()), component.GetRedis())
-				if allowed, reason, limErr := dl2.CheckDownloadAccess(codeSession.UserID, dlMembership2); limErr != nil {
+				if allowed, reason, limErr := dl2.CheckDownloadAccess(codeSession.UserID, dlMembership2, id, imageIndex); limErr != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "检查下载限制失败: " + limErr.Error()})
 					return
 				} else if !allowed {
 					c.JSON(http.StatusForbidden, gin.H{"code": 403, "msg": reason})
 					return
 				}
-				dl2.RecordDownload(codeSession.UserID)
 			}
 
 			if !isPublicSquareTemplate(template) {
 				c.JSON(http.StatusNotFound, gin.H{"code": 404, "msg": "模板不存在"})
 				return
 			}
-			imageIndex, _ := strconv.Atoi(strings.TrimSpace(c.DefaultQuery("image_index", "0")))
 			targetURL := resolveTemplateDisplayImageURL(template, imageIndex)
 			if targetURL == "" {
 				c.JSON(http.StatusNotFound, gin.H{"code": 404, "msg": "当前模板暂无可下载图片"})
 				return
+			}
+			if dlMembership2 != nil {
+				dl2 := component.NewDownloadLimiter(model.NewMembershipPlanModel(component.GetDB()), component.GetRedis())
+				dl2.RecordDownload(codeSession.UserID, id, imageIndex)
 			}
 			proxyRemoteDownload(c, targetURL, "template-image.png", "image/png")
 		})

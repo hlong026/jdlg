@@ -10,9 +10,7 @@ const PAGE_BACKGROUND_TOP = '#e6daca';
 const PAGE_BACKGROUND_BOTTOM = '#ece4d9';
 const CERTIFICATION_REFRESH_INTERVAL = 10000;
 function hasDesignerWorkbenchAccess(options) {
-    return !!options.hasLoginToken
-        && String(options.certStatus || '') === 'approved'
-        && String(options.certIdentityType || '') !== '施工队';
+    return !!options.hasLoginToken;
 }
 // 格式化灵石显示：只保留前 6 位，后面加 ...
 function formatStonesDisplay(stones) {
@@ -75,6 +73,7 @@ function buildCommonMenuItems() {
 }
 function buildServiceMenuItems() {
     return [
+        { action: 'bindPhone', label: '绑定手机', shortLabel: '机', meta: '' },
         { action: 'settings', label: '账号设置', shortLabel: '设' },
         { action: 'tools', label: '实用工具', shortLabel: '工' },
         { action: 'message', label: '消息中心', shortLabel: '信' },
@@ -105,13 +104,13 @@ function buildWorkbenchMenuItems(options) {
             identityMeta = '未通过';
         }
         else {
-            identityMeta = '去认证';
+            identityMeta = '可选认证';
         }
     }
     return [
-        { action: 'identity', label: '认证中心', shortLabel: '认', meta: identityMeta },
-        { action: 'designerHome', label: '设计师主页', shortLabel: '页', meta: hasDesignerAccess ? '进入主页' : '认证后可用' },
-        { action: 'publish', label: '我的发布', shortLabel: '发', meta: hasDesignerAccess ? '上传作品' : '认证后可用' },
+        { action: 'identity', label: '认证资料', shortLabel: '认', meta: identityMeta },
+        { action: 'designerHome', label: '设计师主页', shortLabel: '页', meta: hasDesignerAccess ? '进入主页' : '登录后可用' },
+        { action: 'publish', label: '我的发布', shortLabel: '发', meta: hasDesignerAccess ? '上传作品' : '登录后可用' },
     ];
 }
 Page({
@@ -124,6 +123,7 @@ Page({
         userProfile: {
             nickname: '',
             avatar: '',
+            identityType: '',
         },
         defaultAvatarImage: (0, asset_1.resolveAssetPath)('/assets/images/home.jpg'),
         pageBgImage: (0, asset_1.resolveAssetPath)('/assets/my/页面背景.png'),
@@ -281,7 +281,7 @@ Page({
             this.setData({
                 token: '',
                 userInfo: null,
-                userProfile: { nickname: '', avatar: '' },
+                userProfile: { nickname: '', avatar: '', identityType: '' },
                 hasLoginToken: false,
                 stones: 0,
                 taskCount: 0,
@@ -448,6 +448,7 @@ Page({
                 userProfile: {
                     nickname: res.nickname || mergedUserInfo.username || mergedUserInfo.name || '',
                     avatar: res.avatar || mergedUserInfo.avatar || mergedUserInfo.avatarUrl || '',
+                    identityType: res.identity_type || mergedUserInfo.identity_type || '',
                 },
                 ...resolveVipDisplays(true, res, mergedUserInfo),
             });
@@ -802,7 +803,7 @@ Page({
             });
             if (!hasDesignerAccess) {
                 wx.showToast({
-                    title: '完成设计师认证后可进入',
+                    title: '请先登录',
                     icon: 'none',
                 });
                 return;

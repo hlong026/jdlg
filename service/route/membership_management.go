@@ -62,6 +62,10 @@ func RegisterMembershipManagementRoutes(r *gin.RouterGroup, membershipPlanModel 
 			TemplateDownloadEnabled bool   `json:"template_download_enabled"`
 			IsEnabled               bool   `json:"is_enabled"`
 			SortOrder               int    `json:"sort_order"`
+			DownloadValidityDays    int    `json:"download_validity_days"`
+			MaxTotalDownloads       int    `json:"max_total_downloads"`
+			DailyDownloadLimit      int    `json:"daily_download_limit"`
+			RateLimitPerMinute      int    `json:"rate_limit_per_minute"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": FormatValidationError("参数错误: " + err.Error())})
@@ -84,6 +88,10 @@ func RegisterMembershipManagementRoutes(r *gin.RouterGroup, membershipPlanModel 
 			TemplateDownloadEnabled: req.TemplateDownloadEnabled,
 			IsEnabled:               req.IsEnabled,
 			SortOrder:               req.SortOrder,
+			DownloadValidityDays:    req.DownloadValidityDays,
+			MaxTotalDownloads:       req.MaxTotalDownloads,
+			DailyDownloadLimit:      req.DailyDownloadLimit,
+			RateLimitPerMinute:      req.RateLimitPerMinute,
 		}
 		if err := membershipPlanModel.CreateOrUpdate(item); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "保存会员计划失败: " + err.Error()})

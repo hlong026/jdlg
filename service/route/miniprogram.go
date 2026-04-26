@@ -120,9 +120,10 @@ func RegisterMiniprogramRoutes(r *gin.RouterGroup, authProcessor *processor.Auth
 			"code": 0,
 			"msg":  "登录成功",
 			"data": gin.H{
-				"id":       result.User.ID,
-				"username": result.User.Username,
-				"token":    token,
+				"id":          result.User.ID,
+				"username":    result.User.Username,
+				"token":       token,
+				"is_new_user": result.IsNewUser,
 			},
 		})
 	})

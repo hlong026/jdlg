@@ -25,9 +25,7 @@ function hasDesignerWorkbenchAccess(options: {
   certStatus?: string;
   certIdentityType?: string;
 }) {
-  return !!options.hasLoginToken
-    && String(options.certStatus || '') === 'approved'
-    && String(options.certIdentityType || '') !== '施工队';
+  return !!options.hasLoginToken;
 }
 
 // 格式化灵石显示：只保留前 6 位，后面加 ...
@@ -135,14 +133,14 @@ function buildWorkbenchMenuItems(options: {
     } else if (certStatus === 'rejected') {
       identityMeta = '未通过';
     } else {
-      identityMeta = '去认证';
+      identityMeta = '可选认证';
     }
   }
 
   return [
-    { action: 'identity', label: '认证中心', shortLabel: '认', meta: identityMeta },
-    { action: 'designerHome', label: '设计师主页', shortLabel: '页', meta: hasDesignerAccess ? '进入主页' : '认证后可用' },
-    { action: 'publish', label: '我的发布', shortLabel: '发', meta: hasDesignerAccess ? '上传作品' : '认证后可用' },
+    { action: 'identity', label: '认证资料', shortLabel: '认', meta: identityMeta },
+    { action: 'designerHome', label: '设计师主页', shortLabel: '页', meta: hasDesignerAccess ? '进入主页' : '登录后可用' },
+    { action: 'publish', label: '我的发布', shortLabel: '发', meta: hasDesignerAccess ? '上传作品' : '登录后可用' },
   ];
 }
 
@@ -156,6 +154,7 @@ Page({
     userProfile: {
       nickname: '',
       avatar: '',
+      identityType: '',
     } as any,
     defaultAvatarImage: resolveAssetPath('/assets/images/home.jpg'),
     pageBgImage: resolveAssetPath('/assets/my/页面背景.png'),
@@ -324,7 +323,7 @@ Page({
       this.setData({
         token: '',
         userInfo: null,
-        userProfile: { nickname: '', avatar: '' },
+        userProfile: { nickname: '', avatar: '', identityType: '' },
         hasLoginToken: false,
         stones: 0,
         taskCount: 0,
@@ -501,6 +500,7 @@ Page({
         userProfile: {
           nickname: res.nickname || mergedUserInfo.username || mergedUserInfo.name || '',
           avatar: res.avatar || mergedUserInfo.avatar || mergedUserInfo.avatarUrl || '',
+          identityType: res.identity_type || mergedUserInfo.identity_type || '',
         },
         ...resolveVipDisplays(true, res, mergedUserInfo),
       });
@@ -880,7 +880,7 @@ Page({
       });
       if (!hasDesignerAccess) {
         wx.showToast({
-          title: '完成设计师认证后可进入',
+          title: '请先登录',
           icon: 'none',
         });
         return;

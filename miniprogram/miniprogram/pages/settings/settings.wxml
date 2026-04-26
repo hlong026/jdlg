@@ -15,7 +15,7 @@
           <text class="section-kicker">账户</text>
           <text class="section-title">账号与安全</text>
         </view>
-        <text class="section-meta">3项</text>
+        <text class="section-meta">4项</text>
       </view>
       <view class="section-body">
         <view class="setting-item" bindtap="goToProfile">
@@ -32,6 +32,24 @@
             <text class="item-arrow">›</text>
           </view>
         </view>
+
+        <picker mode="selector" range="{{identityOptions}}" value="{{identityTypeIndex}}" bindchange="onIdentityPickerChange">
+          <view class="setting-item">
+            <view class="item-left">
+              <view class="item-icon-wrap warm">
+                <text class="item-icon">身</text>
+              </view>
+              <view class="item-texts">
+                <text class="item-title">我的身份</text>
+                <text class="item-desc">用于内容匹配和服务推荐，不影响下载权益</text>
+              </view>
+            </view>
+            <view class="item-tail">
+              <text class="item-extra identity-extra {{identityType ? '' : 'empty'}}">{{identityType || '请选择'}}</text>
+              <text class="item-arrow">›</text>
+            </view>
+          </view>
+        </picker>
 
         <view class="setting-item" bindtap="goToPasswordSecurity">
           <view class="item-left">

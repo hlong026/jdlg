@@ -8,6 +8,7 @@ import {
 // API基础地址
 const API_BASE_URL = 'https://api.jiadilingguang.com'; // 根据实际情况修改
 const LOGIN_PRIVACY_AGREEMENT_STORAGE_KEY = 'login_privacy_agreement';
+const USER_IDENTITY_OPTIONS = ['业主', '设计师', '施工队', '企业'];
 
 Page({
   /**
@@ -24,7 +25,7 @@ Page({
     inviteCode: '', // 邀请码（从分享链接或上一页传入，注册时填写可得双方奖励）
     agreedPrivacy: false,
     identityPopupVisible: false,
-    identityOptions: ['业主', '设计师', '施工队', '企业'],
+    identityOptions: USER_IDENTITY_OPTIONS,
     selectedIdentity: '',
     pendingLoginResult: null as any,
   },
@@ -236,19 +237,40 @@ Page({
     }
   },
 
-  onIdentitySelect(e: any) {
+  async onIdentitySelect(e: any) {
     const identity = e.currentTarget.dataset.identity;
     const loginResult = this.data.pendingLoginResult;
-    this.setData({ identityPopupVisible: false, selectedIdentity: identity, pendingLoginResult: null });
+    if (!USER_IDENTITY_OPTIONS.includes(identity)) {
+      wx.showToast({ title: '请选择有效身份', icon: 'none' });
+      return;
+    }
 
-    // 提交身份类型到后端
-    const token = wx.getStorageSync('token');
-    wx.request({
-      url: `${API_BASE_URL}/api/v1/miniprogram/profile/identity`,
-      method: 'PUT',
-      data: { identity_type: identity },
-      header: { 'Content-Type': 'application/json', token },
-    });
+    try {
+      const token = wx.getStorageSync('token');
+      const res = await new Promise<any>((resolve, reject) => {
+        wx.request({
+          url: `${API_BASE_URL}/api/v1/miniprogram/profile/identity`,
+          method: 'PUT',
+          data: { identity_type: identity },
+          header: { 'Content-Type': 'application/json', token },
+          success: resolve,
+          fail: reject,
+        });
+      });
+      const data = res.data || {};
+      if (res.statusCode !== 200 || data.code !== 0) {
+        throw new Error(data.msg || '身份保存失败');
+      }
+      wx.setStorageSync('userInfo', {
+        ...(wx.getStorageSync('userInfo') || {}),
+        ...(loginResult || {}),
+        identity_type: identity,
+      });
+      this.setData({ identityPopupVisible: false, selectedIdentity: identity, pendingLoginResult: null });
+    } catch (error: any) {
+      wx.showToast({ title: error.message || '身份保存失败', icon: 'none' });
+      return;
+    }
 
     wx.showToast({ title: '登录成功', icon: 'success', duration: 1000 });
     setTimeout(() => {
@@ -257,11 +279,7 @@ Page({
   },
 
   skipIdentity() {
-    this.setData({ identityPopupVisible: false, pendingLoginResult: null });
-    wx.showToast({ title: '登录成功', icon: 'success', duration: 1000 });
-    setTimeout(() => {
-      wx.switchTab({ url: '/pages/index/index', fail: () => wx.reLaunch({ url: '/pages/index/index' }) });
-    }, 1000);
+    wx.showToast({ title: '请选择身份后继续', icon: 'none' });
   },
 
   toggleAgreement() {
@@ -388,6 +406,11 @@ Page({
         token: loginResult.token,
         ...loginResult,
       });
+
+      if (loginResult.is_new_user) {
+        this.setData({ loading: false, identityPopupVisible: true, pendingLoginResult: loginResult });
+        return;
+      }
 
       wx.showToast({
         title: '登录成功',
