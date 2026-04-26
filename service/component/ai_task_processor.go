@@ -577,8 +577,8 @@ func (p *AITaskProcessor) getToAPIsFallbackAIConfigs(primaryConfig *AIAPIConfigD
 	}
 	fallbacks := make([]*AIAPIConfigData, 0, 2)
 	fallbacks = append(fallbacks,
-		cloneToAPIsFallbackConfig(primaryConfig, "ToAPIs Gemini 3.1 Flash 备用", getToAPIsGeminiFlashDrawBodyTemplate()),
-		cloneToAPIsFallbackConfig(primaryConfig, "ToAPIs GPT-Image-2 次备用", getToAPIsGPTImage2DrawBodyTemplate()),
+		cloneToAPIsFallbackConfig(primaryConfig, "ToAPIs GPT-Image-2 备用", getToAPIsGPTImage2DrawBodyTemplate()),
+		cloneToAPIsFallbackConfig(primaryConfig, "ToAPIs Gemini 3.1 Flash 次备用", getToAPIsGeminiFlashDrawBodyTemplate()),
 	)
 	return fallbacks
 }

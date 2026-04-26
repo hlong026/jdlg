@@ -22,7 +22,7 @@ func TestToAPIsFallbackConfigsStayInToAPIs(t *testing.T) {
 		t.Fatalf("fallback count = %d, want 2", len(fallbacks))
 	}
 
-	wantModels := []string{"gemini-3.1-flash-image-preview", "gpt-image-2"}
+	wantModels := []string{"gpt-image-2", "gemini-3.1-flash-image-preview"}
 	for i, fallback := range fallbacks {
 		if fallback.ProviderCode != "toapis" {
 			t.Fatalf("fallback[%d].ProviderCode = %q, want toapis", i, fallback.ProviderCode)

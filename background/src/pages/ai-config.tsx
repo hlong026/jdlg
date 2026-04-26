@@ -707,7 +707,7 @@ const APIConfigModal: React.FC<APIConfigModalProps> = ({ config, onSave, onClose
                                 </select>
                                 <span className="form-hint">
                                     {protocolType === 'toapis_async'
-                                        ? 'ToAPIs 会先返回任务 ID，系统自动轮询任务状态；失败时仅在 ToAPIs 内按 gemini-3-pro-image-preview -> gemini-3.1-flash-image-preview -> gpt-image-2 尝试。'
+                                        ? 'ToAPIs 会先返回任务 ID，系统自动轮询任务状态；失败时仅在 ToAPIs 内按 gemini-3-pro-image-preview -> gpt-image-2 -> gemini-3.1-flash-image-preview 尝试。'
                                         : '同步协议会在一次请求中直接解析图片结果。'}
                                 </span>
                             </div>
